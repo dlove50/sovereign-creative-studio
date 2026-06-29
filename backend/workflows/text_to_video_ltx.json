@@ -1,0 +1,107 @@
+{
+  "1": {
+    "class_type": "CheckpointLoaderSimple",
+    "inputs": {
+      "ckpt_name": "__VIDEO_MODEL__"
+    }
+  },
+  "2": {
+    "class_type": "LTXAVTextEncoderLoader",
+    "inputs": {
+      "text_encoder": "gemma_3_12B_it_fp4_mixed.safetensors",
+      "ckpt_name": "__VIDEO_MODEL__",
+      "device": "default"
+    }
+  },
+  "3": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "clip": ["2", 0],
+      "text": "__PROMPT__, camera motion preset: __MOTION_PRESET__, target duration: __DURATION_SECONDS__ seconds, cinematic product video, premium lighting, smooth motion"
+    }
+  },
+  "4": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "clip": ["2", 0],
+      "text": "low quality, blurry, warped product, flicker, watermark, text artifacts, distorted geometry"
+    }
+  },
+  "5": {
+    "class_type": "LTXVConditioning",
+    "inputs": {
+      "positive": ["3", 0],
+      "negative": ["4", 0],
+      "frame_rate": "__VIDEO_FPS__"
+    }
+  },
+  "6": {
+    "class_type": "EmptyLTXVLatentVideo",
+    "inputs": {
+      "width": "__VIDEO_WIDTH__",
+      "height": "__VIDEO_HEIGHT__",
+      "length": "__TEXT_VIDEO_LENGTH_FRAMES__",
+      "batch_size": 1
+    }
+  },
+  "12": {
+    "class_type": "LoraLoaderModelOnly",
+    "inputs": {
+      "model": ["1", 0],
+      "lora_name": "ltx-2.3-22b-distilled-lora-384.safetensors",
+      "strength_model": "__LTX_DISTILLED_LORA_STRENGTH__"
+    }
+  },
+  "7": {
+    "class_type": "ModelSamplingLTXV",
+    "inputs": {
+      "model": ["12", 0],
+      "max_shift": 2.05,
+      "base_shift": 0.95,
+      "latent": ["6", 0]
+    }
+  },
+  "8": {
+    "class_type": "KSampler",
+    "inputs": {
+      "model": ["7", 0],
+      "seed": 0,
+      "steps": "__VIDEO_STEPS__",
+      "cfg": "__VIDEO_CFG__",
+      "sampler_name": "euler_cfg_pp",
+      "scheduler": "normal",
+      "positive": ["5", 0],
+      "negative": ["5", 1],
+      "latent_image": ["6", 0],
+      "denoise": 1.0
+    }
+  },
+  "9": {
+    "class_type": "VAEDecodeTiled",
+    "inputs": {
+      "samples": ["8", 0],
+      "vae": ["1", 2],
+      "tile_size": "__VIDEO_TILE_SIZE__",
+      "overlap": 32,
+      "temporal_size": "__VIDEO_TEMPORAL_SIZE__",
+      "temporal_overlap": 4
+    }
+  },
+  "10": {
+    "class_type": "CreateVideo",
+    "inputs": {
+      "images": ["9", 0],
+      "fps": "__VIDEO_FPS__",
+      "bit_depth": 8
+    }
+  },
+  "11": {
+    "class_type": "SaveVideo",
+    "inputs": {
+      "video": ["10", 0],
+      "filename_prefix": "sovereign_ltx_text_video",
+      "format": "mp4",
+      "codec": "h264"
+    }
+  }
+}

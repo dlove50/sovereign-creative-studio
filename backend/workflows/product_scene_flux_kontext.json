@@ -1,0 +1,101 @@
+{
+  "1": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "__PRODUCT_IMAGE__",
+      "upload": "image"
+    }
+  },
+  "2": {
+    "class_type": "FluxKontextImageScale",
+    "inputs": {
+      "image": ["1", 0]
+    }
+  },
+  "3": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "flux1-dev.safetensors",
+      "weight_dtype": "fp8_e4m3fn"
+    }
+  },
+  "4": {
+    "class_type": "ModelSamplingFlux",
+    "inputs": {
+      "model": ["3", 0],
+      "max_shift": 1.15,
+      "base_shift": 0.5,
+      "width": 768,
+      "height": 1024
+    }
+  },
+  "5": {
+    "class_type": "DualCLIPLoader",
+    "inputs": {
+      "clip_name1": "clip_l.safetensors",
+      "clip_name2": "t5xxl_fp8_e4m3fn_scaled.safetensors",
+      "type": "flux",
+      "device": "default"
+    }
+  },
+  "6": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "ae.safetensors"
+    }
+  },
+  "7": {
+    "class_type": "VAEEncode",
+    "inputs": {
+      "pixels": ["2", 0],
+      "vae": ["6", 0]
+    }
+  },
+  "8": {
+    "class_type": "CLIPTextEncodeFlux",
+    "inputs": {
+      "clip": ["5", 0],
+      "clip_l": "__PROMPT__, __PRESET__, professional fashion advertising photograph, preserve the same person, preserve face, preserve pose, preserve clothing silhouette, preserve garment colors, preserve fabric texture, realistic hands, natural anatomy, premium editorial lighting, scene changes around the subject",
+      "t5xxl": "__PROMPT__, __PRESET__, professional apparel advertising image. Keep the original person and outfit recognizable. Change the surrounding scene and lighting only. Preserve garment color, fabric, cut, pose, face, hands, legs, shoes, and full-body proportions.",
+      "guidance": 2.8
+    }
+  },
+  "9": {
+    "class_type": "CLIPTextEncodeFlux",
+    "inputs": {
+      "clip": ["5", 0],
+      "clip_l": "melted limbs, duplicated anatomy, extra arms, extra legs, extra fingers, distorted face, changed identity, changed outfit, changed garment color, warped clothing, blurry, low quality, watermark, text",
+      "t5xxl": "bad anatomy, deformed body, distorted clothing, changed person, changed apparel, product deformation, duplicate limbs, extra fingers, melted shoes, low quality, text, watermark",
+      "guidance": 1.0
+    }
+  },
+  "10": {
+    "class_type": "KSampler",
+    "inputs": {
+      "seed": 0,
+      "steps": 20,
+      "cfg": 1.0,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "denoise": 0.42,
+      "model": ["4", 0],
+      "positive": ["8", 0],
+      "negative": ["9", 0],
+      "latent_image": ["7", 0]
+    }
+  },
+  "11": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": ["10", 0],
+      "vae": ["6", 0]
+    }
+  },
+  "12": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "filename_prefix": "sovereign_scene_flux_kontext",
+      "images": ["11", 0]
+    }
+  }
+}

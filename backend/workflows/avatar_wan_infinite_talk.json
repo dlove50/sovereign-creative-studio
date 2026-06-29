@@ -1,0 +1,129 @@
+{
+  "1": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "__VIDEO_MODEL__",
+      "weight_dtype": "default"
+    }
+  },
+  "2": {
+    "class_type": "CLIPLoader",
+    "inputs": {
+      "clip_name": "umt5_xxl_fp8_e4m3fn_scaled.safetensors",
+      "type": "wan",
+      "device": "default"
+    }
+  },
+  "3": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "wan_2.1_vae.safetensors"
+    }
+  },
+  "4": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "__SOURCE_IMAGE__"
+    }
+  },
+  "5": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "clip": ["2", 0],
+      "text": "__PROMPT__, a person speaking to camera, natural facial expression, accurate lip sync, steady framing, consistent identity"
+    }
+  },
+  "6": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "clip": ["2", 0],
+      "text": "low quality, blurry, flicker, distorted mouth, warped face, duplicated features, watermark, text"
+    }
+  },
+  "12": {
+    "class_type": "LoadAudio",
+    "inputs": {
+      "audio": "__SOURCE_AUDIO__"
+    }
+  },
+  "13": {
+    "class_type": "AudioEncoderLoader",
+    "inputs": {
+      "audio_encoder_name": "__AUDIO_ENCODER__"
+    }
+  },
+  "14": {
+    "class_type": "AudioEncoderEncode",
+    "inputs": {
+      "audio_encoder": ["13", 0],
+      "audio": ["12", 0]
+    }
+  },
+  "15": {
+    "class_type": "ModelPatchLoader",
+    "inputs": {
+      "name": "__INFINITETALK_PATCH__"
+    }
+  },
+  "7": {
+    "class_type": "WanInfiniteTalkToVideo",
+    "inputs": {
+      "mode": "single_speaker",
+      "model": ["1", 0],
+      "model_patch": ["15", 0],
+      "positive": ["5", 0],
+      "negative": ["6", 0],
+      "vae": ["3", 0],
+      "width": 256,
+      "height": 256,
+      "length": 41,
+      "audio_encoder_output_1": ["14", 0],
+      "motion_frame_count": 9,
+      "audio_scale": 1.0,
+      "start_image": ["4", 0]
+    }
+  },
+  "8": {
+    "class_type": "KSampler",
+    "inputs": {
+      "model": ["7", 0],
+      "seed": 0,
+      "steps": 2,
+      "cfg": 1.0,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "positive": ["7", 1],
+      "negative": ["7", 2],
+      "latent_image": ["7", 3],
+      "denoise": 1.0
+    }
+  },
+  "9": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": ["8", 0],
+      "vae": ["3", 0]
+    }
+  },
+  "10": {
+    "class_type": "CreateVideo",
+    "inputs": {
+      "images": ["9", 0],
+      "audio": ["12", 0],
+      "fps": 25,
+      "bit_depth": 8
+    }
+  },
+  "11": {
+    "class_type": "SaveVideo",
+    "inputs": {
+      "video": ["10", 0],
+      "filename_prefix": "sovereign_avatar",
+      "format": "mp4",
+      "codec": "h264"
+    }
+  },
+  "_setup_note": {
+    "_comment": "Phase 16C scaffold for Wan InfiniteTalk talking-avatar. Requires local model weights NOT installed by default: a Wan 2.x video diffusion model (__VIDEO_MODEL__ via AVATAR_WAN_MODEL_NAME), the InfiniteTalk model_patch (__INFINITETALK_PATCH__ via AVATAR_INFINITETALK_PATCH_NAME), umt5 wan text encoder, a Wan VAE, and a wav2vec2 audio encoder (__AUDIO_ENCODER__ via AVATAR_AUDIO_ENCODER_NAME). Validate node wiring in the ComfyUI editor once the weights are present before enabling AVATAR_BACKEND=comfyui_wan_infinite_talk. This node (key starting with '_') is stripped by the backend sanitizer before submission."
+  }
+}

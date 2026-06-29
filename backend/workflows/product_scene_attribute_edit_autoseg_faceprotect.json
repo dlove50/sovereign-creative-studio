@@ -1,0 +1,70 @@
+{
+  "1": {
+    "class_type": "LoadImage",
+    "inputs": { "image": "__PRODUCT_IMAGE__", "upload": "image" }
+  },
+  "2": {
+    "class_type": "UnetLoaderGGUF",
+    "inputs": { "unet_name": "Qwen-Image-Edit-2509-Q4_K_M.gguf" }
+  },
+  "3": {
+    "class_type": "CLIPLoader",
+    "inputs": { "clip_name": "qwen_2.5_vl_7b_fp8_scaled.safetensors", "type": "qwen_image", "device": "default" }
+  },
+  "4": {
+    "class_type": "VAELoader",
+    "inputs": { "vae_name": "qwen_image_vae.safetensors" }
+  },
+  "5": {
+    "class_type": "GroundingDinoModelLoader (segment anything)",
+    "inputs": { "model_name": "GroundingDINO_SwinT_OGC (694MB)" }
+  },
+  "6": {
+    "class_type": "SAMModelLoader (segment anything)",
+    "inputs": { "model_name": "sam_vit_l (1.25GB)" }
+  },
+  "7": {
+    "class_type": "GroundingDinoSAMSegment (segment anything)",
+    "inputs": { "sam_model": ["6", 0], "grounding_dino_model": ["5", 0], "image": ["1", 0], "prompt": "__SEG_PROMPT__", "threshold": 0.3 }
+  },
+  "16": {
+    "class_type": "GroundingDinoSAMSegment (segment anything)",
+    "inputs": { "sam_model": ["6", 0], "grounding_dino_model": ["5", 0], "image": ["1", 0], "prompt": "__EXCLUDE_PROMPT__", "threshold": 0.3 }
+  },
+  "17": {
+    "class_type": "MaskComposite",
+    "inputs": { "destination": ["7", 1], "source": ["16", 1], "x": 0, "y": 0, "operation": "subtract" }
+  },
+  "8": {
+    "class_type": "TextEncodeQwenImageEditPlus",
+    "inputs": { "clip": ["3", 0], "vae": ["4", 0], "image1": ["1", 0], "prompt": "__PROMPT__, __PRESET__" }
+  },
+  "9": {
+    "class_type": "TextEncodeQwenImageEditPlus",
+    "inputs": { "clip": ["3", 0], "vae": ["4", 0], "image1": ["1", 0], "prompt": "extra people, second person, duplicate person, twins, cloned person, crowd, extra limbs, deformed hands, mutated anatomy, different face, altered face, distorted face, identity change, low quality, blurry, watermark, text" }
+  },
+  "10": {
+    "class_type": "VAEEncode",
+    "inputs": { "pixels": ["1", 0], "vae": ["4", 0] }
+  },
+  "11": {
+    "class_type": "SetLatentNoiseMask",
+    "inputs": { "samples": ["10", 0], "mask": ["17", 0] }
+  },
+  "12": {
+    "class_type": "KSampler",
+    "inputs": { "seed": 0, "steps": 20, "cfg": 3.0, "sampler_name": "euler", "scheduler": "simple", "denoise": 1.0, "model": ["2", 0], "positive": ["8", 0], "negative": ["9", 0], "latent_image": ["11", 0] }
+  },
+  "13": {
+    "class_type": "VAEDecode",
+    "inputs": { "samples": ["12", 0], "vae": ["4", 0] }
+  },
+  "14": {
+    "class_type": "ImageCompositeMasked",
+    "inputs": { "destination": ["1", 0], "source": ["13", 0], "mask": ["17", 0], "x": 0, "y": 0, "resize_source": false }
+  },
+  "15": {
+    "class_type": "SaveImage",
+    "inputs": { "filename_prefix": "sovereign_scene_attribute_autoseg_fp", "images": ["14", 0] }
+  }
+}

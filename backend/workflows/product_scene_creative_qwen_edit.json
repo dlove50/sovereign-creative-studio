@@ -1,0 +1,74 @@
+{
+  "1": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "__PRODUCT_IMAGE__",
+      "upload": "image"
+    }
+  },
+  "2": {
+    "class_type": "UnetLoaderGGUF",
+    "inputs": {
+      "unet_name": "qwen-image-edit-2509-Q4_K_M.gguf"
+    }
+  },
+  "3": {
+    "class_type": "CLIPLoader",
+    "inputs": {
+      "clip_name": "qwen_2.5_vl_7b_fp8_scaled.safetensors",
+      "type": "qwen_image",
+      "device": "default"
+    }
+  },
+  "4": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "qwen_image_vae.safetensors"
+    }
+  },
+  "5": {
+    "class_type": "TextEncodeQwenImageEdit",
+    "inputs": {
+      "clip": ["3", 0],
+      "vae": ["4", 0],
+      "image": ["1", 0],
+      "prompt": "__PROMPT__, __PRESET__. Freely transform the image as requested: change pose, body position, facial expression, hairstyle, clothing, clothing color, age appearance, environment, background, weather, lighting, camera angle, lens style, and artistic style. Apply strong creative transformation while keeping natural anatomy and high production quality."
+    }
+  },
+  "6": {
+    "class_type": "VAEEncode",
+    "inputs": {
+      "pixels": ["1", 0],
+      "vae": ["4", 0]
+    }
+  },
+  "7": {
+    "class_type": "KSampler",
+    "inputs": {
+      "seed": 0,
+      "steps": 20,
+      "cfg": 2.5,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "denoise": 0.92,
+      "model": ["2", 0],
+      "positive": ["5", 0],
+      "negative": ["5", 0],
+      "latent_image": ["6", 0]
+    }
+  },
+  "8": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": ["7", 0],
+      "vae": ["4", 0]
+    }
+  },
+  "9": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "filename_prefix": "sovereign_scene_creative_qwen_edit",
+      "images": ["8", 0]
+    }
+  }
+}

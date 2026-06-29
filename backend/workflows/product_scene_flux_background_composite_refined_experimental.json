@@ -1,0 +1,292 @@
+{
+  "1": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "__PRODUCT_IMAGE__",
+      "upload": "image"
+    }
+  },
+  "2": {
+    "class_type": "FluxKontextImageScale",
+    "inputs": {
+      "image": ["1", 0]
+    }
+  },
+  "3": {
+    "class_type": "RemBGSession+",
+    "inputs": {
+      "model": "u2net_human_seg: human segmentation",
+      "providers": "CPU"
+    }
+  },
+  "4": {
+    "class_type": "ImageRemoveBackground+",
+    "inputs": {
+      "rembg_session": ["3", 0],
+      "image": ["2", 0]
+    }
+  },
+  "5": {
+    "class_type": "MaskFix+",
+    "inputs": {
+      "mask": ["4", 1],
+      "erode_dilate": -2,
+      "fill_holes": 24,
+      "remove_isolated_pixels": 12,
+      "smooth": 12,
+      "blur": 1
+    }
+  },
+  "6": {
+    "class_type": "MaskSmooth+",
+    "inputs": {
+      "mask": ["5", 0],
+      "amount": 6
+    }
+  },
+  "7": {
+    "class_type": "MaskBlur+",
+    "inputs": {
+      "mask": ["6", 0],
+      "amount": 2,
+      "device": "auto"
+    }
+  },
+  "8": {
+    "class_type": "GrowMask",
+    "inputs": {
+      "mask": ["6", 0],
+      "expand": 5,
+      "tapered_corners": true
+    }
+  },
+  "9": {
+    "class_type": "MaskBlur+",
+    "inputs": {
+      "mask": ["8", 0],
+      "amount": 40,
+      "device": "auto"
+    }
+  },
+  "10": {
+    "class_type": "SolidMask",
+    "inputs": {
+      "value": 0.0,
+      "width": 768,
+      "height": 1024
+    }
+  },
+  "11": {
+    "class_type": "MaskComposite",
+    "inputs": {
+      "destination": ["9", 0],
+      "source": ["10", 0],
+      "x": 0,
+      "y": 0,
+      "operation": "multiply"
+    }
+  },
+  "12": {
+    "class_type": "EmptyImage",
+    "inputs": {
+      "width": 768,
+      "height": 1024,
+      "batch_size": 1,
+      "color": 0
+    }
+  },
+  "13": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "flux1-dev.safetensors",
+      "weight_dtype": "fp8_e4m3fn"
+    }
+  },
+  "14": {
+    "class_type": "ModelSamplingFlux",
+    "inputs": {
+      "model": ["13", 0],
+      "max_shift": 1.15,
+      "base_shift": 0.5,
+      "width": 768,
+      "height": 1024
+    }
+  },
+  "15": {
+    "class_type": "DualCLIPLoader",
+    "inputs": {
+      "clip_name1": "clip_l.safetensors",
+      "clip_name2": "t5xxl_fp8_e4m3fn_scaled.safetensors",
+      "type": "flux",
+      "device": "default"
+    }
+  },
+  "16": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "ae.safetensors"
+    }
+  },
+  "17": {
+    "class_type": "EmptyLatentImage",
+    "inputs": {
+      "width": 768,
+      "height": 1024,
+      "batch_size": 1
+    }
+  },
+  "18": {
+    "class_type": "CLIPTextEncodeFlux",
+    "inputs": {
+      "clip": ["15", 0],
+      "clip_l": "__PROMPT__, __PRESET__, professional fashion advertising background, luxury apparel campaign environment, clean architectural depth, realistic floor, realistic lighting, no person, no model, no mannequin",
+      "t5xxl": "__PROMPT__, __PRESET__. Generate only the environment, floor, and lighting for a high-end fashion advertising photograph. Leave clean open foreground space for a full-body fashion model. No person, no mannequin, no clothing, no text, no watermark.",
+      "guidance": 3.5
+    }
+  },
+  "19": {
+    "class_type": "CLIPTextEncodeFlux",
+    "inputs": {
+      "clip": ["15", 0],
+      "clip_l": "person, mannequin, duplicate subject, clothing, text, watermark, logo, distorted architecture, low quality, blurry",
+      "t5xxl": "person, human, mannequin, model, clothing, text, watermark, logo, low quality, blurry",
+      "guidance": 1.0
+    }
+  },
+  "20": {
+    "class_type": "KSampler",
+    "inputs": {
+      "seed": 0,
+      "steps": 24,
+      "cfg": 1.0,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "denoise": 1.0,
+      "model": ["14", 0],
+      "positive": ["18", 0],
+      "negative": ["19", 0],
+      "latent_image": ["17", 0]
+    }
+  },
+  "21": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": ["20", 0],
+      "vae": ["16", 0]
+    }
+  },
+  "22": {
+    "class_type": "InvertMask",
+    "inputs": {
+      "mask": ["7", 0]
+    }
+  },
+  "23": {
+    "class_type": "ImageColorMatch+",
+    "inputs": {
+      "image": ["4", 0],
+      "reference": ["21", 0],
+      "color_space": "LAB",
+      "factor": 0.18,
+      "device": "auto",
+      "batch_size": 0,
+      "reference_mask": ["22", 0]
+    }
+  },
+  "24": {
+    "class_type": "AdjustBrightness",
+    "inputs": {
+      "images": ["23", 0],
+      "factor": 0.98
+    }
+  },
+  "25": {
+    "class_type": "AdjustContrast",
+    "inputs": {
+      "images": ["24", 0],
+      "factor": 1.03
+    }
+  },
+  "26": {
+    "class_type": "ImageCompositeMasked",
+    "inputs": {
+      "destination": ["21", 0],
+      "source": ["12", 0],
+      "x": 0,
+      "y": 0,
+      "resize_source": false,
+      "mask": ["11", 0]
+    }
+  },
+  "27": {
+    "class_type": "ImageCompositeMasked",
+    "inputs": {
+      "destination": ["21", 0],
+      "source": ["25", 0],
+      "x": 0,
+      "y": 0,
+      "resize_source": false,
+      "mask": ["7", 0]
+    }
+  },
+  "28": {
+    "class_type": "MaskToImage",
+    "inputs": {
+      "mask": ["4", 1]
+    }
+  },
+  "29": {
+    "class_type": "MaskToImage",
+    "inputs": {
+      "mask": ["6", 0]
+    }
+  },
+  "30": {
+    "class_type": "MaskToImage",
+    "inputs": {
+      "mask": ["7", 0]
+    }
+  },
+  "31": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "filename_prefix": "sovereign_refined_background",
+      "images": ["21", 0]
+    }
+  },
+  "32": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "filename_prefix": "sovereign_refined_mask_original",
+      "images": ["28", 0]
+    }
+  },
+  "33": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "filename_prefix": "sovereign_refined_mask_cleaned",
+      "images": ["29", 0]
+    }
+  },
+  "34": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "filename_prefix": "sovereign_refined_mask_edge_adjusted",
+      "images": ["30", 0]
+    }
+  },
+  "35": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "filename_prefix": "sovereign_refined_shadowed_background",
+      "images": ["21", 0]
+    }
+  },
+  "36": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "filename_prefix": "sovereign_refined_composite",
+      "images": ["27", 0]
+    }
+  }
+}

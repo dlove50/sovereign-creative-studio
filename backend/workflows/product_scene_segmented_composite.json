@@ -1,0 +1,145 @@
+{
+  "1": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "__PRODUCT_IMAGE__",
+      "upload": "image"
+    }
+  },
+  "2": {
+    "class_type": "FluxKontextImageScale",
+    "inputs": {
+      "image": ["1", 0]
+    }
+  },
+  "3": {
+    "class_type": "RemBGSession+",
+    "inputs": {
+      "model": "u2net_human_seg: human segmentation",
+      "providers": "CPU"
+    }
+  },
+  "4": {
+    "class_type": "ImageRemoveBackground+",
+    "inputs": {
+      "rembg_session": ["3", 0],
+      "image": ["2", 0]
+    }
+  },
+  "5": {
+    "class_type": "MaskFix+",
+    "inputs": {
+      "mask": ["4", 1],
+      "erode_dilate": 8,
+      "fill_holes": 24,
+      "remove_isolated_pixels": 12,
+      "smooth": 10,
+      "blur": 4
+    }
+  },
+  "6": {
+    "class_type": "InvertMask",
+    "inputs": {
+      "mask": ["5", 0]
+    }
+  },
+  "7": {
+    "class_type": "FeatherMask",
+    "inputs": {
+      "mask": ["6", 0],
+      "left": 12,
+      "top": 12,
+      "right": 12,
+      "bottom": 12
+    }
+  },
+  "8": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "flux1-fill-dev.safetensors",
+      "weight_dtype": "fp8_e4m3fn"
+    }
+  },
+  "9": {
+    "class_type": "DifferentialDiffusion",
+    "inputs": {
+      "model": ["8", 0],
+      "strength": 1
+    }
+  },
+  "10": {
+    "class_type": "DualCLIPLoader",
+    "inputs": {
+      "clip_name1": "clip_l.safetensors",
+      "clip_name2": "t5xxl_fp8_e4m3fn_scaled.safetensors",
+      "type": "flux",
+      "device": "default"
+    }
+  },
+  "11": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "ae.safetensors"
+    }
+  },
+  "12": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "clip": ["10", 0],
+      "text": "__PROMPT__, __PRESET__. Replace only the masked background. Keep the original person, face, body, pose, hands, shirt, pants, jacket, shoes, clothing colors, garment shapes, proportions, and product details unchanged. Professional fashion advertising photography."
+    }
+  },
+  "13": {
+    "class_type": "ConditioningZeroOut",
+    "inputs": {
+      "conditioning": ["12", 0]
+    }
+  },
+  "18": {
+    "class_type": "FluxGuidance",
+    "inputs": {
+      "conditioning": ["12", 0],
+      "guidance": 30
+    }
+  },
+  "14": {
+    "class_type": "InpaintModelConditioning",
+    "inputs": {
+      "positive": ["18", 0],
+      "negative": ["13", 0],
+      "vae": ["11", 0],
+      "pixels": ["2", 0],
+      "mask": ["7", 0],
+      "noise_mask": true
+    }
+  },
+  "15": {
+    "class_type": "KSampler",
+    "inputs": {
+      "seed": 0,
+      "steps": 20,
+      "cfg": 1.0,
+      "sampler_name": "euler",
+      "scheduler": "normal",
+      "denoise": 1.0,
+      "model": ["9", 0],
+      "positive": ["14", 0],
+      "negative": ["14", 1],
+      "latent_image": ["14", 2]
+    }
+  },
+  "16": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": ["15", 0],
+      "vae": ["11", 0]
+    }
+  },
+  "17": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "filename_prefix": "sovereign_scene_flux_segmented_background",
+      "images": ["16", 0]
+    }
+  }
+}

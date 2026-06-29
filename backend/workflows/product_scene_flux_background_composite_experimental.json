@@ -1,0 +1,138 @@
+{
+  "1": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "__PRODUCT_IMAGE__",
+      "upload": "image"
+    }
+  },
+  "2": {
+    "class_type": "FluxKontextImageScale",
+    "inputs": {
+      "image": ["1", 0]
+    }
+  },
+  "3": {
+    "class_type": "RemBGSession+",
+    "inputs": {
+      "model": "u2net_human_seg: human segmentation",
+      "providers": "CPU"
+    }
+  },
+  "4": {
+    "class_type": "ImageRemoveBackground+",
+    "inputs": {
+      "rembg_session": ["3", 0],
+      "image": ["2", 0]
+    }
+  },
+  "5": {
+    "class_type": "MaskFix+",
+    "inputs": {
+      "mask": ["4", 1],
+      "erode_dilate": -3,
+      "fill_holes": 24,
+      "remove_isolated_pixels": 12,
+      "smooth": 10,
+      "blur": 2
+    }
+  },
+  "6": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "flux1-dev.safetensors",
+      "weight_dtype": "fp8_e4m3fn"
+    }
+  },
+  "7": {
+    "class_type": "ModelSamplingFlux",
+    "inputs": {
+      "model": ["6", 0],
+      "max_shift": 1.15,
+      "base_shift": 0.5,
+      "width": 768,
+      "height": 1024
+    }
+  },
+  "8": {
+    "class_type": "DualCLIPLoader",
+    "inputs": {
+      "clip_name1": "clip_l.safetensors",
+      "clip_name2": "t5xxl_fp8_e4m3fn_scaled.safetensors",
+      "type": "flux",
+      "device": "default"
+    }
+  },
+  "9": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "ae.safetensors"
+    }
+  },
+  "10": {
+    "class_type": "EmptyLatentImage",
+    "inputs": {
+      "width": 768,
+      "height": 1024,
+      "batch_size": 1
+    }
+  },
+  "11": {
+    "class_type": "CLIPTextEncodeFlux",
+    "inputs": {
+      "clip": ["8", 0],
+      "clip_l": "__PROMPT__, __PRESET__, professional fashion advertising background, luxury apparel campaign set, clean architectural depth, realistic lighting, no person, no model, no mannequin",
+      "t5xxl": "__PROMPT__, __PRESET__. Generate only the environment and floor for a high-end fashion advertising photograph. Leave open space for a full-body fashion model in the foreground. No person, no mannequin, no clothing, no text, no watermark.",
+      "guidance": 3.5
+    }
+  },
+  "12": {
+    "class_type": "CLIPTextEncodeFlux",
+    "inputs": {
+      "clip": ["8", 0],
+      "clip_l": "person, mannequin, duplicate subject, clothing, text, watermark, logo, distorted architecture, low quality, blurry",
+      "t5xxl": "person, human, mannequin, model, clothing, text, watermark, logo, low quality, blurry",
+      "guidance": 1.0
+    }
+  },
+  "13": {
+    "class_type": "KSampler",
+    "inputs": {
+      "seed": 0,
+      "steps": 24,
+      "cfg": 1.0,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "denoise": 1.0,
+      "model": ["7", 0],
+      "positive": ["11", 0],
+      "negative": ["12", 0],
+      "latent_image": ["10", 0]
+    }
+  },
+  "14": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": ["13", 0],
+      "vae": ["9", 0]
+    }
+  },
+  "15": {
+    "class_type": "ImageCompositeMasked",
+    "inputs": {
+      "destination": ["14", 0],
+      "source": ["4", 0],
+      "x": 0,
+      "y": 0,
+      "resize_source": false,
+      "mask": ["5", 0]
+    }
+  },
+  "16": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "filename_prefix": "sovereign_scene_flux_segmented_composite",
+      "images": ["15", 0]
+    }
+  }
+}

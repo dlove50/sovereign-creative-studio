@@ -1,0 +1,83 @@
+{
+  "1": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "__PRODUCT_IMAGE__",
+      "upload": "image"
+    }
+  },
+  "2": {
+    "class_type": "UnetLoaderGGUF",
+    "inputs": {
+      "unet_name": "Qwen-Image-Edit-2509-Q4_K_M.gguf"
+    }
+  },
+  "3": {
+    "class_type": "CLIPLoader",
+    "inputs": {
+      "clip_name": "qwen_2.5_vl_7b_fp8_scaled.safetensors",
+      "type": "qwen_image",
+      "device": "default"
+    }
+  },
+  "4": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "qwen_image_vae.safetensors"
+    }
+  },
+  "5": {
+    "class_type": "TextEncodeQwenImageEditPlus",
+    "inputs": {
+      "clip": ["3", 0],
+      "vae": ["4", 0],
+      "image1": ["1", 0],
+      "prompt": "__PROMPT__, __PRESET__"
+    }
+  },
+  "6": {
+    "class_type": "TextEncodeQwenImageEditPlus",
+    "inputs": {
+      "clip": ["3", 0],
+      "vae": ["4", 0],
+      "image1": ["1", 0],
+      "prompt": "extra people, multiple subjects, two people, second person, duplicate person, twins, cloned person, crowd, group of models, mannequins, extra limbs, extra arms, extra legs, deformed hands, mutated anatomy, changing the shirt, recoloring the shirt, altering the jacket, removing the jacket, different face, identity change, distorted face, low quality, blurry, watermark, text"
+    }
+  },
+  "7": {
+    "class_type": "VAEEncode",
+    "inputs": {
+      "pixels": ["1", 0],
+      "vae": ["4", 0]
+    }
+  },
+  "8": {
+    "class_type": "KSampler",
+    "inputs": {
+      "seed": 0,
+      "steps": 20,
+      "cfg": 3.0,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "denoise": 1.0,
+      "model": ["2", 0],
+      "positive": ["5", 0],
+      "negative": ["6", 0],
+      "latent_image": ["7", 0]
+    }
+  },
+  "9": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": ["8", 0],
+      "vae": ["4", 0]
+    }
+  },
+  "10": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "filename_prefix": "sovereign_scene_clothing_style_edit",
+      "images": ["9", 0]
+    }
+  }
+}

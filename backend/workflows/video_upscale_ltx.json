@@ -1,0 +1,73 @@
+{
+  "1": {
+    "class_type": "CheckpointLoaderSimple",
+    "inputs": {
+      "ckpt_name": "__VIDEO_MODEL__"
+    }
+  },
+  "2": {
+    "class_type": "LoadVideo",
+    "inputs": {
+      "file": "__SOURCE_IMAGE__"
+    }
+  },
+  "3": {
+    "class_type": "GetVideoComponents",
+    "inputs": {
+      "video": ["2", 0]
+    }
+  },
+  "4": {
+    "class_type": "VAEEncodeTiled",
+    "inputs": {
+      "pixels": ["3", 0],
+      "vae": ["1", 2],
+      "tile_size": 256,
+      "overlap": 32,
+      "temporal_size": 8,
+      "temporal_overlap": 4
+    }
+  },
+  "5": {
+    "class_type": "LatentUpscaleModelLoader",
+    "inputs": {
+      "model_name": "__VIDEO_UPSCALE_MODEL__"
+    }
+  },
+  "6": {
+    "class_type": "LTXVLatentUpsampler",
+    "inputs": {
+      "samples": ["4", 0],
+      "upscale_model": ["5", 0],
+      "vae": ["1", 2]
+    }
+  },
+  "7": {
+    "class_type": "VAEDecodeTiled",
+    "inputs": {
+      "samples": ["6", 0],
+      "vae": ["1", 2],
+      "tile_size": 256,
+      "overlap": 32,
+      "temporal_size": 8,
+      "temporal_overlap": 4
+    }
+  },
+  "8": {
+    "class_type": "CreateVideo",
+    "inputs": {
+      "images": ["7", 0],
+      "fps": ["3", 2],
+      "bit_depth": ["3", 3]
+    }
+  },
+  "9": {
+    "class_type": "SaveVideo",
+    "inputs": {
+      "video": ["8", 0],
+      "filename_prefix": "sovereign_ltx_video_upscale___PROMPT_____MOTION_PRESET_____DURATION_SECONDS__s",
+      "format": "mp4",
+      "codec": "h264"
+    }
+  }
+}

@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.db
+storage/
+# Backend-only secrets (session key, provider API keys) — never commit.
+storage/secrets/
+storage/private/
+.pytest_cache/
+.tmp/
+*.log

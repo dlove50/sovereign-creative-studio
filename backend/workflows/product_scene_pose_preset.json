@@ -1,0 +1,21 @@
+{
+  "1": { "class_type": "LoadImage", "inputs": { "image": "__PRODUCT_IMAGE__", "upload": "image" } },
+  "2": { "class_type": "LoadImage", "inputs": { "image": "__POSE_SKELETON__", "upload": "image" } },
+  "3": { "class_type": "CheckpointLoaderSimple", "inputs": { "ckpt_name": "sd_xl_base_1.0.safetensors" } },
+  "4": { "class_type": "CLIPTextEncode", "inputs": { "clip": ["3", 1], "text": "__PROMPT__, __PRESET__, full body, photorealistic fashion photograph" } },
+  "5": { "class_type": "CLIPTextEncode", "inputs": { "clip": ["3", 1], "text": "lowres, bad anatomy, extra limbs, extra fingers, deformed, blurry, watermark, text" } },
+  "6": { "class_type": "ControlNetLoader", "inputs": { "control_net_name": "control-openpose-sdxl-1.0.safetensors" } },
+  "7": { "class_type": "ControlNetApplyAdvanced", "inputs": { "positive": ["4", 0], "negative": ["5", 0], "control_net": ["6", 0], "image": ["2", 0], "strength": 0.9, "start_percent": 0.0, "end_percent": 1.0 } },
+  "8": { "class_type": "EmptyLatentImage", "inputs": { "width": 832, "height": 1216, "batch_size": 1 } },
+  "9": { "class_type": "KSampler", "inputs": { "seed": 0, "steps": 26, "cfg": 6.5, "sampler_name": "dpmpp_2m", "scheduler": "karras", "denoise": 1.0, "model": ["3", 0], "positive": ["7", 0], "negative": ["7", 1], "latent_image": ["8", 0] } },
+  "10": { "class_type": "VAEDecode", "inputs": { "samples": ["9", 0], "vae": ["3", 2] } },
+  "11": { "class_type": "UnetLoaderGGUF", "inputs": { "unet_name": "Qwen-Image-Edit-2509-Q4_K_M.gguf" } },
+  "12": { "class_type": "CLIPLoader", "inputs": { "clip_name": "qwen_2.5_vl_7b_fp8_scaled.safetensors", "type": "qwen_image", "device": "default" } },
+  "13": { "class_type": "VAELoader", "inputs": { "vae_name": "qwen_image_vae.safetensors" } },
+  "14": { "class_type": "TextEncodeQwenImageEditPlus", "inputs": { "clip": ["12", 0], "vae": ["13", 0], "image1": ["1", 0], "image2": ["10", 0], "prompt": "__PROMPT__. Render the same person from image 1 (preserve face, identity, skin tone, hairstyle, and clothing) in the body pose and composition of image 2. Photorealistic full-body fashion photo." } },
+  "15": { "class_type": "TextEncodeQwenImageEditPlus", "inputs": { "clip": ["12", 0], "vae": ["13", 0], "image1": ["1", 0], "prompt": "different person, identity change, deformed anatomy, extra limbs, low quality, watermark, text" } },
+  "16": { "class_type": "VAEEncode", "inputs": { "pixels": ["10", 0], "vae": ["13", 0] } },
+  "17": { "class_type": "KSampler", "inputs": { "seed": 0, "steps": 20, "cfg": 3.0, "sampler_name": "euler", "scheduler": "simple", "denoise": 0.75, "model": ["11", 0], "positive": ["14", 0], "negative": ["15", 0], "latent_image": ["16", 0] } },
+  "18": { "class_type": "VAEDecode", "inputs": { "samples": ["17", 0], "vae": ["13", 0] } },
+  "19": { "class_type": "SaveImage", "inputs": { "filename_prefix": "sovereign_pose_preset", "images": ["18", 0] } }
+}

@@ -1,0 +1,79 @@
+{
+  "1": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "__PRODUCT_IMAGE__",
+      "upload": "image"
+    }
+  },
+  "2": {
+    "class_type": "FluxKontextImageScale",
+    "inputs": {
+      "image": ["1", 0]
+    }
+  },
+  "3": {
+    "class_type": "RemBGSession+",
+    "inputs": {
+      "model": "u2net_human_seg: human segmentation",
+      "providers": "CPU"
+    }
+  },
+  "4": {
+    "class_type": "ImageRemoveBackground+",
+    "inputs": {
+      "rembg_session": ["3", 0],
+      "image": ["2", 0]
+    }
+  },
+  "5": {
+    "class_type": "MaskFix+",
+    "inputs": {
+      "mask": ["4", 1],
+      "erode_dilate": 6,
+      "fill_holes": 24,
+      "remove_isolated_pixels": 12,
+      "smooth": 10,
+      "blur": 3
+    }
+  },
+  "6": {
+    "class_type": "MaskToImage",
+    "inputs": {
+      "mask": ["5", 0]
+    }
+  },
+  "7": {
+    "class_type": "InvertMask",
+    "inputs": {
+      "mask": ["5", 0]
+    }
+  },
+  "8": {
+    "class_type": "MaskToImage",
+    "inputs": {
+      "mask": ["7", 0]
+    }
+  },
+  "9": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "filename_prefix": "sovereign_mask_original",
+      "images": ["2", 0]
+    }
+  },
+  "10": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "filename_prefix": "sovereign_mask_foreground",
+      "images": ["6", 0]
+    }
+  },
+  "11": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "filename_prefix": "sovereign_mask_background",
+      "images": ["8", 0]
+    }
+  }
+}

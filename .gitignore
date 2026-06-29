@@ -1,0 +1,55 @@
+# ── Python ───────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+
+# ── Node.js / Next.js ─────────────────────────────────────────────────────────
+node_modules/
+.next/
+.next-dev/
+out/
+*.tsbuildinfo
+next-env.d.ts
+
+# ── Environment & secrets ─────────────────────────────────────────────────────
+# Commit .env.example (safe placeholders) — never commit the real .env files.
+.env
+.env.local
+!.env.example
+!.env.local.example
+
+# ── Database files ────────────────────────────────────────────────────────────
+*.db
+*.db-shm
+*.db-wal
+
+# ── Generated storage (model files, uploads, outputs) ─────────────────────────
+# Models are large (100 MB – 14 GB). See docs/MODEL_AND_DEPENDENCY_MANIFEST.md
+# for what needs to be installed manually on a new machine.
+backend/storage/
+
+# ── Playwright test output ────────────────────────────────────────────────────
+test-results/
+playwright-report/
+
+# ── Backup archives ───────────────────────────────────────────────────────────
+*.zip
+
+# ── Temp files created during development ────────────────────────────────────
+.tmp-*
+.pytest-*/
+.codex-*.log
+.codex-*.err.log
+.codex-*.out.log
+.tmp-*.json
+tmp*/
+
+# ── Claude Code internal data ─────────────────────────────────────────────────
+.claude/
+.agents/
+
+# ── OS ────────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
