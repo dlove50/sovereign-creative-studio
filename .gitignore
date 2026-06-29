@@ -46,6 +46,11 @@ playwright-report/
 .tmp-*.json
 tmp*/
 
+# Debug / run log files at project root
+*.log
+*.out.log
+*.err.log
+
 # ── Claude Code internal data ─────────────────────────────────────────────────
 .claude/
 .agents/
