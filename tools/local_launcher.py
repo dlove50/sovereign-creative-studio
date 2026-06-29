@@ -321,7 +321,7 @@ def ensure_frontend_build() -> None:
 # ── Status helpers ────────────────────────────────────────────────────────────
 
 def _ok(label: str, ok: bool, note: str = "") -> None:
-    mark = "✓" if ok else "✗"
+    mark = "OK" if ok else "!!"
     suffix = f"  {note}" if note else ""
     print(f"  {mark}  {label}{suffix}")
 
@@ -353,7 +353,7 @@ def _git_info() -> None:
         ).strip()
         print(f"  Remote:  {remote}")
     except Exception:  # noqa: BLE001
-        print("  Remote:  (none — push to GitHub to enable restore on new machine)")
+        print("  Remote:  (none - push to GitHub to enable restore on new machine)")
     try:
         porcelain = subprocess.check_output(
             [git, "status", "--porcelain"], cwd=str(ROOT), text=True, timeout=5,
@@ -465,13 +465,13 @@ def stop(_: argparse.Namespace) -> int:
 
 def status(_: argparse.Namespace) -> int:
     print("")
-    print("═══════════════════════════════════════════════════")
-    print("  Sovereign Creative Studio — Status Report")
-    print("═══════════════════════════════════════════════════")
+    print("===================================================")
+    print("  Sovereign Creative Studio - Status Report")
+    print("===================================================")
 
     # 1. Services
     print("")
-    print("── Services ────────────────────────────────────────")
+    print("-- Services ----------------------------------------")
     backend_up = http_ready(SERVICES["backend"]["health"])
     frontend_up = http_ready(SERVICES["frontend"]["health"])
     comfyui_up = http_ready(SERVICES["comfyui"]["health"])
@@ -480,17 +480,17 @@ def status(_: argparse.Namespace) -> int:
     frontend_pids = port_pids(3000)
 
     _ok("Backend  (port 8002)", backend_up,
-        f"PIDs {backend_pids}" if backend_up else "not running — start with: python tools/local_launcher.py start")
+        f"PIDs {backend_pids}" if backend_up else "not running - start with: python tools/local_launcher.py start")
     _ok("Frontend (port 3000)", frontend_up,
         f"PIDs {frontend_pids}" if frontend_up else "not running")
     _ok("ComfyUI  (port 8001)", comfyui_up,
-        "running" if comfyui_up else "not running — image/video generation unavailable")
+        "running" if comfyui_up else "not running - image/video generation unavailable")
     _ok("Ollama   (port 11434)", ollama_up,
-        "running" if ollama_up else "not running — summaries unavailable; run: ollama serve")
+        "running" if ollama_up else "not running - summaries unavailable; run: ollama serve")
 
     # 2. Components (requires backend)
     print("")
-    print("── Components ──────────────────────────────────────")
+    print("-- Components --------------------------------------")
     if backend_up:
         audio = _fetch_json(f"http://127.0.0.1:{BACKEND_PORT}/api/audio-merge/readiness")
         if audio:
@@ -528,25 +528,25 @@ def status(_: argparse.Namespace) -> int:
 
     # 3. Proxy
     print("")
-    print("── Proxy ───────────────────────────────────────────")
+    print("-- Proxy -------------------------------------------")
     if frontend_up and backend_up:
         proxy_ok = _check_proxy()
-        _ok("Frontend proxy → backend 8002", proxy_ok,
-            "OK — /api routes forwarded correctly" if proxy_ok else
-            "WRONG — rebuild with: python tools/local_launcher.py clean")
+        _ok("Frontend proxy -> backend 8002", proxy_ok,
+            "OK - /api routes forwarded correctly" if proxy_ok else
+            "WRONG - rebuild with: python tools/local_launcher.py clean")
     elif not frontend_up:
-        print("  (frontend offline — proxy not checked)")
+        print("  (frontend offline - proxy not checked)")
     else:
-        print("  (backend offline — proxy not checked)")
+        print("  (backend offline - proxy not checked)")
 
     # 4. Git
     print("")
-    print("── Git ─────────────────────────────────────────────")
+    print("-- Git ---------------------------------------------")
     _git_info()
 
     # 5. Last backup
     print("")
-    print("── Backups ─────────────────────────────────────────")
+    print("-- Backups -----------------------------------------")
     last = _last_backup()
     if last:
         print(f"  Last backup: {last}")
@@ -595,7 +595,7 @@ def clean(args: argparse.Namespace) -> int:
     else:
         _start_backend(backend_py)
         if not wait_url("Backend", SERVICES["backend"]["health"], 30):
-            print("[ERROR] Backend did not start. Frontend may show 'Loading…' for model data.")
+            print("[ERROR] Backend did not start. Frontend may show 'Loading...' for model data.")
 
     print("Rebuilding production .next (npm run build)...")
     build_env = clean_env()
@@ -629,9 +629,9 @@ def smoke(args: argparse.Namespace) -> int:
         (passed if ok else failed).append(label)
 
     print("")
-    print("═══════════════════════════════════════════════════")
-    print("  Sovereign Creative Studio — Smoke Test")
-    print("═══════════════════════════════════════════════════")
+    print("===================================================")
+    print("  Sovereign Creative Studio - Smoke Test")
+    print("===================================================")
     print("")
 
     # 1. Backend health
@@ -645,7 +645,7 @@ def smoke(args: argparse.Namespace) -> int:
     # 3. Proxy (only meaningful if both are up)
     if frontend_up and backend_up:
         proxy_ok = _check_proxy()
-        check("Frontend proxy → backend 8002", proxy_ok,
+        check("Frontend proxy -> backend 8002", proxy_ok,
               "rebuild if FAIL: python tools/local_launcher.py clean")
     else:
         print("  [SKIP]  Frontend proxy (services offline)")
@@ -657,7 +657,7 @@ def smoke(args: argparse.Namespace) -> int:
         for p in (presets or {}).get("quality_presets", [])
     )
     check("Krea 2 Turbo FP8 image preset", krea2_ready,
-          "required for Quick Chain — see docs/MODEL_AND_DEPENDENCY_MANIFEST.md if FAIL")
+          "required for Quick Chain - see docs/MODEL_AND_DEPENDENCY_MANIFEST.md if FAIL")
 
     # 5. Audio merge (Piper + FFmpeg)
     audio = _fetch_json(f"http://127.0.0.1:{BACKEND_PORT}/api/audio-merge/readiness") if backend_up else None
@@ -668,7 +668,7 @@ def smoke(args: argparse.Namespace) -> int:
     # 6. Ollama (for summaries)
     ollama_up = port_open(OLLAMA_PORT)
     check("Ollama (summaries)", ollama_up,
-          "optional — summaries unavailable if offline; run: ollama serve")
+          "optional - summaries unavailable if offline; run: ollama serve")
 
     # 7. Route checks
     print("")
@@ -682,16 +682,16 @@ def smoke(args: argparse.Namespace) -> int:
     total = len(passed) + len(failed)
     print("")
     if not failed:
-        print(f"  RESULT:  PASS — {len(passed)}/{total} checks passed.")
+        print(f"  RESULT:  PASS - {len(passed)}/{total} checks passed.")
     else:
-        print(f"  RESULT:  FAIL — {len(passed)}/{total} passed, {len(failed)} failed:")
+        print(f"  RESULT:  FAIL - {len(passed)}/{total} passed, {len(failed)} failed:")
         for f in failed:
-            print(f"           ✗ {f}")
+            print(f"           !! {f}")
     print("")
 
     # 8. Optional: full Playwright test
     if args.full:
-        print("── Full Playwright Test ────────────────────────────────")
+        print("-- Full Playwright Test ---------------------------------")
         if not ollama_up:
             print("  WARNING: Ollama is not running. The Summarize step will fail.")
             print("           Run `ollama serve` and warm qwen3:4b before --full.")
