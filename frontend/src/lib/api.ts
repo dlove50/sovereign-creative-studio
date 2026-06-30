@@ -75,6 +75,7 @@ import type {
   AudioMergeReadiness,
   AudioMergeOut,
   AudioPreviewOut,
+  AudioTranscribeResult,
 } from "./types";
 
 // Default to a relative base so the browser calls the frontend origin and the
@@ -606,6 +607,12 @@ export const api = {
     }),
   transcriptionDownloadUrl: (id: string) =>
     `${API_BASE}/api/transcriptions/${id}/download`,
+
+  transcribeAudio: (file: File | Blob) => {
+    const fd = new FormData();
+    fd.append("file", file, file instanceof File ? file.name : "voice-input.webm");
+    return formRequest<AudioTranscribeResult>("/api/audio/transcribe", fd);
+  },
 
   getAudioMergeReadiness: () =>
     request<AudioMergeReadiness>("/api/audio-merge/readiness"),

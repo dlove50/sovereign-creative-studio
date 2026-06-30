@@ -248,7 +248,7 @@ def resolve_storage_url(file_url: str) -> Path:
     prefix = "/storage/"
     if not file_url.startswith(prefix):
         raise RuntimeError("Transcription source must be a local /storage video.")
-    relative = file_url[len(prefix) :].replace("/", "\\")
+    relative = file_url[len(prefix):]
     candidate = (STORAGE_DIR / relative).resolve()
     try:
         candidate.relative_to(STORAGE_DIR.resolve())

@@ -477,6 +477,13 @@ export interface AudioPreviewOut {
   status: string;
 }
 
+export interface AudioTranscribeResult {
+  text: string;
+  language: string | null;
+  duration_seconds: number;
+  error: string | null;
+}
+
 export interface AudioMergeOut {
   result_url: string;
   output_url: string;

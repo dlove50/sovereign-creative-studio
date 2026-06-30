@@ -25,9 +25,10 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { CHAIN_STEPS, useQuickChain, type ChainStep } from "@/components/chain/useQuickChain";
+import { VoiceInputButton } from "@/components/chain/VoiceInputButton";
 
 /** Map known backend error patterns to plain-English user messages. */
-function friendlyError(raw: string | null): string | null {
+function friendlyError(raw: string | null, step?: ChainStep): string | null {
   if (!raw) return null;
   if (/ollama|copy provider|connection attempts failed/i.test(raw))
     return "The summary engine (Ollama) is not running. Start Ollama and try again, or continue without a summary. Your transcript is saved.";
@@ -35,6 +36,8 @@ function friendlyError(raw: string | null): string | null {
     return "Voice generation failed. Check that Piper TTS is set up, then retry or skip this step.";
   if (/ffmpeg/i.test(raw))
     return "Audio tools are not available on this system. Install FFmpeg to enable voice narration.";
+  if (step === "upscale" && /not ready|upscale|comfyui|comfy/i.test(raw))
+    return "Video upscale failed. Make sure ComfyUI is running and the LTX upscale model is installed (see docs/MODEL_AND_DEPENDENCY_MANIFEST.md), or skip this step.";
   if (/comfyui|comfy.*not.*ready|generation.*failed/i.test(raw))
     return "Image or video generation failed. Make sure ComfyUI is running and try again.";
   if (/no audio|silent/i.test(raw))
@@ -86,7 +89,7 @@ export function QuickChainView() {
     (state.completed.length + state.skipped.filter((s) => !state.completed.includes(s)).length) /
     CHAIN_STEPS.length;
 
-  const displayError = friendlyError(state.error);
+  const displayError = friendlyError(state.error, state.current);
   const summarizeError = isSummarizeErr(state.error);
 
   return (
@@ -122,14 +125,20 @@ export function QuickChainView() {
             Describe what you want to see. The AI will generate a still image from your description.
           </p>
           <Label htmlFor="chain-image-prompt">What should the image look like?</Label>
-          <Textarea
-            id="chain-image-prompt"
-            value={imagePrompt}
-            onChange={(e) => setImagePrompt(e.target.value)}
-            placeholder="A golden retriever sitting in a sunny park, sharp detail, natural light"
-            className="min-h-[90px]"
-            disabled={state.running !== null}
-          />
+          <div className="flex items-start gap-2">
+            <Textarea
+              id="chain-image-prompt"
+              value={imagePrompt}
+              onChange={(e) => setImagePrompt(e.target.value)}
+              placeholder="A golden retriever sitting in a sunny park, sharp detail, natural light"
+              className="min-h-[90px] flex-1"
+              disabled={state.running !== null}
+            />
+            <VoiceInputButton
+              onTranscript={(t) => setImagePrompt((prev) => prev ? `${prev} ${t}` : t)}
+              disabled={state.running !== null}
+            />
+          </div>
           <div className="space-y-1.5">
             <Label htmlFor="chain-image-model">Image style / model</Label>
             <select
@@ -179,14 +188,20 @@ export function QuickChainView() {
           </p>
           {state.image?.file_url ? <Preview kind="image" url={state.image.file_url} label="Source image" /> : null}
           <Label htmlFor="chain-video-prompt">Motion description (optional)</Label>
-          <Textarea
-            id="chain-video-prompt"
-            value={videoPrompt}
-            onChange={(e) => setVideoPrompt(e.target.value)}
-            placeholder="Gentle camera push, cinematic"
-            className="min-h-[70px]"
-            disabled={state.running !== null}
-          />
+          <div className="flex items-start gap-2">
+            <Textarea
+              id="chain-video-prompt"
+              value={videoPrompt}
+              onChange={(e) => setVideoPrompt(e.target.value)}
+              placeholder="Subject blinks and smiles gently"
+              className="min-h-[70px] flex-1"
+              disabled={state.running !== null}
+            />
+            <VoiceInputButton
+              onTranscript={(t) => setVideoPrompt((prev) => prev ? `${prev} ${t}` : t)}
+              disabled={state.running !== null}
+            />
+          </div>
           {state.video?.result_url ? <Preview kind="video" url={state.video.result_url} label="Your video clip" /> : null}
           <RunButton
             label={state.video ? "Regenerate Video" : "Generate Video"}
@@ -205,7 +220,7 @@ export function QuickChainView() {
       {state.current === "upscale" ? (
         <Panel title="Step 3 — Upscale Your Video (Optional)" icon={Wand2}>
           <p className="text-sm text-muted-foreground">
-            Upscaling sharpens your video and improves its resolution. This step is optional — skip it if you are happy with the current quality.
+            Upscaling sharpens your video and improves its resolution. No creative prompt is needed — just click <strong>Upscale Video</strong> to begin. Skip if you are happy with the current quality.
           </p>
           {state.video?.result_url ? <Preview kind="video" url={state.video.result_url} label="Original video" /> : null}
           {state.upscaled?.result_url ? <Preview kind="video" url={state.upscaled.result_url} label="Upscaled video" /> : null}
@@ -287,14 +302,20 @@ export function QuickChainView() {
               {/* Narration text */}
               <div className="space-y-1">
                 <Label htmlFor="chain-tts-text">What should be spoken aloud?</Label>
-                <Textarea
-                  id="chain-tts-text"
-                  value={ttsText}
-                  onChange={(e) => setTtsText(e.target.value)}
-                  placeholder="Describe what is happening in the video — for example: A golden retriever plays in the park on a sunny afternoon."
-                  className="min-h-[80px]"
-                  disabled={state.running !== null}
-                />
+                <div className="flex items-start gap-2">
+                  <Textarea
+                    id="chain-tts-text"
+                    value={ttsText}
+                    onChange={(e) => setTtsText(e.target.value)}
+                    placeholder="Describe what is happening in the video — for example: A golden retriever plays in the park on a sunny afternoon."
+                    className="min-h-[80px] flex-1"
+                    disabled={state.running !== null}
+                  />
+                  <VoiceInputButton
+                    onTranscript={(t) => setTtsText((prev) => prev ? `${prev} ${t}` : t)}
+                    disabled={state.running !== null}
+                  />
+                </div>
               </div>
 
               {/* Preview Voice */}

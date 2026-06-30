@@ -15,6 +15,7 @@ from .routers import (
     admin,
     assets,
     audio_merge,
+    audio_transcribe,
     auth,
     avatars,
     briefs,
@@ -120,6 +121,7 @@ app.include_router(copy.router)
 app.include_router(creative_director.router)
 app.include_router(videos.router)
 app.include_router(audio_merge.router)
+app.include_router(audio_transcribe.router)
 app.include_router(transcriptions.router)
 app.include_router(presets.router)
 app.include_router(campaigns.router)

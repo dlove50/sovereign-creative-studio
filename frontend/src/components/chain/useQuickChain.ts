@@ -4,7 +4,7 @@
 // Image -> Video -> (optional) Upscale -> (optional) Audio/Voice (with selection + preview)
 // -> Transcribe -> Download
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 import { api } from "@/lib/api";
 import type { AudioMergeOut, AudioPreviewOut, Generation, TranscriptionJob, VideoGeneration } from "@/lib/types";
@@ -38,6 +38,33 @@ export interface ChainState {
 }
 
 const QUICK_CHAIN_PROJECT = "Quick Chain";
+const CHAIN_SESSION_KEY = "scs_quick_chain";
+
+const INITIAL: ChainState = {
+  current: "image",
+  completed: [],
+  skipped: [],
+  running: null,
+  runningPreview: false,
+  error: null,
+  image: null,
+  video: null,
+  upscaled: null,
+  audioVideo: null,
+  audioPreview: null,
+  selectedVoiceId: null,
+  transcript: null,
+  projectId: null,
+};
+
+function loadSavedState(): ChainState {
+  if (typeof window === "undefined") return INITIAL;
+  try {
+    const raw = sessionStorage.getItem(CHAIN_SESSION_KEY);
+    if (raw) return { ...INITIAL, ...JSON.parse(raw) } as ChainState;
+  } catch { /* quota exceeded or JSON parse error */ }
+  return INITIAL;
+}
 
 const sleep = (ms: number) => new Promise((r) => window.setTimeout(r, ms));
 
@@ -58,25 +85,15 @@ function errText(e: unknown, fallback: string): string {
   return e instanceof Error ? e.message : fallback;
 }
 
-const INITIAL: ChainState = {
-  current: "image",
-  completed: [],
-  skipped: [],
-  running: null,
-  runningPreview: false,
-  error: null,
-  image: null,
-  video: null,
-  upscaled: null,
-  audioVideo: null,
-  audioPreview: null,
-  selectedVoiceId: null,
-  transcript: null,
-  projectId: null,
-};
-
 export function useQuickChain() {
-  const [state, setState] = useState<ChainState>(INITIAL);
+  const [state, setState] = useState<ChainState>(loadSavedState);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      sessionStorage.setItem(CHAIN_SESSION_KEY, JSON.stringify(state));
+    } catch { /* quota exceeded */ }
+  }, [state]);
 
   function patch(p: Partial<ChainState>) {
     setState((s) => ({ ...s, ...p }));
@@ -132,8 +149,8 @@ export function useQuickChain() {
       const created = await api.createVideo({
         project_id: projectId,
         source_image_url: state.image.file_url,
-        prompt: prompt.trim() || "gentle camera motion, cinematic",
-        motion_preset: "slow_zoom",
+        prompt: prompt.trim() || "",
+        motion_preset: "subtle_breathing",
         duration_seconds: 3,
         mode: "image_to_video",
         provider: "local_ltx",
@@ -287,6 +304,7 @@ export function useQuickChain() {
   }
 
   function reset() {
+    try { sessionStorage.removeItem(CHAIN_SESSION_KEY); } catch { /* */ }
     setState(INITIAL);
   }
 
