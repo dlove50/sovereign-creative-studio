@@ -4,11 +4,9 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   ArrowRight,
-  Eraser,
   ImageIcon,
-  ImagePlus,
-  LayoutTemplate,
-  Palette,
+  Pause,
+  Play,
   ScanFace,
   Sparkles,
   Type,
@@ -24,13 +22,13 @@ type Tile = {
   title: string;
   description: string;
   icon: typeof ImageIcon;
-  href?: string;
-  comingSoon?: boolean;
+  href: string;
   accent: string;
+  /** Pre-rendered media in public/home/<media>.png (+ optional .mp4 clip). */
+  media?: string;
 };
 
-// Big, obvious creation tiles. Routes reuse existing flows; unfinished ones are
-// clearly marked "Coming soon" instead of exposing broken behavior.
+// Big, obvious creation tiles. Routes reuse the stable V1 creation flows.
 const CREATE_TILES: Tile[] = [
   {
     title: "Text to Image",
@@ -38,6 +36,7 @@ const CREATE_TILES: Tile[] = [
     icon: ImageIcon,
     href: "/create",
     accent: "from-violet-500/20 to-fuchsia-500/10",
+    media: "text-to-image",
   },
   {
     title: "Text to Video",
@@ -45,6 +44,7 @@ const CREATE_TILES: Tile[] = [
     icon: Wand2,
     href: "/videos?mode=text_to_video",
     accent: "from-sky-500/20 to-cyan-500/10",
+    media: "text-to-video",
   },
   {
     title: "Image to Video",
@@ -52,6 +52,7 @@ const CREATE_TILES: Tile[] = [
     icon: Video,
     href: "/videos?mode=image_to_video",
     accent: "from-emerald-500/20 to-teal-500/10",
+    media: "image-to-video",
   },
   {
     title: "Avatar & Voice Hub",
@@ -59,6 +60,7 @@ const CREATE_TILES: Tile[] = [
     icon: ScanFace,
     href: "/avatars",
     accent: "from-amber-500/20 to-orange-500/10",
+    media: "avatar-voice-hub",
   },
   {
     title: "Video to Text",
@@ -66,62 +68,82 @@ const CREATE_TILES: Tile[] = [
     icon: Type,
     href: "/video-to-text",
     accent: "from-rose-500/20 to-pink-500/10",
+    media: "video-to-text",
   },
 ];
 
-const QUICK_TOOLS: Tile[] = [
-  { title: "AI Design", description: "Smart layouts for posts & ads.", icon: Palette, comingSoon: true, accent: "" },
-  { title: "AI Background", description: "Generate a new scene behind your subject.", icon: ImagePlus, comingSoon: true, accent: "" },
-  { title: "Remove Background", description: "Cut out the subject cleanly.", icon: Eraser, comingSoon: true, accent: "" },
-  { title: "Layout Design", description: "Arrange assets into a finished piece.", icon: LayoutTemplate, comingSoon: true, accent: "" },
-];
-
-function ComingSoon() {
+function TileMedia({ tile }: { tile: Tile }) {
+  const [playing, setPlaying] = useState(false);
+  const [hasImage, setHasImage] = useState(true);
+  const [hasClip, setHasClip] = useState(true);
+  if (!tile.media || !hasImage) return null;
   return (
-    <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
-      Coming soon
-    </span>
+    <div className={cn("relative -mx-5 -mt-5 mb-1 aspect-video overflow-hidden rounded-t-2xl bg-gradient-to-br", tile.accent)}>
+      {playing && hasClip ? (
+        <video
+          src={`/home/${tile.media}.mp4`}
+          autoPlay
+          loop
+          muted
+          playsInline
+          className="absolute inset-0 h-full w-full object-cover"
+          onError={() => {
+            setHasClip(false);
+            setPlaying(false);
+          }}
+        />
+      ) : (
+        /* eslint-disable-next-line @next/next/no-img-element */
+        <img
+          src={`/home/${tile.media}.png`}
+          alt=""
+          loading="lazy"
+          className="absolute inset-0 h-full w-full object-cover"
+          onError={() => setHasImage(false)}
+        />
+      )}
+      {hasClip ? (
+        <button
+          type="button"
+          aria-label={playing ? "Pause preview" : "Play preview"}
+          onClick={() => setPlaying((p) => !p)}
+          className={cn(
+            "absolute bottom-2 right-2 z-20 flex h-8 w-8 items-center justify-center rounded-full bg-background/70 text-foreground transition-colors hover:bg-background/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            playing && "opacity-0 group-hover:opacity-100",
+          )}
+        >
+          {playing ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+        </button>
+      ) : null}
+    </div>
   );
 }
 
 function CreateTile({ tile }: { tile: Tile }) {
-  const inner = (
-    <div
-      className={cn(
-        "group relative flex h-full flex-col gap-3 rounded-2xl border border-border bg-card p-5 transition-all",
-        tile.comingSoon ? "opacity-90" : "hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-lg",
-      )}
-    >
+  return (
+    <article className="group relative flex h-full flex-col gap-3 overflow-hidden rounded-2xl border border-border bg-card p-5 transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-lg focus-within:border-primary focus-within:ring-2 focus-within:ring-ring">
+      <Link
+        href={tile.href}
+        aria-label={`Start ${tile.title}`}
+        className="absolute inset-0 z-10 rounded-2xl focus:outline-none"
+      />
+      <TileMedia tile={tile} />
       <div
         className={cn(
           "flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br text-foreground",
-          tile.accent || "from-muted to-muted",
+          tile.accent,
         )}
       >
-        <tile.icon className="h-6 w-6" />
+          <tile.icon className="h-6 w-6" aria-hidden="true" />
       </div>
       <div className="space-y-1">
-        <div className="flex items-center gap-2">
-          <h3 className="text-base font-semibold">{tile.title}</h3>
-          {tile.comingSoon ? <ComingSoon /> : null}
-        </div>
+        <h3 className="text-base font-semibold">{tile.title}</h3>
         <p className="text-sm text-muted-foreground">{tile.description}</p>
       </div>
-      {!tile.comingSoon ? (
-        <span className="mt-auto inline-flex items-center gap-1 pt-2 text-sm font-medium text-primary">
-          Start <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-        </span>
-      ) : null}
-    </div>
-  );
-
-  if (tile.comingSoon || !tile.href) {
-    return <div aria-disabled className="h-full cursor-default">{inner}</div>;
-  }
-  return (
-    <Link href={tile.href} className="h-full">
-      {inner}
-    </Link>
+      <span className="mt-auto inline-flex items-center gap-1 pt-2 text-sm font-medium text-primary">
+        Start <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+      </span>
+    </article>
   );
 }
 
@@ -144,41 +166,38 @@ export function CreatorHomeView() {
             Welcome{name ? `, ${name}` : ""} — let&apos;s create something amazing!
           </h1>
           <p className="text-sm text-muted-foreground">
-            Pick a tile below to start. No setup needed.
+            Follow the guided workflow or jump directly into a creative tool.
           </p>
         </div>
       </section>
 
+      <Link
+        href="/chain"
+        className="group flex flex-col justify-between gap-5 rounded-2xl border border-primary/30 bg-gradient-to-r from-primary/15 via-card to-card p-6 transition-all hover:border-primary/60 hover:shadow-lg sm:flex-row sm:items-center"
+      >
+        <div className="flex items-start gap-4">
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+            <Wand2 className="h-6 w-6" aria-hidden="true" />
+          </span>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-primary">Recommended workflow</p>
+            <h2 className="mt-1 text-xl font-semibold">Start with Quick Chain</h2>
+            <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+              Move from an idea to image, video, voice, transcript, and download in one guided flow.
+            </p>
+          </div>
+        </div>
+        <span className="inline-flex shrink-0 items-center gap-2 text-sm font-semibold text-primary">
+          Start creating <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" aria-hidden="true" />
+        </span>
+      </Link>
+
       {/* Big creation tiles */}
       <section className="space-y-4">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Create</h2>
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Or choose a tool</h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           {CREATE_TILES.map((tile) => (
             <CreateTile key={tile.title} tile={tile} />
-          ))}
-        </div>
-      </section>
-
-      {/* Quick image tools */}
-      <section className="space-y-4">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Quick image tools</h2>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {QUICK_TOOLS.map((tool) => (
-            <div
-              key={tool.title}
-              className="flex items-center gap-3 rounded-xl border border-border bg-card p-4"
-            >
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-                <tool.icon className="h-5 w-5" />
-              </span>
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <p className="truncate text-sm font-medium">{tool.title}</p>
-                  <ComingSoon />
-                </div>
-                <p className="truncate text-xs text-muted-foreground">{tool.description}</p>
-              </div>
-            </div>
           ))}
         </div>
       </section>

@@ -3,81 +3,13 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  Activity,
-  Archive,
-  Brain,
-  Boxes,
-  Clapperboard,
-  Coins,
-  Cpu,
-  Download,
-  Film,
-  Folder,
-  Home,
-  Images,
-  ImageIcon,
-  Layers3,
-  Megaphone,
-  PackagePlus,
-  PenLine,
-  PersonStanding,
-  Plug,
-  RadioTower,
-  Rocket,
-  Scissors,
-  Sparkle,
-  SlidersHorizontal,
-  Sparkles,
-  ShieldCheck,
-  Type,
-  UserCircle,
-  Video,
-  Wand2,
-} from "lucide-react";
+import { Home, Sparkles } from "lucide-react";
 
 import { api } from "@/lib/api";
+import { ADMIN_NAV, CREATOR_NAV } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
 import { isAuthRoute } from "@/lib/routes";
 import { ActiveUserSelector } from "@/components/active-user-selector";
-
-// Simple, creator-friendly navigation shown to every logged-in user.
-const CREATOR_NAV = [
-  { href: "/", label: "Home", icon: Home },
-  { href: "/chain", label: "Quick Chain", icon: Wand2 },
-  { href: "/videos", label: "Video Generator", icon: Video },
-  { href: "/video-to-text", label: "Transcribe Video", icon: Type },
-  { href: "/create", label: "Image Studio", icon: ImageIcon },
-  { href: "/inspiration", label: "Inspiration", icon: Sparkle },
-  { href: "/avatars", label: "Avatars & Voices", icon: PersonStanding },
-  { href: "/assets-library", label: "Assets", icon: Archive },
-  { href: "/projects", label: "My Projects", icon: Folder },
-  { href: "/credits", label: "Credits", icon: Coins },
-  { href: "/profile", label: "Profile", icon: UserCircle },
-];
-
-// Advanced + admin tools — only shown to owner/admin so the creator view stays clean.
-const ADMIN_NAV = [
-  { href: "/admin", label: "Admin Dashboard", icon: ShieldCheck },
-  { href: "/admin/integrations", label: "Provider Integrations", icon: Plug },
-  { href: "/product-scenes", label: "Product Scenes", icon: Megaphone },
-  { href: "/copy-studio", label: "Copy Studio", icon: PenLine },
-  { href: "/campaigns", label: "Campaigns", icon: Rocket },
-  { href: "/campaign-builder", label: "Campaign Builder", icon: Boxes },
-  { href: "/collections", label: "Asset Collections", icon: Layers3 },
-  { href: "/creative-director", label: "Creative Director", icon: Brain },
-  { href: "/film-studio", label: "Film Studio", icon: Film },
-  { href: "/storyboard-studio", label: "Storyboard Studio", icon: Clapperboard },
-  { href: "/production-studio", label: "Production Studio", icon: RadioTower },
-  { href: "/export-studio", label: "Export Studio", icon: Download },
-  { href: "/upload", label: "Upload", icon: PackagePlus },
-  { href: "/attribute-editor", label: "Attribute Editor", icon: Scissors },
-  { href: "/pose-studio", label: "Pose Studio", icon: PersonStanding },
-  { href: "/gallery", label: "Gallery", icon: Images },
-  { href: "/model-manager", label: "Model Manager", icon: Cpu },
-  { href: "/workflow-manager", label: "Workflow Manager", icon: SlidersHorizontal },
-  { href: "/status", label: "Status", icon: Activity },
-];
 
 function NavLink({
   href,
@@ -90,7 +22,7 @@ function NavLink({
   icon: typeof Home;
   pathname: string;
 }) {
-  const active = href === "/" ? pathname === "/" : pathname.startsWith(href);
+  const active = href === "/" || href === "/admin" ? pathname === href : pathname.startsWith(href);
   return (
     <Link
       href={href}
@@ -100,8 +32,9 @@ function NavLink({
           ? "bg-primary/15 text-primary"
           : "text-muted-foreground hover:bg-muted hover:text-foreground",
       )}
+      aria-current={active ? "page" : undefined}
     >
-      <Icon className="h-4 w-4" />
+      <Icon className="h-4 w-4" aria-hidden="true" />
       {label}
     </Link>
   );

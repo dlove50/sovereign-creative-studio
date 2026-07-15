@@ -139,8 +139,35 @@ _PRESETS = [
         "is_default": False,
         "always_available": False,
         "checks": [
-            ("CheckpointLoaderSimple", "ckpt_name", ["illustrious", "anime", "noobai", "pony"],
+            ("CheckpointLoaderSimple", "ckpt_name", ["illustrious", "noobai", "pony"],
              "an anime SDXL checkpoint (e.g. Illustrious XL) in checkpoints"),
+        ],
+    },
+    {
+        "id": "z_image_turbo",
+        "label": "Z-Image Turbo",
+        "description": "Tongyi Z-Image Turbo. Fast (8 steps), strong realism and text rendering.",
+        "workflow": config.IMAGE_WORKFLOW_Z_IMAGE_TURBO,
+        "recommended": False,
+        "is_default": False,
+        "always_available": False,
+        "checks": [
+            ("UNETLoader", "unet_name", ["z_image_turbo"], "Z-Image Turbo model (z_image_turbo_bf16.safetensors) in diffusion_models"),
+            ("CLIPLoader", "clip_name", ["qwen_3_4b"], "Qwen3-4B text encoder (qwen_3_4b.safetensors) in text_encoders"),
+            ("VAELoader", "vae_name", ["ae.safetensors"], "FLUX VAE (ae.safetensors) in vae"),
+        ],
+    },
+    {
+        "id": "netayume_anime",
+        "label": "NetaYume Lumina (anime)",
+        "description": "NetaYume v3.5 anime model (Lumina 2). High-quality anime and illustration style.",
+        "workflow": config.IMAGE_WORKFLOW_NETAYUME,
+        "recommended": False,
+        "is_default": False,
+        "always_available": False,
+        "checks": [
+            ("CheckpointLoaderSimple", "ckpt_name", ["netayume"],
+             "NetaYume Lumina checkpoint (NetaYumev35_pretrained_all_in_one.safetensors) in checkpoints"),
         ],
     },
 ]

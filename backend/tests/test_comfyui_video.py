@@ -981,6 +981,18 @@ def test_video_factory_returns_comfyui_when_selected(monkeypatch):
     assert isinstance(video_generators.get_video_generator(), ComfyUIVideoGenerator)
 
 
+def test_video_factory_routes_wan_provider_to_wan_assets(monkeypatch):
+    monkeypatch.setattr(video_generators, "VIDEO_BACKEND", "comfyui")
+    monkeypatch.setattr(video_generators, "COMFYUI_WAN_VIDEO_WORKFLOW_PATH", "wan.json")
+    monkeypatch.setattr(video_generators, "COMFYUI_WAN_VIDEO_MODEL_NAME", "wan.safetensors")
+
+    generator = video_generators.get_video_generator(provider="local_wan")
+
+    assert isinstance(generator, ComfyUIVideoGenerator)
+    assert generator.workflow_path.name == "wan.json"
+    assert generator.model_name == "wan.safetensors"
+
+
 def test_video_factory_falls_back_to_mock(monkeypatch):
     monkeypatch.setattr(video_generators, "VIDEO_BACKEND", "mock")
     assert isinstance(video_generators.get_video_generator(), MockVideoGenerator)

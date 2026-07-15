@@ -58,6 +58,12 @@ IMAGE_WORKFLOW_ILLUSTRIOUS = os.getenv(
 IMAGE_WORKFLOW_KREA2_TURBO = os.getenv(
     "IMAGE_WORKFLOW_KREA2_TURBO", "workflows/text_to_image_krea2_turbo.json"
 )
+IMAGE_WORKFLOW_Z_IMAGE_TURBO = os.getenv(
+    "IMAGE_WORKFLOW_Z_IMAGE_TURBO", "workflows/text_to_image_z_image_turbo.json"
+)
+IMAGE_WORKFLOW_NETAYUME = os.getenv(
+    "IMAGE_WORKFLOW_NETAYUME", "workflows/text_to_image_netayume.json"
+)
 # Face / subject refinement (detect -> inpaint/refine -> upscale). Architecture is
 # in place but disabled until the refinement workflow + detector are installed.
 FACE_REFINE_ENABLED = os.getenv("FACE_REFINE_ENABLED", "false").strip().lower() in {"1", "true", "yes", "on"}
@@ -278,7 +284,9 @@ COMFYUI_VIDEO_UPSCALE_MODEL_NAME = os.getenv(
 COMFYUI_WAN_VIDEO_WORKFLOW_PATH = os.getenv(
     "COMFYUI_WAN_VIDEO_WORKFLOW_PATH", COMFYUI_FILM_WAN_WORKFLOW_PATH
 )
-COMFYUI_WAN_VIDEO_MODEL_NAME = os.getenv("COMFYUI_WAN_VIDEO_MODEL_NAME", "")
+COMFYUI_WAN_VIDEO_MODEL_NAME = os.getenv(
+    "COMFYUI_WAN_VIDEO_MODEL_NAME", "wan2.1_i2v_480p_14B_fp8_scaled.safetensors"
+)
 
 # --- Credits -----------------------------------------------------------------
 DEFAULT_CREDITS = int(os.getenv("DEFAULT_CREDITS", "100"))

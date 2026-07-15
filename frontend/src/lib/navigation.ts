@@ -1,0 +1,75 @@
+import {
+  Activity,
+  Archive,
+  Brain,
+  Boxes,
+  Clapperboard,
+  Coins,
+  Cpu,
+  Download,
+  Film,
+  Folder,
+  Home,
+  Images,
+  ImageIcon,
+  Layers3,
+  Megaphone,
+  PackagePlus,
+  PenLine,
+  PersonStanding,
+  Plug,
+  RadioTower,
+  Rocket,
+  Scissors,
+  SlidersHorizontal,
+  ShieldCheck,
+  Sparkle,
+  Type,
+  UserCircle,
+  Video,
+  Wand2,
+  type LucideIcon,
+} from "lucide-react";
+
+export type NavigationItem = {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+};
+
+// The everyday creator path stays short and task-oriented.
+export const CREATOR_NAV: NavigationItem[] = [
+  { href: "/", label: "Home", icon: Home },
+  { href: "/chain", label: "Quick Chain", icon: Wand2 },
+  { href: "/videos", label: "Video Generator", icon: Video },
+  { href: "/video-to-text", label: "Transcribe Video", icon: Type },
+  { href: "/create", label: "Image Studio", icon: ImageIcon },
+  { href: "/inspiration", label: "Inspiration", icon: Sparkle },
+  { href: "/avatars", label: "Avatars & Voices", icon: PersonStanding },
+  { href: "/assets-library", label: "Assets", icon: Archive },
+  { href: "/projects", label: "My Projects", icon: Folder },
+  { href: "/credits", label: "Credits", icon: Coins },
+  { href: "/profile", label: "Profile", icon: UserCircle },
+];
+
+export const ADMIN_NAV: NavigationItem[] = [
+  { href: "/admin", label: "Admin Dashboard", icon: ShieldCheck },
+  { href: "/admin/integrations", label: "Provider Integrations", icon: Plug },
+  { href: "/product-scenes", label: "Product Scenes", icon: Megaphone },
+  { href: "/copy-studio", label: "Copy Studio", icon: PenLine },
+  { href: "/campaigns", label: "Campaigns", icon: Rocket },
+  { href: "/campaign-builder", label: "Campaign Builder", icon: Boxes },
+  { href: "/collections", label: "Asset Collections", icon: Layers3 },
+  { href: "/creative-director", label: "Creative Director", icon: Brain },
+  { href: "/film-studio", label: "Film Studio", icon: Film },
+  { href: "/storyboard-studio", label: "Storyboard Studio", icon: Clapperboard },
+  { href: "/production-studio", label: "Production Studio", icon: RadioTower },
+  { href: "/export-studio", label: "Export Studio", icon: Download },
+  { href: "/upload", label: "Upload", icon: PackagePlus },
+  { href: "/attribute-editor", label: "Attribute Editor", icon: Scissors },
+  { href: "/pose-studio", label: "Pose Studio", icon: PersonStanding },
+  { href: "/gallery", label: "Gallery", icon: Images },
+  { href: "/model-manager", label: "Model Manager", icon: Cpu },
+  { href: "/workflow-manager", label: "Workflow Manager", icon: SlidersHorizontal },
+  { href: "/status", label: "Status", icon: Activity },
+];

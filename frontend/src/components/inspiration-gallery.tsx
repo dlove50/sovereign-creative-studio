@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Heart, ImageIcon, Play, Sparkles } from "lucide-react";
+import { Heart, ImageIcon, Pause, Play, Sparkles } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -14,6 +14,9 @@ type Card = {
   gradient: string;
   meta?: string;
 };
+
+// Thumbnails are pre-rendered locally (Z-Image Turbo) into public/inspiration/<id>.png.
+const thumbSrc = (id: string) => `/inspiration/${id}.png`;
 
 // Seeded local inspiration content (static for now — no external calls).
 const TRENDING: Card[] = [
@@ -47,12 +50,56 @@ const TABS = [
 ] as const;
 
 function ThumbCard({ card }: { card: Card }) {
+  const [playing, setPlaying] = useState(false);
+  const [hasClip, setHasClip] = useState(true);
+  const interactive = card.kind === "video" && hasClip;
   return (
     <div className="group overflow-hidden rounded-xl border border-border bg-card transition-transform hover:-translate-y-0.5">
       <div className={cn("relative flex aspect-[3/4] items-center justify-center bg-gradient-to-br", card.gradient)}>
-        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-background/70 text-foreground">
-          {card.kind === "video" ? <Play className="h-5 w-5" /> : <ImageIcon className="h-5 w-5" />}
-        </span>
+        {playing && interactive ? (
+          <video
+            src={`/inspiration/${card.id}.mp4`}
+            autoPlay
+            loop
+            muted
+            playsInline
+            className="absolute inset-0 h-full w-full object-cover"
+            onError={() => {
+              // No motion clip for this card: stay on the still thumbnail.
+              setHasClip(false);
+              setPlaying(false);
+            }}
+          />
+        ) : (
+          /* eslint-disable-next-line @next/next/no-img-element */
+          <img
+            src={thumbSrc(card.id)}
+            alt=""
+            loading="lazy"
+            className="absolute inset-0 h-full w-full object-cover"
+            onError={(e) => {
+              // Missing thumbnail: fall back to the gradient background.
+              e.currentTarget.style.display = "none";
+            }}
+          />
+        )}
+        {interactive ? (
+          <button
+            type="button"
+            aria-label={playing ? "Pause preview" : "Play preview"}
+            onClick={() => setPlaying((p) => !p)}
+            className={cn(
+              "relative flex h-10 w-10 items-center justify-center rounded-full bg-background/70 text-foreground transition-opacity hover:bg-background/90",
+              playing && "opacity-0 group-hover:opacity-100",
+            )}
+          >
+            {playing ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
+          </button>
+        ) : (
+          <span className="relative flex h-10 w-10 items-center justify-center rounded-full bg-background/70 text-foreground">
+            {card.kind === "video" ? <Play className="h-5 w-5" /> : <ImageIcon className="h-5 w-5" />}
+          </span>
+        )}
         <span className="absolute left-2 top-2 rounded-full bg-background/70 px-2 py-0.5 text-[11px] font-medium">
           {card.tag}
         </span>

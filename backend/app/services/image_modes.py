@@ -76,7 +76,7 @@ _MODES = [
         "label": "Anime / Illustration",
         "description": "Anime and illustration. Best with a dedicated anime checkpoint.",
         "recommended_model": "Illustrious XL (anime SDXL)",
-        "presets": ["illustrious_xl", "sdxl", "local_fast"],
+        "presets": ["illustrious_xl", "netayume_anime", "sdxl", "local_fast"],
         "enhancer": (
             "high quality anime illustration, clean line art, cel shading, vibrant colors, "
             "detailed expressive eyes, polished anime artwork"

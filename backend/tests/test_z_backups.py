@@ -1,6 +1,7 @@
 """Phase 6: local backup & recovery (timestamped ZIP snapshots, manual restore)."""
 import io
 import os
+import sqlite3
 import sys
 import tempfile
 import zipfile
@@ -16,6 +17,7 @@ from fastapi.testclient import TestClient
 
 from app import config
 from app.main import app
+from app.services import backups
 
 
 @pytest.fixture(scope="module")
@@ -52,9 +54,38 @@ def test_create_backup_makes_zip_with_manifest(client):
     assert "created_at" in manifest
     assert isinstance(manifest["included"], list) and manifest["included"]
     assert "safe_config" in manifest
+    assert manifest["database_snapshot"] == "sqlite_online_backup"
     # DB + workflow config captured.
     assert any(n.endswith(".db") for n in names)
     assert "backend/storage/workflow_config.json" in names
+
+
+def test_backup_contains_committed_wal_data_and_valid_database(client, tmp_path):
+    """The archive must include committed WAL pages, not just the main DB file."""
+    db_path = backups._db_path()
+    assert db_path is not None
+    marker = "committed-in-wal"
+
+    # Keep the writer open while the backup runs so SQLite cannot rely on a
+    # close-time checkpoint to move the row into the main database file.
+    with sqlite3.connect(str(db_path)) as live_db:
+        live_db.execute("PRAGMA journal_mode=WAL")
+        live_db.execute("CREATE TABLE IF NOT EXISTS backup_snapshot_probe (value TEXT NOT NULL)")
+        live_db.execute("DELETE FROM backup_snapshot_probe")
+        live_db.execute("INSERT INTO backup_snapshot_probe(value) VALUES (?)", (marker,))
+        live_db.commit()
+
+        out = client.post("/api/admin/backups/create").json()
+        response = client.get(f"/api/admin/backups/{out['id']}/download")
+
+    restored_db = tmp_path / "restored.db"
+    with zipfile.ZipFile(io.BytesIO(response.content)) as zf:
+        db_name = next(name for name in zf.namelist() if name.endswith(".db"))
+        restored_db.write_bytes(zf.read(db_name))
+
+    with sqlite3.connect(str(restored_db)) as restored:
+        assert restored.execute("PRAGMA quick_check").fetchone() == ("ok",)
+        assert restored.execute("SELECT value FROM backup_snapshot_probe").fetchone() == (marker,)
 
 
 def test_expected_files_included_when_present(client):

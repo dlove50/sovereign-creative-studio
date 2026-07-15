@@ -106,12 +106,16 @@ def test_animal_and_human_modes_have_quality_enhancers_and_guidance():
     assert modes["realistic_general"]["subject_size_guidance"] is None
 
 
-def test_anime_mode_reports_setup_required_but_still_resolves():
+def test_anime_mode_reports_setup_required_but_still_resolves(monkeypatch):
     from app.services import image_modes
+
+    # Deterministic: simulate ComfyUI unreachable so the anime checkpoint is not
+    # ready regardless of what is installed on the machine running the tests.
+    monkeypatch.setattr(image_presets, "_object_info", lambda: None)
 
     modes = {m["id"]: m for m in image_modes.list_image_modes()}
     anime = modes["anime_illustration"]
-    # Illustrious XL isn't installed -> recommended not ready, but a ready model is used.
+    # Anime checkpoint unavailable -> recommended not ready, but a ready model is used.
     assert anime["recommended_ready"] is False
     assert anime["setup_note"] and "illustrious" in anime["setup_note"].lower()
     assert anime["effective_preset"]  # never empty (falls back to a ready preset)

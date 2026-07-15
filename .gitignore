@@ -46,6 +46,13 @@ playwright-report/
 .tmp-*.json
 tmp*/
 
+# Pytest basetemp artifacts produced from flattened Windows absolute paths.
+backend/UsersDavidDocumentsCodexsovereign-creative-studio.pytest*/
+backend/UsersDavidDocumentsCodexsovereign-creative-studiobackendstoragetmppytest/
+
+# Standalone local model-download workspace (contains its own venv and reports).
+best-chinese-local-models-downloader/
+
 # Debug / run log files at project root
 *.log
 *.out.log

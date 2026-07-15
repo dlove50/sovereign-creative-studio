@@ -8,6 +8,7 @@ import { Coins, LogOut, Sparkles, UserCircle } from "lucide-react";
 import { api } from "@/lib/api";
 import { isAuthRoute } from "@/lib/routes";
 import { Badge } from "@/components/ui/badge";
+import { MobileNavigation } from "@/components/mobile-navigation";
 
 export function Topbar() {
   const router = useRouter();
@@ -16,6 +17,7 @@ export function Topbar() {
   const [credits, setCredits] = useState<number | null>(null);
   const [name, setName] = useState<string | null>(null);
   const [authed, setAuthed] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -28,11 +30,13 @@ export function Topbar() {
         setCredits(u.credits);
         setName(u.name);
         setAuthed(true);
+        setIsAdmin(u.role === "owner_admin");
       })
       .catch(() => {
         setCredits(null);
         setName(null);
         setAuthed(false);
+        setIsAdmin(false);
       });
   }, [pathname]);
 
@@ -67,12 +71,15 @@ export function Topbar() {
 
   return (
     <header className="flex h-16 items-center justify-between border-b border-border px-6">
-      <Link href="/" className="flex items-center gap-2 md:hidden">
-        <span className="flex h-7 w-7 items-center justify-center rounded-md bg-primary text-primary-foreground">
-          <Sparkles className="h-4 w-4" />
-        </span>
-        <span className="text-sm font-semibold">Sovereign</span>
-      </Link>
+      <div className="flex items-center gap-2 md:hidden">
+        <MobileNavigation isAdmin={isAdmin} />
+        <Link href="/" className="flex items-center gap-2">
+          <span className="flex h-7 w-7 items-center justify-center rounded-md bg-primary text-primary-foreground">
+            <Sparkles className="h-4 w-4" />
+          </span>
+          <span className="text-sm font-semibold">Sovereign</span>
+        </Link>
+      </div>
       <div className="hidden text-sm text-muted-foreground md:block">
         Welcome{name ? `, ` : ""}<span className="text-foreground">{name ?? "to your studio"}</span>
       </div>

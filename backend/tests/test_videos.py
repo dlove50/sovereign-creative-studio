@@ -29,9 +29,10 @@ def _mock_video_backend(monkeypatch):
     monkeypatch.setattr(video_generators_module, "VIDEO_BACKEND", "mock")
     # Video generations now cost credits; keep the shared test user funded so
     # these functional video tests are not starved by the per-video charge.
-    from app.database import SessionLocal
+    from app.database import Base, SessionLocal, engine
     from app.models import User
 
+    Base.metadata.create_all(bind=engine)
     with SessionLocal() as db:
         for user in db.query(User).all():
             user.credits = 100000
@@ -261,6 +262,44 @@ def test_comfyui_modes_marks_text_to_video_unavailable(client, monkeypatch):
     modes = {item["id"]: item for item in client.get("/api/videos/modes").json()}
     assert modes["text_to_video"]["available"] is False
     assert modes["text_to_video"]["note"] == "Missing ComfyUI nodes: SaveVideo"
+
+
+def test_wan_provider_is_available_only_for_image_to_video(client, monkeypatch):
+    monkeypatch.setattr(videos_router, "VIDEO_BACKEND", "comfyui")
+    monkeypatch.setattr(videos_router, "_text_to_video_ready", lambda: (True, None))
+    monkeypatch.setattr(videos_router, "_video_to_video_ready", lambda: (True, None))
+    monkeypatch.setattr(videos_router, "_video_extension_ready", lambda: (True, None))
+    monkeypatch.setattr(videos_router, "_video_upscale_ready", lambda: (True, None))
+    monkeypatch.setattr(videos_router, "_wan_ready", lambda: (True, None))
+
+    modes = {item["id"]: item for item in client.get("/api/videos/modes").json()}
+    image_provider = modes["image_to_video"]["providers"]["local_wan"]
+    text_provider = modes["text_to_video"]["providers"]["local_wan"]
+
+    assert image_provider["available"] is True
+    assert image_provider["note"] is None
+    assert text_provider["available"] is False
+    assert text_provider["note"] == "Wan 2.1 is only wired for Image -> Video."
+
+
+def test_wan_provider_rejects_non_image_mode(client):
+    project_id = client.post(
+        "/api/projects", json={"name": "Wan mode guard", "description": None}
+    ).json()["id"]
+    resp = client.post(
+        "/api/videos",
+        json={
+            "project_id": project_id,
+            "prompt": "a product rotating under studio light",
+            "motion_preset": "slow_zoom",
+            "duration_seconds": 3,
+            "mode": "text_to_video",
+            "provider": "local_wan",
+        },
+    )
+
+    assert resp.status_code == 409
+    assert "only wired for Image -> Video" in resp.json()["detail"]
 
 
 def test_comfyui_allows_video_upscale_when_workflow_ready(client, monkeypatch):

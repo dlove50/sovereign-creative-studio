@@ -46,10 +46,12 @@ const IMAGE_PROVIDERS: { id: ImageProvider; label: string; badge: string }[] = [
 const PRESET_DISPLAY_ORDER = [
   "flux1_krea",
   "krea2_turbo_fp8",
+  "z_image_turbo",
   "flux2_klein",
   "flux1_dev",
   "sdxl",
   "illustrious_xl",
+  "netayume_anime",
   "local_fast",
 ] as const;
 

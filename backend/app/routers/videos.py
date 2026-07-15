@@ -18,6 +18,8 @@ from ..config import (
     COMFYUI_VIDEO_TO_VIDEO_WORKFLOW_PATH,
     COMFYUI_VIDEO_UPSCALE_MODEL_NAME,
     COMFYUI_VIDEO_UPSCALE_WORKFLOW_PATH,
+    COMFYUI_WAN_VIDEO_MODEL_NAME,
+    COMFYUI_WAN_VIDEO_WORKFLOW_PATH,
     VIDEO_BACKEND,
 )
 from ..database import get_db
@@ -125,6 +127,7 @@ def list_video_modes():
     v2v_ready, v2v_note = _video_to_video_ready()
     ext_ready, ext_note = _video_extension_ready()
     seedance_ready, seedance_note = _seedance_ready()
+    wan_ready, wan_note = _wan_ready()
     options = []
     for mode_id, label, description, source_required in _VIDEO_MODES:
         if is_mock:
@@ -166,6 +169,19 @@ def list_video_modes():
                         cost=CREDITS_PER_VIDEO,
                         note=note,
                     ),
+                    "local_wan": VideoProviderReadiness(
+                        available=wan_ready and mode_id == "image_to_video",
+                        cost=CREDITS_PER_VIDEO,
+                        note=(
+                            wan_note
+                            if not wan_ready
+                            else (
+                                None
+                                if mode_id == "image_to_video"
+                                else "Wan 2.1 is only wired for Image -> Video."
+                            )
+                        ),
+                    ),
                     "seedance_api": VideoProviderReadiness(
                         available=seedance_ready and mode_id in {"text_to_video", "image_to_video"},
                         cost=CREDITS_PER_SEEDANCE_VIDEO,
@@ -191,6 +207,62 @@ def _seedance_ready() -> tuple[bool, str | None]:
         return False, "Seedance provider is not configured. Admin setup required."
     if not cfg.get("base_url"):
         return False, "Seedance provider base URL is missing. Admin setup required."
+    return True, None
+
+
+_WAN_REQUIRED_NODES = {
+    "UNETLoader",
+    "CLIPLoader",
+    "VAELoader",
+    "LoadImage",
+    "CLIPTextEncode",
+    "WanImageToVideo",
+    "KSampler",
+    "VAEDecode",
+    "CreateVideo",
+    "SaveVideo",
+}
+_WAN_TEXT_ENCODER_MODEL = "umt5_xxl_fp8_e4m3fn_scaled.safetensors"
+_WAN_VAE_MODEL = "wan_2.1_vae.safetensors"
+
+
+def _wan_ready() -> tuple[bool, str | None]:
+    if VIDEO_BACKEND == "mock":
+        return True, None
+    if VIDEO_BACKEND != "comfyui":
+        return False, f"Video backend {VIDEO_BACKEND} is not a real ComfyUI backend."
+
+    workflow_path = _workflow_path(COMFYUI_WAN_VIDEO_WORKFLOW_PATH)
+    if not workflow_path.is_file():
+        return False, f"Wan Image -> Video workflow missing: {workflow_path}"
+
+    try:
+        with httpx.Client(
+            base_url=COMFYUI_BASE_URL.rstrip("/"),
+            timeout=_COMFY_TIMEOUT_SECONDS,
+        ) as client:
+            response = client.get("/object_info")
+            response.raise_for_status()
+            object_info = response.json()
+    except Exception as exc:  # noqa: BLE001 - readiness should degrade to unavailable.
+        return False, f"ComfyUI unavailable at {COMFYUI_BASE_URL}: {exc}"
+
+    missing_nodes = sorted(
+        node for node in _WAN_REQUIRED_NODES if node not in object_info
+    )
+    if missing_nodes:
+        return False, "Missing ComfyUI nodes: " + ", ".join(missing_nodes)
+
+    unet_options = _loader_options(object_info, "UNETLoader", "unet_name")
+    if COMFYUI_WAN_VIDEO_MODEL_NAME not in unet_options:
+        return False, f"Wan model not listed in ComfyUI: {COMFYUI_WAN_VIDEO_MODEL_NAME}"
+    clip_options = _loader_options(object_info, "CLIPLoader", "clip_name")
+    if _WAN_TEXT_ENCODER_MODEL not in clip_options:
+        return False, f"Wan text encoder not listed in ComfyUI: {_WAN_TEXT_ENCODER_MODEL}"
+    vae_options = _loader_options(object_info, "VAELoader", "vae_name")
+    if _WAN_VAE_MODEL not in vae_options:
+        return False, f"Wan VAE not listed in ComfyUI: {_WAN_VAE_MODEL}"
+
     return True, None
 
 
@@ -457,6 +529,18 @@ def create_video(
             raise HTTPException(
                 status_code=409,
                 detail="Seedance is only wired for Text -> Video and Image -> Video in Phase 14A.",
+            )
+    if provider == "local_wan":
+        if payload.mode != "image_to_video":
+            raise HTTPException(
+                status_code=409,
+                detail="Wan 2.1 is only wired for Image -> Video. Use LTX for other modes.",
+            )
+        ready, reason = _wan_ready()
+        if not ready:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Wan 2.1 Image -> Video is not ready: {reason}",
             )
 
     if provider == "local_ltx" and VIDEO_BACKEND == "comfyui" and payload.mode not in {

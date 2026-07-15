@@ -11,8 +11,11 @@ from __future__ import annotations
 import json
 import os
 import re
+import sqlite3
+import tempfile
 import uuid
 import zipfile
+from contextlib import closing
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -90,7 +93,7 @@ def _walk_storage(storage: Path):
             yield src, f"backend/storage/{rel}"
 
 
-def _collect_entries() -> list[tuple[Path, str]]:
+def _collect_entries(db_snapshot: Path | None = None) -> list[tuple[Path, str]]:
     """Build the (source, arcname) list, including each item only when present.
 
     Arcnames mirror the live layout (backend/..., frontend/...) so a manual
@@ -100,7 +103,7 @@ def _collect_entries() -> list[tuple[Path, str]]:
 
     db = _db_path()
     if db and db.is_file():
-        entries.append((db, f"backend/{db.name}"))
+        entries.append((db_snapshot or db, f"backend/{db.name}"))
 
     storage = config.STORAGE_DIR
     if storage.is_dir():
@@ -126,6 +129,25 @@ def _collect_entries() -> list[tuple[Path, str]]:
     return entries
 
 
+def _snapshot_sqlite_database(source: Path, destination: Path) -> None:
+    """Create a transactionally consistent copy of a live SQLite database.
+
+    Copying the database file directly can miss committed pages that still live
+    in its WAL file. SQLite's online backup API reads one coherent database
+    snapshot while allowing normal application reads and writes to continue.
+    """
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    # sqlite3.Connection's context manager commits/rolls back but does not close;
+    # closing is required so Windows releases the staged database file promptly.
+    with closing(sqlite3.connect(str(source))) as source_db, closing(
+        sqlite3.connect(str(destination))
+    ) as snapshot_db:
+        source_db.backup(snapshot_db)
+        check = snapshot_db.execute("PRAGMA quick_check").fetchone()
+        if not check or check[0] != "ok":
+            raise RuntimeError("SQLite backup snapshot failed its integrity check")
+
+
 def create_backup() -> BackupOut:
     BACKUP_DIR.mkdir(parents=True, exist_ok=True)
     created = _now()
@@ -135,23 +157,40 @@ def create_backup() -> BackupOut:
         backup_id = f"{backup_id}-{uuid.uuid4().hex[:6]}"
         zip_path = BACKUP_DIR / f"{backup_id}.zip"
 
-    included: list[str] = []
-    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
-        for src, arc in _collect_entries():
-            try:
-                zf.write(src, arc)
-            except (OSError, PermissionError):
-                # A single locked/transient file must never abort the snapshot.
-                continue
-            included.append(arc)
-        manifest = {
-            "app_name": APP_NAME,
-            "backup_id": backup_id,
-            "created_at": created.isoformat(),
-            "included": included,
-            "safe_config": _safe_config_summary(),
-        }
-        zf.writestr("backup_manifest.json", json.dumps(manifest, indent=2))
+    # Stage both the SQLite snapshot and archive under the excluded backups/
+    # folder. Only move the completed ZIP into place, so a failed backup never
+    # appears in the UI as a valid restore point.
+    with tempfile.TemporaryDirectory(prefix=".scs-backup-staging-", dir=BACKUP_DIR) as staging_name:
+        staging = Path(staging_name)
+        db = _db_path()
+        db_snapshot = None
+        if db and db.is_file():
+            db_snapshot = staging / db.name
+            _snapshot_sqlite_database(db, db_snapshot)
+
+        included: list[str] = []
+        staged_zip = staging / zip_path.name
+        with zipfile.ZipFile(staged_zip, "w", zipfile.ZIP_DEFLATED) as zf:
+            for src, arc in _collect_entries(db_snapshot=db_snapshot):
+                try:
+                    zf.write(src, arc)
+                except (OSError, PermissionError):
+                    if db_snapshot is not None and src == db_snapshot:
+                        raise
+                    # A single locked/transient media file must not abort the
+                    # snapshot. The database itself was already verified above.
+                    continue
+                included.append(arc)
+            manifest = {
+                "app_name": APP_NAME,
+                "backup_id": backup_id,
+                "created_at": created.isoformat(),
+                "database_snapshot": "sqlite_online_backup" if db_snapshot else "not_applicable",
+                "included": included,
+                "safe_config": _safe_config_summary(),
+            }
+            zf.writestr("backup_manifest.json", json.dumps(manifest, indent=2))
+        staged_zip.replace(zip_path)
 
     return _info(zip_path)
 

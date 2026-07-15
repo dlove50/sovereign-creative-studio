@@ -1,4 +1,4 @@
-# Sovereign Creative Studio — Model and Dependency Manifest
+# Sovereign Creative Studio — Model Setup and Dependency Manifest
 
 This document lists every large file and external dependency that is NOT stored in
 the GitHub repository. After cloning, install these manually to restore the full
@@ -191,6 +191,9 @@ All model files live inside the ComfyUI shared models directory.
 | `flux2-klein-4b.safetensors`        | FLUX.2 Klein 4B           | ~4 GB         |
 | `anything-v3.0.safetensors` or similar | SDXL / Illustrious XL | ~2-7 GB       |
 
+| `z_image_turbo_bf16.safetensors`    | Z-Image Turbo             | model release dependent |
+| `NetaYumev35_pretrained_all_in_one.safetensors` | NetaYume anime | model release dependent |
+
 ### VAE Files
 
 | File                    | Used for              |
@@ -204,6 +207,8 @@ All model files live inside the ComfyUI shared models directory.
 |-----------------------------------------|-----------------------------------|--------|
 | `ltx-2.3-22b-dev-fp8.safetensors`       | LTX image-to-video — **Quick Chain** | ~22 GB |
 
+| `wan2.1_i2v_480p_14B_fp8_scaled.safetensors` | Wan 2.1 image-to-video | model release dependent |
+
 ### Video Upscale Models
 
 | File                          | Used for                    | Size   |
@@ -216,6 +221,14 @@ All model files live inside the ComfyUI shared models directory.
 |------------------------------|----------------------|
 | `clip_l.safetensors`         | FLUX.1, Krea 2       |
 | `t5xxl_fp8_e4m3fn.safetensors` | FLUX.1, Krea 2     |
+| `qwen_3_4b.safetensors`      | Z-Image Turbo / Lumina 2 |
+| `umt5_xxl_fp8_e4m3fn_scaled.safetensors` | Wan 2.1 video |
+
+### Wan Video VAE
+
+Place `wan_2.1_vae.safetensors` in the ComfyUI VAE directory. The committed
+`workflows/image_to_video_wan.json` workflow expects that exact filename unless
+the workflow and readiness check are updated together.
 
 ---
 
@@ -245,6 +258,8 @@ VIDEO_BACKEND=comfyui
 COMFYUI_VIDEO_ENGINE=ltx
 COMFYUI_VIDEO_WORKFLOW_PATH=workflows/image_to_video.json
 COMFYUI_VIDEO_MODEL_NAME=ltx-2.3-22b-dev-fp8.safetensors
+COMFYUI_WAN_VIDEO_WORKFLOW_PATH=workflows/image_to_video_wan.json
+COMFYUI_WAN_VIDEO_MODEL_NAME=wan2.1_i2v_480p_14B_fp8_scaled.safetensors
 
 # Transcription
 TRANSCRIPTION_BACKEND=local_whisper

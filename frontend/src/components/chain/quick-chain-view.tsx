@@ -83,7 +83,7 @@ export function QuickChainView() {
     api.getAudioMergeReadiness().then(setAudioReadiness).catch(() => {});
   }, []);
 
-  const CHAIN_PRESET_ORDER = ["flux1_krea", "krea2_turbo_fp8", "flux2_klein", "flux1_dev", "sdxl", "illustrious_xl", "local_fast"];
+  const CHAIN_PRESET_ORDER = ["flux1_krea", "krea2_turbo_fp8", "z_image_turbo", "flux2_klein", "flux1_dev", "sdxl", "illustrious_xl", "netayume_anime", "local_fast"];
 
   const progress =
     (state.completed.length + state.skipped.filter((s) => !state.completed.includes(s)).length) /
@@ -202,6 +202,10 @@ export function QuickChainView() {
               disabled={state.running !== null}
             />
           </div>
+          <p className="text-xs text-muted-foreground">
+            Tip: for people and characters, small movements look best — try &ldquo;subtle breathing, gentle blink,
+            no camera movement&rdquo;. Big motions or camera moves can distort faces.
+          </p>
           {state.video?.result_url ? <Preview kind="video" url={state.video.result_url} label="Your video clip" /> : null}
           <RunButton
             label={state.video ? "Regenerate Video" : "Generate Video"}

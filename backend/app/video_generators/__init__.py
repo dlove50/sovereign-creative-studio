@@ -35,7 +35,7 @@ def get_video_generator(provider: str = "local_ltx") -> VideoGenerator:
     if VIDEO_BACKEND == "comfyui":
         workflow_path = COMFYUI_VIDEO_WORKFLOW_PATH
         model_name = COMFYUI_VIDEO_MODEL_NAME
-        if COMFYUI_VIDEO_ENGINE == "wan":
+        if provider == "local_wan" or COMFYUI_VIDEO_ENGINE == "wan":
             workflow_path = COMFYUI_WAN_VIDEO_WORKFLOW_PATH
             model_name = COMFYUI_WAN_VIDEO_MODEL_NAME
         return ComfyUIVideoGenerator(
