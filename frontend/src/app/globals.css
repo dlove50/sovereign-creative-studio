@@ -42,3 +42,15 @@ body {
     radial-gradient(50rem 40rem at -10% 110%, hsl(318 80% 62% / 0.1), transparent 55%);
   background-attachment: fixed;
 }
+
+.ocr-markdown { color: hsl(var(--foreground) / .9); font-size: .925rem; line-height: 1.75; }
+.ocr-markdown h1, .ocr-markdown h2, .ocr-markdown h3 { color: hsl(var(--foreground)); font-weight: 650; line-height: 1.25; margin: 1.5em 0 .6em; }
+.ocr-markdown h1 { font-size: 1.65rem; } .ocr-markdown h2 { font-size: 1.35rem; } .ocr-markdown h3 { font-size: 1.1rem; }
+.ocr-markdown p, .ocr-markdown ul, .ocr-markdown ol, .ocr-markdown pre, .ocr-markdown table { margin: .8em 0; }
+.ocr-markdown ul { list-style: disc; padding-left: 1.4rem; } .ocr-markdown ol { list-style: decimal; padding-left: 1.4rem; }
+.ocr-markdown table { width: 100%; border-collapse: collapse; overflow: hidden; border-radius: .65rem; }
+.ocr-markdown th, .ocr-markdown td { border: 1px solid hsl(var(--border)); padding: .55rem .7rem; text-align: left; }
+.ocr-markdown th { background: hsl(var(--muted)); font-weight: 600; }
+.ocr-markdown code { border-radius: .35rem; background: hsl(var(--muted)); padding: .15rem .35rem; font-size: .85em; }
+.ocr-markdown pre { overflow-x: auto; border: 1px solid hsl(var(--border)); border-radius: .75rem; background: hsl(var(--background) / .6); padding: 1rem; }
+.ocr-markdown blockquote { border-left: 3px solid hsl(var(--primary)); padding-left: 1rem; color: hsl(var(--muted-foreground)); }

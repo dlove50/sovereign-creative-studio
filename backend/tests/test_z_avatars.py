@@ -17,7 +17,7 @@ from sqlalchemy import select
 
 from app.database import SessionLocal
 from app.main import app
-from app.models import AvatarJob, CreditTransaction, User
+from app.models import AvatarJob, CreditTransaction, User, VoiceAsset
 from app.services import avatar_jobs
 
 PNG = b"\x89PNG\r\n\x1a\nfakeimage"
@@ -159,6 +159,21 @@ def test_voice_greeting_success_charges_2_and_in_library(monkeypatch):
         )
     assert tx is not None and tx.amount == -2 and tx.status == "completed"
     assert any(it["id"] == f"voice:{v['id']}" for it in c.get("/api/library").json())
+
+
+def test_voice_greeting_can_be_deleted_by_owner(monkeypatch):
+    _mock_voice_ready(monkeypatch)
+    c = _client(); _signup(c, "voice_delete")
+    voice = c.post("/api/voices/greeting", json={}).json()
+    from app import config as cfg
+    audio_path = cfg.STORAGE_DIR / voice["sample_file_path"].removeprefix("/storage/")
+    assert audio_path.is_file()
+
+    assert c.delete(f"/api/voices/{voice['id']}").status_code == 204
+    assert not audio_path.exists()
+    assert voice["id"] not in {item["id"] for item in c.get("/api/voices").json()}
+    with SessionLocal() as db:
+        assert db.get(VoiceAsset, voice["id"]).deleted_at is not None
 
 
 def test_voice_greeting_insufficient_credits_blocks(monkeypatch):

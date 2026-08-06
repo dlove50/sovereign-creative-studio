@@ -18,6 +18,12 @@ if not exist "%PY%" (
 "%PY%" "%APP_ROOT%\tools\local_launcher.py" stop
 set "EXIT_CODE=%ERRORLEVEL%"
 
+where docker >nul 2>nul
+if not errorlevel 1 (
+  echo Stopping Baidu Unlimited-OCR and releasing GPU memory...
+  docker stop baidu-unlimited-ocr >nul 2>nul
+)
+
 echo.
 echo Stop request complete.
 pause

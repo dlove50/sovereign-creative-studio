@@ -71,11 +71,17 @@ def _run_generation_job(generation_id: str) -> None:
                 )
             )
         except Exception as exc:  # noqa: BLE001 - persist backend failure details
+            db.refresh(gen)
+            if gen.status == "cancelled":
+                return
             gen.status = "failed"
             gen.error = str(exc)
             db.commit()
             return
 
+        db.refresh(gen)
+        if gen.status == "cancelled":
+            return
         _complete_generation(db, gen, result.file_url)
 
 

@@ -197,12 +197,18 @@ def _run(job_id: str) -> None:
                 source_path=source, model_name=job.model_name
             )
         except Exception as exc:  # noqa: BLE001 - safe persisted failure
+            db.refresh(job)
+            if job.status == "cancelled":
+                return
             job.status = "failed"
             job.error_message = str(exc)[:500]
             job.completed_at = datetime.now(timezone.utc)
             db.commit()
             return
 
+        db.refresh(job)
+        if job.status == "cancelled":
+            return
         job.status = "completed"
         job.transcript_text = result.transcript_text
         job.detected_language = result.detected_language

@@ -30,6 +30,11 @@ next-env.d.ts
 # for what needs to be installed manually on a new machine.
 backend/storage/
 
+# Local generated deliverables and voice diagnostics (may contain personal data).
+outputs/
+*-clone-comparison.wav
+*-test-diagnostic.wav
+
 # ── Playwright test output ────────────────────────────────────────────────────
 test-results/
 playwright-report/

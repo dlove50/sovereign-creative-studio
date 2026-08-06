@@ -6,6 +6,7 @@ setup_required (never charged, never faked). Local-first: no cloud provider is
 required for this foundation.
 """
 import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
@@ -189,6 +190,23 @@ def generate_voice_greeting(payload: GreetingJobIn, db: Session = Depends(get_db
     db.commit()
     db.refresh(voice)
     return voice
+
+
+@router.delete("/voices/{voice_id}", status_code=204)
+def delete_voice(voice_id: str, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """Remove an owned voice asset and its generated local sample, if present."""
+    voice = db.get(VoiceAsset, voice_id)
+    if voice is None or voice.deleted_at is not None or (voice.user_id != user.id and user.role != ADMIN_ROLE):
+        raise HTTPException(status_code=404, detail="Voice greeting not found")
+    if voice.sample_file_path:
+        try:
+            resolve_storage_url(voice.sample_file_path).unlink(missing_ok=True)
+        except RuntimeError:
+            # The database entry must remain deletable if its old audio file is
+            # already gone; unsafe/non-local paths are never unlinked.
+            pass
+    voice.deleted_at = datetime.now(timezone.utc)
+    db.commit()
 
 
 # --- avatar jobs -------------------------------------------------------------

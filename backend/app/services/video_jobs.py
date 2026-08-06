@@ -73,12 +73,18 @@ def _run_video(video_id: str) -> None:
                 generator.generate(**kwargs)
             )
         except Exception as exc:  # noqa: BLE001 - persist generation failure
+            db.refresh(video)
+            if video.status == "cancelled":
+                return
             video.status = "failed"
             video.error = str(exc)
             video.completed_at = datetime.now(timezone.utc)
             db.commit()
             return
 
+        db.refresh(video)
+        if video.status == "cancelled":
+            return
         video.status = "completed"
         video.result_url = result.result_url
         video.provider_task_id = result.provider_task_id

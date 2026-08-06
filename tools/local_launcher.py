@@ -162,6 +162,25 @@ def port_open(port: int) -> bool:
         return sock.connect_ex(("127.0.0.1", port)) == 0
 
 
+def evict_port(port: int, label: str) -> None:
+    """Stop a conflicting listener so this app can claim its fixed local port."""
+    pids = port_pids(port)
+    if not pids:
+        return
+    print(f"  Evicting non-{label} process(es) on port {port}: PIDs {pids}")
+    for pid in pids:
+        subprocess.run(
+            ["taskkill", "/PID", str(pid), "/T", "/F"],
+            check=False,
+            capture_output=True,
+        )
+    time.sleep(1)
+    if port_open(port):
+        raise SystemExit(
+            f"[ERROR] Port {port} is still occupied after stopping PIDs {pids}."
+        )
+
+
 def wait_url(label: str, url: str, attempts: int, delay: float = 2.0) -> bool:
     print(f"Waiting for {label} at {url}...")
     for _ in range(attempts):
@@ -269,12 +288,7 @@ def popen(
 
 
 def _start_backend(backend_py: Path) -> None:
-    pids = port_pids(BACKEND_PORT)
-    if pids:
-        print(f"  Evicting process(es) on port {BACKEND_PORT}: PIDs {pids}")
-        for pid in pids:
-            subprocess.run(["taskkill", "/PID", str(pid), "/T", "/F"], check=False, capture_output=True)
-        time.sleep(1)
+    evict_port(BACKEND_PORT, "Sovereign backend")
     print(f"[backend] Starting Sovereign backend on http://127.0.0.1:{BACKEND_PORT}")
     popen(
         [str(backend_py), "-m", "uvicorn", "app.main:app", "--host", "127.0.0.1", "--port", str(BACKEND_PORT)],
@@ -300,14 +314,29 @@ def ensure_paths(skip_comfy: bool) -> None:
 
 def ensure_frontend_build() -> None:
     build_id = FRONTEND / ".next" / "BUILD_ID"
-    if build_id.is_file():
+    routes_manifest = FRONTEND / ".next" / "routes-manifest.json"
+    expected_origin = f"http://127.0.0.1:{BACKEND_PORT}"
+    build_is_current = False
+    if build_id.is_file() and routes_manifest.is_file():
+        try:
+            build_is_current = expected_origin in routes_manifest.read_text(
+                encoding="utf-8"
+            )
+        except OSError:
+            pass
+    if build_is_current:
         return
-    print("Frontend production build not found. Building frontend once...")
+    if build_id.is_file():
+        print(
+            f"Frontend build has a stale backend proxy; rebuilding for {expected_origin}..."
+        )
+    else:
+        print("Frontend production build not found. Building frontend once...")
     build_env = clean_env()
     # CRITICAL: always bake BACKEND_ORIGIN so the proxy points to port 8002,
     # not Next's default 8000. Running `npx next build` without this env var
     # bakes the wrong port into routes-manifest.json and causes 500 proxy errors.
-    build_env["BACKEND_ORIGIN"] = f"http://127.0.0.1:{BACKEND_PORT}"
+    build_env["BACKEND_ORIGIN"] = expected_origin
     result = subprocess.run(
         ["npm.cmd", "run", "build"],
         cwd=str(FRONTEND),
@@ -410,9 +439,11 @@ def start(args: argparse.Namespace) -> int:
     if not wait_url("Backend", SERVICES["backend"]["health"], 45):
         return 1
 
-    if port_open(3000):
-        print("Frontend already appears to be running on port 3000.")
+    if _check_proxy():
+        print("Sovereign Creative Studio frontend already running on port 3000.")
     else:
+        if port_open(3000):
+            evict_port(3000, "Sovereign Creative Studio frontend")
         if args.frontend_dev:
             frontend_command = ["npm.cmd", "run", "dev"]
             frontend_label = "development"
@@ -428,6 +459,9 @@ def start(args: argparse.Namespace) -> int:
             popen(frontend_command, FRONTEND, "Sovereign Frontend", args.hidden, env=frontend_env),
         ))
     if not wait_url("Frontend", SERVICES["frontend"]["health"], 60):
+        return 1
+    if not _check_proxy():
+        print("[ERROR] Port 3000 is responding, but it is not the Sovereign Creative Studio frontend.")
         return 1
 
     print("")
@@ -473,7 +507,7 @@ def status(_: argparse.Namespace) -> int:
     print("")
     print("-- Services ----------------------------------------")
     backend_up = http_ready(SERVICES["backend"]["health"])
-    frontend_up = http_ready(SERVICES["frontend"]["health"])
+    frontend_up = _check_proxy()
     comfyui_up = http_ready(SERVICES["comfyui"]["health"])
     ollama_up = port_open(OLLAMA_PORT)
     backend_pids = port_pids(BACKEND_PORT)

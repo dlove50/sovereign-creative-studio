@@ -37,6 +37,7 @@ from .routers import (
     transcriptions,
     users,
     videos,
+    voice_cloning,
     workflow_manager as workflow_manager_router,
 )
 from .seed import ensure_owner_admin
@@ -115,6 +116,7 @@ app.include_router(library.router)
 app.include_router(models.router)
 app.include_router(assets.router)
 app.include_router(avatars.router)
+app.include_router(voice_cloning.router)
 app.include_router(product_scenes.router)
 app.include_router(productions.router)
 app.include_router(copy.router)

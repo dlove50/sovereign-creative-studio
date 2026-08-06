@@ -9,6 +9,13 @@ echo.
 echo Starting Sovereign Creative Studio...
 echo.
 
+where docker >nul 2>nul
+if not errorlevel 1 (
+  echo Starting Baidu Unlimited-OCR...
+  docker start baidu-unlimited-ocr >nul 2>nul
+  if errorlevel 1 echo [WARNING] OCR model could not start. Make sure Docker Desktop is running.
+)
+
 if not exist "%PY%" (
   echo [ERROR] Backend Python venv not found: "%PY%"
   pause

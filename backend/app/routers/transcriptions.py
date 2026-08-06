@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
@@ -52,6 +53,19 @@ def get_transcription(
     job = db.get(TranscriptionJob, job_id)
     if job is None or job.user_id != user.id:
         raise HTTPException(status_code=404, detail="Transcription not found")
+    return job
+
+
+@router.post("/{job_id}/cancel", response_model=TranscriptionOut)
+def cancel_transcription(job_id: str, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    job = db.get(TranscriptionJob, job_id)
+    if job is None or job.user_id != user.id:
+        raise HTTPException(status_code=404, detail="Transcription not found")
+    if job.status in {"queued", "running"}:
+        job.status = "cancelled"
+        job.error_message = "Cancelled by user"
+        db.commit()
+        db.refresh(job)
     return job
 
 

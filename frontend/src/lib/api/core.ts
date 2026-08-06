@@ -75,6 +75,22 @@ export async function formRequest<T>(path: string, body: FormData): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+export async function blobRequest(path: string, input: unknown): Promise<Blob> {
+  const res = await fetch(`${API_BASE}${path}`, {
+    method: "POST",
+    body: JSON.stringify(input),
+    cache: "no-store",
+    credentials: "include",
+    headers: { "Content-Type": "application/json", ...activeUserHeaders() },
+  });
+  if (!res.ok) {
+    let detail = res.statusText;
+    try { detail = (await res.json())?.detail ?? detail; } catch { /* non-JSON */ }
+    throw new Error(detail);
+  }
+  return res.blob();
+}
+
 
 
 export async function downloadZip(path: string, input: unknown, filename: string) {

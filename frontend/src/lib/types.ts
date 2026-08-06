@@ -459,6 +459,19 @@ export interface VoiceOption {
   ready: boolean;
 }
 
+export interface ClonedVoiceProfile {
+  slug: string;
+  name: string;
+  source_type: string;
+  configured: boolean;
+  active: boolean;
+}
+
+export interface VoiceCloningProfiles {
+  profiles: ClonedVoiceProfile[];
+  profiles_root: string;
+}
+
 export interface AudioMergeReadiness {
   ffmpeg: boolean;
   piper: boolean;

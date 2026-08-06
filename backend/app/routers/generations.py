@@ -233,6 +233,19 @@ def get_generation(
     return gen
 
 
+@router.post("/{generation_id}/cancel", response_model=GenerationOut)
+def cancel_generation(generation_id: str, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    gen = db.get(Generation, generation_id)
+    if gen is None or gen.user_id != user.id:
+        raise HTTPException(status_code=404, detail="Generation not found")
+    if gen.status in {"queued", "running"}:
+        gen.status = "cancelled"
+        gen.error = "Cancelled by user"
+        db.commit()
+        db.refresh(gen)
+    return gen
+
+
 @router.post("", response_model=GenerationOut, status_code=201)
 def create_generation(
     payload: GenerationCreate,

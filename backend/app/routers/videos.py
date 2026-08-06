@@ -514,6 +514,20 @@ def get_video(
     return video
 
 
+@router.post("/{video_id}/cancel", response_model=VideoOut)
+def cancel_video(video_id: str, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    video = db.get(VideoGeneration, video_id)
+    if video is None or video.user_id != user.id:
+        raise HTTPException(status_code=404, detail="Video not found")
+    if video.status in {"queued", "running"}:
+        video.status = "cancelled"
+        video.error = "Cancelled by user"
+        video.completed_at = datetime.now(timezone.utc)
+        db.commit()
+        db.refresh(video)
+    return video
+
+
 @router.post("", response_model=VideoOut, status_code=201)
 def create_video(
     payload: VideoCreate,

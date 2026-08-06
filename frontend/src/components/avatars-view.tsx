@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ImagePlus, Loader2, Mic, Sparkles, UserSquare, Video } from "lucide-react";
+import { ImagePlus, Loader2, Mic, Sparkles, Trash2, UserSquare, Video } from "lucide-react";
 
 import { api, assetUrl } from "@/lib/api";
-import type { AvatarAsset, AvatarJob, AvatarVoiceReadiness, VoiceAsset } from "@/lib/types";
+import type { AvatarAsset, AvatarJob, AvatarVoiceReadiness, ClonedVoiceProfile, VoiceAsset } from "@/lib/types";
 import { MediaActions } from "@/components/media/MediaActions";
 import { MediaDetailsDrawer } from "@/components/media/MediaDetailsDrawer";
 import { useMediaHandoffRouter } from "@/components/media/useMediaHandoffRouter";
@@ -34,6 +34,15 @@ export function AvatarsView() {
   const [greeting, setGreeting] = useState<AvatarJob | null>(null);
   const [voiceNote, setVoiceNote] = useState<string | null>(null);
   const [voiceName, setVoiceName] = useState("");
+  const [cloneName, setCloneName] = useState("");
+  const [cloneTranscript, setCloneTranscript] = useState("");
+  const [cloneSourceType, setCloneSourceType] = useState("consented-human");
+  const [cloneRights, setCloneRights] = useState(false);
+  const [cloneFile, setCloneFile] = useState<File | null>(null);
+  const [cloneNote, setCloneNote] = useState<string | null>(null);
+  const [clonedProfiles, setClonedProfiles] = useState<ClonedVoiceProfile[]>([]);
+  const [cloneTestText, setCloneTestText] = useState("Welcome. Let's create something amazing.");
+  const [cloneAudioUrl, setCloneAudioUrl] = useState<string | null>(null);
   const [talkingJob, setTalkingJob] = useState<AvatarJob | null>(null);
   const [pickAvatar, setPickAvatar] = useState("");
   const [pickVoice, setPickVoice] = useState("");
@@ -42,6 +51,7 @@ export function AvatarsView() {
   const [error, setError] = useState<string | null>(null);
   const photoInput = useRef<HTMLInputElement>(null);
   const videoInput = useRef<HTMLInputElement>(null);
+  const cloneInput = useRef<HTMLInputElement>(null);
 
   const { onAction, detailsMedia, closeDetails, toast } = useMediaHandoffRouter("from Avatar & Voice Hub");
   const readyVoices = voices.filter((v) => v.sample_file_path);
@@ -56,6 +66,12 @@ export function AvatarsView() {
     setVoices(v);
   }
 
+  async function refreshClones() {
+    if (!isAdmin) return;
+    const result = await api.listClonedVoiceProfiles();
+    setClonedProfiles(result.profiles);
+  }
+
   useEffect(() => {
     api.getMe().then((u) => setIsAdmin(u.role === "owner_admin")).catch(() => setIsAdmin(false));
     api.avatarReadiness().then(setReadiness).catch(() => setReadiness(null));
@@ -65,6 +81,66 @@ export function AvatarsView() {
   useEffect(() => {
     if (readiness?.default_avatar_preset) setAvatarPreset(readiness.default_avatar_preset);
   }, [readiness?.default_avatar_preset]);
+
+  useEffect(() => {
+    if (isAdmin) refreshClones().catch(() => setClonedProfiles([]));
+  }, [isAdmin]);
+
+  async function enrollClone() {
+    if (!cloneName.trim() || !cloneTranscript.trim() || !cloneRights || !cloneFile) return;
+    setBusy("voiceclone");
+    setError(null);
+    setCloneNote(null);
+    try {
+      if (/\.\.\.|…/.test(cloneTranscript)) {
+        throw new Error("The reference transcript contains an ellipsis. Enter every spoken word exactly; omitted words can make cloned output nearly silent.");
+      }
+      const form = new FormData();
+      form.append("file", cloneFile);
+      form.append("name", cloneName.trim());
+      form.append("transcript", cloneTranscript.trim());
+      form.append("source_type", cloneSourceType);
+      form.append("rights_confirmed", String(cloneRights));
+      const enrolled = await api.enrollClonedVoice(form);
+      await refreshClones();
+      setCloneNote(`${enrolled.name} enrolled successfully and is now active. Enter test text below, then click Test this clone on its card.`);
+      setCloneName(""); setCloneTranscript(""); setCloneRights(false);
+      setCloneFile(null);
+      if (cloneInput.current) cloneInput.current.value = "";
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Voice enrollment failed");
+    } finally { setBusy(null); }
+  }
+
+  async function activateClone(slug: string) {
+    setBusy(`activate-${slug}`); setError(null);
+    try { await api.activateClonedVoice(slug); await refreshClones(); }
+    catch (e) { setError(e instanceof Error ? e.message : "Could not activate voice"); }
+    finally { setBusy(null); }
+  }
+
+  async function deleteClone(profile: ClonedVoiceProfile) {
+    if (!window.confirm(`Delete the cloned voice profile “${profile.name}”? Its reference recording and transcript will be permanently removed.`)) return;
+    setBusy(`delete-clone-${profile.slug}`); setError(null);
+    try {
+      await api.deleteClonedVoice(profile.slug);
+      if (cloneAudioUrl) { URL.revokeObjectURL(cloneAudioUrl); setCloneAudioUrl(null); }
+      await refreshClones();
+    } catch (e) { setError(e instanceof Error ? e.message : "Could not delete cloned voice"); }
+    finally { setBusy(null); }
+  }
+
+  async function testClone(slug: string) {
+    if (!cloneTestText.trim()) return;
+    setBusy(`test-${slug}`); setError(null);
+    try {
+      const blob = await api.synthesizeClonedVoice(slug, cloneTestText.trim());
+      if (cloneAudioUrl) URL.revokeObjectURL(cloneAudioUrl);
+      const url = URL.createObjectURL(blob); setCloneAudioUrl(url);
+      const audio = new Audio(url); await audio.play();
+    } catch (e) { setError(e instanceof Error ? e.message : "Clone synthesis failed"); }
+    finally { setBusy(null); }
+  }
 
   async function uploadAvatar(kind: "photo" | "video", file: File) {
     setBusy(kind);
@@ -162,6 +238,21 @@ export function AvatarsView() {
       } else {
         setError(msg);
       }
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function deleteVoiceGreeting(voice: VoiceAsset) {
+    if (!window.confirm(`Delete “${voice.name}”? This removes its generated audio and cannot be undone.`)) return;
+    setBusy(`delete-voice-${voice.id}`);
+    setError(null);
+    try {
+      await api.deleteVoice(voice.id);
+      if (pickVoice === voice.id) setPickVoice("");
+      await refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not delete voice greeting");
     } finally {
       setBusy(null);
     }
@@ -350,7 +441,7 @@ export function AvatarsView() {
           </button>
         </div>
         {readyVoices.length === 0 ? (
-          <p className="text-xs text-muted-foreground">Create a voice greeting below first, then it appears here.</p>
+          <p className="text-xs text-muted-foreground">Create a preset/Piper greeting below first, then it appears here. Cloned-voice testing is in the Voice Cloning panel.</p>
         ) : null}
         {selectedPreset ? (
           <p className="text-xs text-muted-foreground">
@@ -417,10 +508,71 @@ export function AvatarsView() {
       </section>
 
       {/* Voices */}
+      <section id="voice-cloning" className="scroll-mt-6 space-y-4 rounded-xl border border-primary/30 bg-primary/5 p-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <Mic className="h-5 w-5 text-primary" />
+          <div>
+            <h3 className="font-semibold">Sovereign Voice Cloning</h3>
+            <p className="text-xs text-muted-foreground">Enroll consented or properly licensed samples into the local dots.tts engine.</p>
+          </div>
+          <ReadyBadge ready={clonedProfiles.some((p) => p.configured)} label="Local profiles" />
+        </div>
+        {isAdmin ? (
+          <>
+            <div className="grid gap-3 md:grid-cols-2">
+              <input value={cloneName} onChange={(e) => setCloneName(e.target.value)} placeholder="Profile name, for example JARVIS" className="h-10 rounded-md border border-input bg-background px-3 text-sm" />
+              <select value={cloneSourceType} onChange={(e) => setCloneSourceType(e.target.value)} className="h-10 rounded-md border border-input bg-background px-3 text-sm">
+                <option value="consented-human">Consented human voice</option>
+                <option value="synthetic">Licensed synthetic voice</option>
+              </select>
+            </div>
+            <textarea value={cloneTranscript} onChange={(e) => setCloneTranscript(e.target.value)} placeholder="Exact words spoken in the recording" rows={3} className="w-full rounded-md border border-input bg-background p-3 text-sm" />
+            <label className="flex items-start gap-2 text-xs text-muted-foreground">
+              <input type="checkbox" checked={cloneRights} onChange={(e) => setCloneRights(e.target.checked)} className="mt-0.5" />
+              I own this voice or have explicit rights to clone and use it in Sovereign.
+            </label>
+            <div className="flex flex-wrap items-center gap-3">
+              <input ref={cloneInput} type="file" accept="audio/*,video/mp4,video/quicktime,video/webm,video/x-matroska" disabled={busy === "voiceclone"} onChange={(e) => setCloneFile(e.target.files?.[0] ?? null)} className="block min-w-0 flex-1 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-2 file:text-primary-foreground disabled:opacity-50" />
+              <button
+                type="button"
+                onClick={enrollClone}
+                disabled={!cloneName.trim() || !cloneTranscript.trim() || !cloneRights || !cloneFile || busy === "voiceclone"}
+                className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
+              >
+                {busy === "voiceclone" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mic className="h-4 w-4" />}
+                {busy === "voiceclone" ? "Enrolling…" : "Enroll voice profile"}
+              </button>
+            </div>
+            {cloneNote ? <p className="rounded-md bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-300">{cloneNote}</p> : null}
+            <p className="text-xs text-muted-foreground">The transcript must match the words spoken in the uploaded sample. It teaches the clone; it is not the text the test will speak.</p>
+          </>
+        ) : <p className="text-sm text-muted-foreground">Owner administrator access is required to enroll global voice profiles.</p>}
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          {clonedProfiles.map((profile) => (
+            <div key={profile.slug} className="rounded-lg border border-border bg-background/70 p-3">
+              <div className="flex items-center justify-between gap-2"><strong className="text-sm">{profile.name}</strong><span className="text-[11px] text-muted-foreground">{profile.active ? "Active" : profile.configured ? "Ready" : "Incomplete"}</span></div>
+              <p className="mt-1 text-[11px] text-muted-foreground">{profile.source_type.replace("-", " ")}</p>
+              <div className="mt-2 flex flex-wrap gap-3">
+                {!profile.active && profile.configured ? <button type="button" onClick={() => activateClone(profile.slug)} disabled={busy === `activate-${profile.slug}`} className="text-xs font-medium text-primary hover:underline">Make active</button> : null}
+                {profile.configured ? <button type="button" onClick={() => testClone(profile.slug)} disabled={busy === `test-${profile.slug}` || !cloneTestText.trim()} className="text-xs font-medium text-primary hover:underline">Test this clone</button> : null}
+                <button type="button" onClick={() => deleteClone(profile)} disabled={busy === `delete-clone-${profile.slug}`} className="inline-flex items-center gap-1 text-xs font-medium text-destructive hover:underline disabled:opacity-60">
+                  {busy === `delete-clone-${profile.slug}` ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />} Delete profile
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="space-y-2 rounded-lg border border-border bg-background/70 p-3">
+          <label className="text-xs font-medium">Text for the selected clone to say</label>
+          <textarea value={cloneTestText} onChange={(e) => setCloneTestText(e.target.value)} rows={2} className="w-full rounded-md border border-input bg-background p-2 text-sm" />
+          {cloneAudioUrl ? <audio controls autoPlay src={cloneAudioUrl} className="h-9 w-full" /> : null}
+        </div>
+      </section>
+
       <section className="space-y-3">
         <div className="flex flex-wrap items-center gap-2">
           <Mic className="h-4 w-4 text-primary" />
-          <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Custom voices</h3>
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Preset / Piper voices</h3>
           {readiness ? <ReadyBadge ready={readiness.voice.ready} label="Voice engine" /> : null}
           <button
             type="button"
@@ -429,7 +581,7 @@ export function AvatarsView() {
             className="ml-auto inline-flex items-center gap-2 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground disabled:opacity-60"
           >
             {busy === "voicegreeting" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mic className="h-4 w-4" />}
-            Create a voice greeting
+            Create a Piper greeting
           </button>
         </div>
         {voiceNote ? (
@@ -471,9 +623,20 @@ export function AvatarsView() {
                   {audio ? (
                     <div className="flex items-center gap-2">
                       <audio controls src={audio} className="h-8 w-full" />
-                      <a href={audio} download className="text-[11px] font-medium text-primary hover:underline">
-                        Download
-                      </a>
+                      <div className="flex shrink-0 flex-col items-start gap-1">
+                        <button
+                          type="button"
+                          onClick={() => deleteVoiceGreeting(v)}
+                          disabled={busy === `delete-voice-${v.id}`}
+                          className="inline-flex items-center gap-1 text-[11px] font-medium text-destructive hover:underline disabled:opacity-60"
+                        >
+                          {busy === `delete-voice-${v.id}` ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
+                          Delete
+                        </button>
+                        <a href={audio} download className="text-[11px] font-medium text-primary hover:underline">
+                          Download
+                        </a>
+                      </div>
                     </div>
                   ) : null}
                 </div>

@@ -41,6 +41,8 @@ import type {
   AdminSetupStatus,
   AvatarAsset,
   VoiceAsset,
+  VoiceCloningProfiles,
+  ClonedVoiceProfile,
   AvatarJob,
   AvatarVoiceReadiness,
   IntegrationProvider,
@@ -79,7 +81,7 @@ import type {
 } from "../types";
 
 
-import { API_BASE, downloadZip, formRequest, request, setActiveUserId } from "@/lib/api/core";
+import { API_BASE, blobRequest, downloadZip, formRequest, request, setActiveUserId } from "@/lib/api/core";
 
 export const adminApi = {
   getMe: () => request<User>("/api/me"),
@@ -111,12 +113,23 @@ export const adminApi = {
   createPhotoAvatar: (form: FormData) => formRequest<AvatarAsset>("/api/avatars/photo", form),
   createVideoAvatar: (form: FormData) => formRequest<AvatarAsset>("/api/avatars/video", form),
   listVoices: () => request<VoiceAsset[]>("/api/voices"),
+  listClonedVoiceProfiles: () => request<VoiceCloningProfiles>("/api/voice-cloning/profiles"),
+  enrollClonedVoice: (form: FormData) =>
+    formRequest<ClonedVoiceProfile>("/api/voice-cloning/profiles", form),
+  activateClonedVoice: (slug: string) =>
+    request<{ ok: boolean; active: string }>(`/api/voice-cloning/profiles/${encodeURIComponent(slug)}/activate`, { method: "POST" }),
+  deleteClonedVoice: (slug: string) =>
+    request<void>(`/api/voice-cloning/profiles/${encodeURIComponent(slug)}`, { method: "DELETE" }),
+  synthesizeClonedVoice: (profile: string, text: string) =>
+    blobRequest("/api/voice-cloning/synthesize", { profile, text }),
   createVoice: (input: { name: string; voice_type: string }) =>
     request<VoiceAsset>("/api/voices", { method: "POST", body: JSON.stringify(input) }),
   createGreeting: (input: { script_text?: string; avatar_id?: string; voice_id?: string }) =>
     request<AvatarJob>("/api/avatar-jobs/greeting", { method: "POST", body: JSON.stringify(input) }),
   generateVoiceGreeting: (input: { script_text?: string } = {}) =>
     request<VoiceAsset>("/api/voices/greeting", { method: "POST", body: JSON.stringify(input) }),
+  deleteVoice: (id: string) =>
+    request<void>(`/api/voices/${encodeURIComponent(id)}`, { method: "DELETE" }),
   createTalkingAvatar: (input: { avatar_id: string; voice_id: string; script_text?: string; avatar_preset?: string }) =>
     request<AvatarJob>("/api/avatar-jobs/talking", { method: "POST", body: JSON.stringify(input) }),
   getAvatarJob: (id: string) => request<AvatarJob>(`/api/avatar-jobs/${id}`),
