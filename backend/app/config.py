@@ -248,7 +248,7 @@ OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://127.0.0.1:11434")
 OLLAMA_COPY_MODEL = os.getenv("OLLAMA_COPY_MODEL", "llama3.1")
 # Local Ollama presets for the "local-qwen" / "local-deepseek" providers.
 OLLAMA_QWEN_MODEL = os.getenv("OLLAMA_QWEN_MODEL", "qwen3:4b")
-OLLAMA_DEEPSEEK_MODEL = os.getenv("OLLAMA_DEEPSEEK_MODEL", "deepseek-r1")
+OLLAMA_DEEPSEEK_MODEL = os.getenv("OLLAMA_DEEPSEEK_MODEL", "qwen3.6:35b")
 # Anthropic (Claude) and Google (Gemini) — optional; no key required at startup.
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 ANTHROPIC_COPY_MODEL = os.getenv("ANTHROPIC_COPY_MODEL", "claude-3-5-sonnet-latest")
