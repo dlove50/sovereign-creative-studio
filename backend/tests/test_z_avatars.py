@@ -134,7 +134,7 @@ def _mock_voice_ready(monkeypatch):
     monkeypatch.setattr(vsvc, "voice_readiness", lambda: {"backend": "piper", "ready": True, "detail": "ready"})
     monkeypatch.setattr(vsvc, "model_label", lambda: "en_US-test")
 
-    def fake_gen(text, out_path):
+    def fake_gen(text, out_path, voice_id=None):
         out_path.parent.mkdir(parents=True, exist_ok=True)
         out_path.write_bytes(b"RIFF\x00\x00\x00\x00WAVEfake")
 

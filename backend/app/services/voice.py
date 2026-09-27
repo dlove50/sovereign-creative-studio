@@ -6,10 +6,16 @@ audio. Cloud TTS is never the default. Readiness drives the UI.
 """
 from __future__ import annotations
 
+import time
 import wave
 from pathlib import Path
 
+import httpx
+
 from .. import config
+
+VIBEVOICE_PREFIX = "vibevoice:"
+_VIBEVOICE_POLL_SECONDS = 2.0
 
 
 def _model_path() -> Path | None:
@@ -72,7 +78,28 @@ def list_voices() -> list[dict]:
             "is_default": voice_id == default_id,
             "ready": True,
         })
-    return voices
+    return voices + _vibevoice_voices()
+
+
+def _vibevoice_voices() -> list[dict]:
+    """Cloned voices from the local VibeVoice Studio app; empty when it isn't running."""
+    try:
+        resp = httpx.get(f"{config.VIBEVOICE_BASE_URL}/api/voices", timeout=2.0)
+        resp.raise_for_status()
+        names = [v["name"] for v in resp.json().get("voices", [])]
+    except (httpx.HTTPError, ValueError, KeyError, TypeError):
+        return []
+    return [
+        {
+            "id": f"{VIBEVOICE_PREFIX}{name}",
+            "label": f"{name} (VibeVoice clone)",
+            "language": name.split("-")[0] if "-" in name else "en",
+            "quality": "clone",
+            "is_default": False,
+            "ready": True,
+        }
+        for name in names
+    ]
 
 
 def voice_readiness() -> dict:
@@ -113,6 +140,9 @@ def model_label() -> str:
 def generate_speech(text: str, out_path: Path, voice_id: str | None = None) -> None:
     """Synthesize `text` to a local WAV at `out_path` using Piper. Raises on failure;
     callers must only charge after this returns successfully (no faked output)."""
+    if voice_id and voice_id.startswith(VIBEVOICE_PREFIX):
+        _vibevoice_speech(text, out_path, voice_id[len(VIBEVOICE_PREFIX):])
+        return
     from piper import PiperVoice
 
     model = model_path_for_voice(voice_id)
@@ -124,3 +154,55 @@ def generate_speech(text: str, out_path: Path, voice_id: str | None = None) -> N
         voice.synthesize_wav(text, wav_file)
     if not out_path.is_file() or out_path.stat().st_size == 0:
         raise RuntimeError("Piper produced no audio output.")
+
+
+def _free_comfyui_vram() -> None:
+    """Ask ComfyUI to drop its models so VibeVoice fits on the same 16 GB GPU.
+    Best effort: ComfyUI may simply not be running."""
+    try:
+        httpx.post(
+            f"{config.COMFYUI_BASE_URL}/free",
+            json={"unload_models": True, "free_memory": True},
+            timeout=10.0,
+        )
+    except httpx.HTTPError:
+        pass
+
+
+def _vibevoice_speech(text: str, out_path: Path, voice_name: str) -> None:
+    """Render `text` in a cloned voice via VibeVoice Studio, then unload its model
+    so ComfyUI can use the GPU for the avatar video. Raises on any failure."""
+    base = config.VIBEVOICE_BASE_URL
+    # VibeVoice scripts are "Speaker N:" lines; collapse the text onto one speaker line.
+    script = "Speaker 1: " + " ".join(text.split())
+    _free_comfyui_vram()
+    try:
+        with httpx.Client(timeout=30.0) as client:
+            resp = client.post(
+                f"{base}/api/generate",
+                json={"script": script, "voices": [voice_name], "cloneVoices": True},
+            )
+            if resp.status_code >= 400:
+                raise RuntimeError(f"VibeVoice rejected the request: {resp.text[:300]}")
+            job_id = resp.json()["id"]
+
+            deadline = time.monotonic() + config.VIBEVOICE_TIMEOUT_SECONDS
+            while True:
+                job = client.get(f"{base}/api/jobs/{job_id}").json()
+                if job["status"] == "done":
+                    break
+                if job["status"] in ("failed", "cancelled"):
+                    raise RuntimeError(f"VibeVoice {job['status']}: {job.get('error') or 'no detail'}")
+                if time.monotonic() > deadline:
+                    raise RuntimeError("VibeVoice timed out.")
+                time.sleep(_VIBEVOICE_POLL_SECONDS)
+
+            audio = client.get(f"{base}/api/jobs/{job_id}/audio")
+            audio.raise_for_status()
+            out_path.parent.mkdir(parents=True, exist_ok=True)
+            out_path.write_bytes(audio.content)
+            client.post(f"{base}/api/models/unload")
+    except httpx.HTTPError as exc:
+        raise RuntimeError(f"VibeVoice Studio is not reachable at {base}: {exc}") from exc
+    if not out_path.is_file() or out_path.stat().st_size == 0:
+        raise RuntimeError("VibeVoice produced no audio output.")

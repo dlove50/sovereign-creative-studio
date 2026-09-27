@@ -171,22 +171,26 @@ def generate_voice_greeting(payload: GreetingJobIn, db: Session = Depends(get_db
 
     out_name = f"{uuid.uuid4().hex}.wav"
     out_path = config.STORAGE_DIR / "voices" / out_name
+    tts_voice_id = payload.tts_voice_id
+    is_clone = bool(tts_voice_id and tts_voice_id.startswith(voice_provider.VIBEVOICE_PREFIX))
     try:
-        voice_provider.generate_speech(text, out_path)
+        voice_provider.generate_speech(text, out_path, voice_id=tts_voice_id)
     except Exception as exc:  # noqa: BLE001 - never charge on failure.
         raise HTTPException(status_code=502, detail=f"Voice generation failed: {exc}") from exc
 
+    provider = "vibevoice" if is_clone else "piper"
+    model = tts_voice_id[len(voice_provider.VIBEVOICE_PREFIX):] if is_clone else voice_provider.model_label()
     voice = VoiceAsset(
         user_id=user.id,
-        name="Voice greeting",
+        name=f"Voice greeting ({model})" if is_clone else "Voice greeting",
         voice_type="local_tts",
-        provider="piper",
+        provider=provider,
         sample_file_path=f"/storage/voices/{out_name}",
         status="ready",
     )
     db.add(voice)
     db.flush()  # need voice.id for the ledger related_id
-    avatar_jobs.charge_for_voice(db, user, related_id=voice.id, provider=f"piper:{voice_provider.model_label()}")
+    avatar_jobs.charge_for_voice(db, user, related_id=voice.id, provider=f"{provider}:{model}")
     db.commit()
     db.refresh(voice)
     return voice

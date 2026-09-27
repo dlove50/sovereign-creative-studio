@@ -315,6 +315,10 @@ VOICE_MODEL_DIR = Path(os.getenv("VOICE_MODEL_DIR", str(STORAGE_DIR / "models" /
 # Explicit path to a Piper .onnx voice model. If empty, the adapter searches
 # VOICE_MODEL_DIR for <VOICE_MODEL_NAME>.onnx (or the first .onnx present).
 VOICE_MODEL_PATH = os.getenv("VOICE_MODEL_PATH", "")
+# Optional cloned voices from the separate local VibeVoice Studio app. Its voices
+# are listed as "vibevoice:<name>" when the app is running; Piper stays the default.
+VIBEVOICE_BASE_URL = os.getenv("VIBEVOICE_BASE_URL", "http://127.0.0.1:8010")
+VIBEVOICE_TIMEOUT_SECONDS = int(os.getenv("VIBEVOICE_TIMEOUT_SECONDS", "1800"))
 
 # --- Avatar animation (Phase 16A foundation) ---------------------------------
 # No local talking-avatar model is wired by default -> "placeholder". Avatar/voice
