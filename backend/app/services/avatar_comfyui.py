@@ -206,9 +206,13 @@ async def _await_outputs(client: httpx.AsyncClient, prompt_id: str) -> dict:
 
 
 def _find_video(outputs: dict) -> dict | None:
+    """The saved result video. Loader nodes also report previews (type "input" —
+    e.g. LoadVideo echoing the previous chunk), which must never be picked."""
     for node_output in outputs.values():
         for key in ("videos", "gifs", "files", "images"):
             for item in node_output.get(key, []) or []:
+                if not isinstance(item, dict) or item.get("type", "output") != "output":
+                    continue
                 if Path(str(item.get("filename", ""))).suffix.lower() in _VIDEO_EXTS:
                     return item
     return None

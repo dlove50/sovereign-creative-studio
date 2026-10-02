@@ -88,3 +88,13 @@ def test_join_drops_overlap_and_matches_speech_length(tmp_path):
         capture_output=True, text=True, check=True,
     ).stdout.strip()
     assert int(frames) == 125  # 81 + (81 - 9) = 153 available, trimmed to the speech
+
+
+def test_find_video_ignores_loader_preview_of_previous_chunk():
+    # Real ComfyUI history for an extend chunk: LoadVideo (node 90) echoes the
+    # previous chunk as an "input" preview before SaveVideo's actual output.
+    outputs = {
+        "90": {"images": [{"filename": "abc_v0.mp4", "subfolder": "", "type": "input"}], "animated": [True]},
+        "11": {"images": [{"filename": "sovereign_avatar_00026_.mp4", "subfolder": "", "type": "output"}], "animated": [True]},
+    }
+    assert ac._find_video(outputs)["filename"] == "sovereign_avatar_00026_.mp4"
