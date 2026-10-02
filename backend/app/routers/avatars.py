@@ -29,6 +29,7 @@ from ..schemas import (
 from ..services import avatar as avatar_provider
 from ..services import avatar_presets
 from ..services import avatar_jobs, voice as voice_provider
+from ..services import trash
 from ..services.transcription import resolve_storage_url
 
 router = APIRouter(prefix="/api", tags=["avatars"])
@@ -314,6 +315,15 @@ def list_avatar_jobs(scope: str | None = None, db: Session = Depends(get_db), us
     if not _is_admin_all(user, scope):
         stmt = stmt.where(AvatarJob.user_id == user.id)
     return db.scalars(stmt.order_by(AvatarJob.created_at.desc())).all()
+
+
+@router.delete("/avatar-jobs/{job_id}", status_code=204)
+def trash_avatar_job(job_id: str, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """Move an avatar video to the recoverable trash (restorable by the admin)."""
+    job = db.get(AvatarJob, job_id)
+    if job is None or job.deleted_at is not None or (job.user_id != user.id and user.role != ADMIN_ROLE):
+        raise HTTPException(status_code=404, detail="Avatar video not found")
+    trash.move_to_trash(db, "avatar_video", job_id)
 
 
 @router.get("/avatar-jobs/{job_id}", response_model=AvatarJobOut)

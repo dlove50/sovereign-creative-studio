@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowDownWideNarrow, Download, Filter, Folder, FolderPlus, Loader2, Search, Video, X } from "lucide-react";
+import { ArrowDownWideNarrow, Download, Filter, Folder, FolderPlus, Loader2, Search, Trash2, Video, X } from "lucide-react";
 
 import { api, assetUrl } from "@/lib/api";
 import type { AvatarJob, Project, VideoGeneration } from "@/lib/types";
@@ -98,6 +98,19 @@ export function ProjectsLibraryView() {
       sort === "name" ? a.title.localeCompare(b.title) : (sort === "newest" ? -1 : 1) * a.createdAt.localeCompare(b.createdAt),
     );
   }, [items, kind, q, sort]);
+
+  async function trashOpen() {
+    if (!open || !window.confirm(`Move “${open.title.slice(0, 60)}” to the trash? An admin can restore it.`)) return;
+    const [prefix, rawId] = [open.id.slice(0, 2), open.id.slice(2)];
+    try {
+      if (prefix === "a-") await api.trashAvatarJob(rawId);
+      else await api.trashVideo(rawId);
+      setItems((all) => (all ?? []).filter((i) => i.id !== open.id));
+      setOpen(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "The video could not be moved to the trash.");
+    }
+  }
 
   async function createFolder() {
     if (!folderName.trim()) return;
@@ -197,7 +210,10 @@ export function ProjectsLibraryView() {
               <button type="button" onClick={() => setOpen(null)} aria-label="Close" className="rounded-full p-1 text-muted-foreground hover:bg-raised"><X className="h-4 w-4" /></button>
             </div>
             <video controls autoPlay src={assetUrl(open.url) ?? undefined} className="max-h-[70vh] w-full bg-black" />
-            <div className="flex justify-end px-5 py-3">
+            <div className="flex justify-between gap-3 px-5 py-3">
+              <button type="button" onClick={trashOpen} className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm text-destructive hover:bg-raised">
+                <Trash2 className="h-4 w-4" /> Move to trash
+              </button>
               <a href={assetUrl(open.url) ?? "#"} download className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground">
                 <Download className="h-4 w-4" /> Download
               </a>

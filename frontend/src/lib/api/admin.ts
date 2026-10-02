@@ -115,6 +115,10 @@ export const adminApi = {
       method: "POST",
       body: JSON.stringify(input),
     }),
+  trashAvatarJob: (id: string) =>
+    request<void>(`/api/avatar-jobs/${encodeURIComponent(id)}`, { method: "DELETE" }),
+  trashVideo: (id: string) =>
+    request<void>(`/api/videos/${encodeURIComponent(id)}`, { method: "DELETE" }),
   deleteAvatar: (id: string) =>
     request<void>(`/api/avatars/${encodeURIComponent(id)}`, { method: "DELETE" }),
   listVoices: () => request<VoiceAsset[]>("/api/voices"),

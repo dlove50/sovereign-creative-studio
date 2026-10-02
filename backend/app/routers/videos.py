@@ -26,6 +26,7 @@ from ..database import get_db
 from ..deps import get_current_user
 from ..models import ProductSceneGeneration, Project, User, VideoGeneration
 from ..schemas import VideoCreate, VideoModeOption, VideoOut, VideoProviderReadiness
+from ..services import trash
 from ..services.briefs import load_project_brief, with_brief_context
 from ..services.integrations import get_private_provider_config
 from ..services.source_validation import validate_source_media_url
@@ -500,6 +501,15 @@ def list_videos(
         stmt = stmt.where(VideoGeneration.project_id == project_id)
     stmt = stmt.order_by(VideoGeneration.created_at.desc())
     return db.scalars(stmt).all()
+
+
+@router.delete("/{video_id}", status_code=204)
+def trash_video(video_id: str, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """Move a generated clip to the recoverable trash (restorable by the admin)."""
+    video = db.get(VideoGeneration, video_id)
+    if video is None or video.deleted_at is not None or video.user_id != user.id:
+        raise HTTPException(status_code=404, detail="Video not found")
+    trash.move_to_trash(db, "video", video_id)
 
 
 @router.get("/{video_id}", response_model=VideoOut)

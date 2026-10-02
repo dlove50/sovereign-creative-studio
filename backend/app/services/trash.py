@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session
 
 from .. import config
 from ..models import (
+    AvatarJob,
     CampaignBundle,
     Generation,
     ProductAsset,
@@ -44,6 +45,7 @@ def _trash_dir() -> Path:
 # entity_type -> (model, [url attrs], is_original_upload, title fn)
 _ENTITIES = {
     "video": (VideoGeneration, ["result_url"], False, lambda r: r.prompt),
+    "avatar_video": (AvatarJob, ["output_video_path"], False, lambda r: r.script_text or "Talking avatar"),
     "scene": (ProductSceneGeneration, ["result_url"], False, lambda r: r.prompt),
     "generation": (Generation, ["file_url"], False, lambda r: r.prompt),
     "upload": (ProductAsset, ["original_url", "processed_url", "mask_url"], True, lambda r: r.filename),
