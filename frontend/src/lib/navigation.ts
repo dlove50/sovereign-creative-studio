@@ -10,6 +10,7 @@ import {
   Film,
   Folder,
   Home,
+  LayoutGrid,
   Images,
   ImageIcon,
   Layers3,
@@ -74,4 +75,19 @@ export const ADMIN_NAV: NavigationItem[] = [
   { href: "/model-manager", label: "Model Manager", icon: Cpu },
   { href: "/workflow-manager", label: "Workflow Manager", icon: SlidersHorizontal },
   { href: "/status", label: "Status", icon: Activity },
+];
+
+// HeyGen-style shell: a slim icon rail for the main areas, and a "Create" fly-out
+// for the ways to start a video. Every other studio lives in the Apps library.
+export const RAIL_NAV: NavigationItem[] = [
+  { href: "/", label: "Home", icon: Home },
+  { href: "/avatars", label: "Avatar", icon: PersonStanding },
+  { href: "/apps", label: "Apps", icon: LayoutGrid },
+  { href: "/projects", label: "Projects", icon: Folder },
+];
+
+export const CREATE_NAV: NavigationItem[] = [
+  { href: "/", label: "Home", icon: Home },
+  { href: "/storyboard-studio", label: "Scene by scene", icon: Clapperboard },
+  { href: "/chain", label: "Single scene", icon: Wand2 },
 ];

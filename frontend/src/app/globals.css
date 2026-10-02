@@ -2,29 +2,30 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Sovereign Creative Studio — dark "studio" theme, violet accent. */
+/* Sovereign Creative Studio — neutral charcoal studio, sky-cyan accent. */
 :root {
-  --background: 250 24% 6%;
-  --foreground: 240 20% 96%;
+  --background: 228 10% 10%;   /* #17181C */
+  --foreground: 220 14% 96%;   /* #F3F4F6 */
 
-  --card: 250 20% 9%;
-  --card-foreground: 240 20% 96%;
+  --card: 225 9% 13.5%;        /* #1F2126 */
+  --card-foreground: 220 14% 96%;
+  --raised: 222 9% 17%;        /* #272A30 */
 
-  --primary: 264 82% 64%;
-  --primary-foreground: 0 0% 100%;
+  --primary: 197 87% 54%;      /* #22B8F0 */
+  --primary-foreground: 220 30% 8%;
 
-  --muted: 250 14% 16%;
-  --muted-foreground: 245 9% 64%;
+  --muted: 222 9% 17%;
+  --muted-foreground: 219 6% 58%; /* #8D929B */
 
-  --accent: 318 80% 62%;
+  --accent: 262 70% 66%;
   --accent-foreground: 0 0% 100%;
 
   --destructive: 0 72% 56%;
   --destructive-foreground: 0 0% 100%;
 
-  --border: 250 14% 18%;
-  --input: 250 14% 18%;
-  --ring: 264 82% 64%;
+  --border: 223 9% 20%;        /* #2E3138 */
+  --input: 223 9% 20%;
+  --ring: 197 87% 54%;
 
   --radius: 0.85rem;
 }
@@ -36,11 +37,21 @@
 body {
   background-color: hsl(var(--background));
   color: hsl(var(--foreground));
-  /* Subtle studio glow so the page never reads as a flat template. */
-  background-image:
-    radial-gradient(60rem 40rem at 85% -10%, hsl(264 82% 64% / 0.14), transparent 60%),
-    radial-gradient(50rem 40rem at -10% 110%, hsl(318 80% 62% / 0.1), transparent 55%);
-  background-attachment: fixed;
+}
+
+/* The one bold moment: a soft cyan/violet aurora behind the home headline. */
+.welcome-glow {
+  background:
+    radial-gradient(34rem 16rem at 50% 30%, hsl(197 87% 54% / 0.22), transparent 70%),
+    radial-gradient(26rem 14rem at 62% 45%, hsl(262 70% 66% / 0.16), transparent 70%);
+  filter: blur(8px);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .welcome-glow { animation: glow-drift 14s ease-in-out infinite alternate; }
+}
+@keyframes glow-drift {
+  from { transform: translate3d(-2%, 0, 0) scale(1); }
+  to { transform: translate3d(2%, 2%, 0) scale(1.06); }
 }
 
 .ocr-markdown { color: hsl(var(--foreground) / .9); font-size: .925rem; line-height: 1.75; }

@@ -1,5 +1,5 @@
-import { CreatorHomeView } from "@/components/creator-home-view";
+import { WelcomeView } from "@/components/home/welcome-view";
 
 export default function HomePage() {
-  return <CreatorHomeView />;
+  return <WelcomeView />;
 }

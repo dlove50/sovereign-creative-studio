@@ -6,9 +6,19 @@ import { usePathname, useRouter } from "next/navigation";
 import { Coins, LogOut, Sparkles, UserCircle } from "lucide-react";
 
 import { api } from "@/lib/api";
+import { ADMIN_NAV, CREATOR_NAV, RAIL_NAV } from "@/lib/navigation";
 import { isAuthRoute } from "@/lib/routes";
 import { Badge } from "@/components/ui/badge";
 import { MobileNavigation } from "@/components/mobile-navigation";
+
+const ALL_NAV = [...RAIL_NAV, ...CREATOR_NAV, ...ADMIN_NAV];
+
+/** The page pill at the top left, like HeyGen's "Home" / "Avatars" label. */
+function pageTitle(pathname: string) {
+  const match = ALL_NAV.filter((n) => (n.href === "/" ? pathname === "/" : pathname.startsWith(n.href)))
+    .sort((a, b) => b.href.length - a.href.length)[0];
+  return match?.label ?? "Sovereign";
+}
 
 export function Topbar() {
   const router = useRouter();
@@ -80,8 +90,8 @@ export function Topbar() {
           <span className="text-sm font-semibold">Sovereign</span>
         </Link>
       </div>
-      <div className="hidden text-sm text-muted-foreground md:block">
-        Welcome{name ? `, ` : ""}<span className="text-foreground">{name ?? "to your studio"}</span>
+      <div className="hidden md:block">
+        <span className="rounded-xl border border-border bg-card/70 px-3 py-1.5 text-sm font-medium">{pageTitle(pathname)}</span>
       </div>
 
       <div className="flex items-center gap-3">

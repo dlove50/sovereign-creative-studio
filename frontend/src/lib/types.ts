@@ -37,6 +37,8 @@ export interface AvatarAsset {
   provider: string;
   notes: string | null;
   created_at: string;
+  group_id?: string | null;
+  look_label?: string | null;
 }
 
 export interface VoiceAsset {
