@@ -90,7 +90,7 @@ class GreetingJobIn(BaseModel):
     avatar_id: Optional[str] = None
     voice_id: Optional[str] = None
     script_text: Optional[str] = Field(default=None, max_length=2000)
-    avatar_preset: Optional[Literal["tiny_test", "low_vram", "balanced", "quality"]] = None
+    avatar_preset: Optional[Literal["tiny_test", "low_vram", "balanced", "quality", "portrait_480p"]] = None
     # TTS voice for /voices/greeting: a Piper voice id or "vibevoice:<name>" clone.
     tts_voice_id: Optional[str] = Field(default=None, max_length=200)
 

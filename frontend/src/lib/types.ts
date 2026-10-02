@@ -83,7 +83,7 @@ export interface ProviderReadiness {
 }
 
 export interface AvatarWanPreset {
-  id: "tiny_test" | "low_vram" | "balanced" | "quality";
+  id: "tiny_test" | "low_vram" | "balanced" | "quality" | "portrait_480p";
   label: string;
   description: string;
   width: number;

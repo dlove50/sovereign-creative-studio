@@ -335,6 +335,9 @@ AVATAR_WAN_WORKFLOW_PATH = os.getenv("AVATAR_WAN_WORKFLOW_PATH", "workflows/avat
 AVATAR_WAN_MODEL_NAME = os.getenv("AVATAR_WAN_MODEL_NAME", "")  # Wan 2.x video diffusion (.safetensors)
 AVATAR_INFINITETALK_PATCH_NAME = os.getenv("AVATAR_INFINITETALK_PATCH_NAME", "")  # InfiniteTalk model_patch
 AVATAR_AUDIO_ENCODER_NAME = os.getenv("AVATAR_AUDIO_ENCODER_NAME", "")  # wav2vec2 audio encoder
+# Optional Wan step-distill LoRA (e.g. lightx2v) — sharp output at 4-8 steps, CFG 1.
+AVATAR_WAN_LORA_NAME = os.getenv("AVATAR_WAN_LORA_NAME", "")
+AVATAR_WAN_LORA_STRENGTH = float(os.getenv("AVATAR_WAN_LORA_STRENGTH", "1.0"))
 AVATAR_WAN_PRESET = os.getenv("AVATAR_WAN_PRESET", "tiny_test")
 
 

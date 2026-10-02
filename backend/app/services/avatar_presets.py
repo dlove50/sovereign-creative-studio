@@ -72,6 +72,17 @@ PRESETS: dict[str, AvatarWanPreset] = {
         cfg=1.0,
         warning="Experimental: can OOM or fail on 16 GB VRAM. Failed jobs are not charged.",
     ),
+    "portrait_480p": AvatarWanPreset(
+        id="portrait_480p",
+        label="Vertical 480p",
+        description="Phone-shaped 480x832 for Reels/Shorts. Long scripts render in 3-second chunks.",
+        width=480,
+        height=832,
+        frames=81,
+        steps=6,
+        cfg=1.0,
+        warning="Best with the lightx2v LoRA set in AVATAR_WAN_LORA_NAME.",
+    ),
 }
 
 
