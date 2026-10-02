@@ -156,7 +156,7 @@ export function AppRail() {
             ) : (
               recents.map((job) => (
                 <li key={job.id}>
-                  <Link href="/avatars" className="block rounded-lg px-3 py-2 hover:bg-raised">
+                  <Link href="/avatars/create" className="block rounded-lg px-3 py-2 hover:bg-raised">
                     <span className="block truncate text-sm">{job.script_text || "Talking avatar"}</span>
                     <span className="block text-[11px] text-muted-foreground">{timeAgo(job.created_at)} · Avatar video</span>
                   </Link>

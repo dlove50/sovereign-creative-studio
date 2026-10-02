@@ -25,14 +25,14 @@ const TABS: { id: "all" | Category; label: string }[] = [
 
 const FEATURED = [
   { name: "AI video generator", href: "/videos", image: "/sovereign-ui/apps/generator.webp", tint: "text-amber-200" },
-  { name: "Talking avatar", href: "/avatars", image: "/sovereign-ui/apps/podcast.webp", tint: "text-sky-300" },
+  { name: "Talking avatar", href: "/avatars/create", image: "/sovereign-ui/apps/podcast.webp", tint: "text-sky-300" },
   { name: "Transcribe video", href: "/video-to-text", image: "/sovereign-ui/apps/cleanup.webp", tint: "text-amber-100" },
 ];
 
 // Apps without an href are planned; they are listed so the roadmap is visible,
 // but never rendered as links.
 const APPS: AppEntry[] = [
-  { name: "Talking avatar", blurb: "Your photo speaks your script in your cloned voice.", icon: PersonStanding, category: "create", href: "/avatars" },
+  { name: "Talking avatar", blurb: "Your photo speaks your script in your cloned voice.", icon: PersonStanding, category: "create", href: "/avatars/create" },
   { name: "Scene by scene", blurb: "Plan a video as a storyboard of scenes.", icon: Clapperboard, category: "create", href: "/storyboard-studio" },
   { name: "Quick Chain", blurb: "Image, motion, upscale and voice in one guided flow.", icon: Wand2, category: "create", href: "/chain" },
   { name: "AI video generator", blurb: "Turn a photo and a prompt into a short video clip.", icon: Video, category: "create", href: "/videos" },

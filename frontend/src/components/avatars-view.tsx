@@ -5,7 +5,7 @@ import { ImagePlus, Loader2, Mic, Shirt, Sparkles, Trash2, UserSquare, Video } f
 
 import { api, assetUrl } from "@/lib/api";
 import type { AvatarAsset, AvatarJob, AvatarVoiceReadiness, VoiceAsset, VoiceOption } from "@/lib/types";
-import { AvatarLookStudio } from "@/components/avatars/AvatarLookStudio";
+import Link from "next/link";
 import { MediaActions } from "@/components/media/MediaActions";
 import { MediaDetailsDrawer } from "@/components/media/MediaDetailsDrawer";
 import { useMediaHandoffRouter } from "@/components/media/useMediaHandoffRouter";
@@ -44,9 +44,7 @@ export function AvatarsView() {
   const [script, setScript] = useState("");
   const [ttsVoices, setTtsVoices] = useState<VoiceOption[]>([]);
   const [ttsVoice, setTtsVoice] = useState("");
-  const [lookBase, setLookBase] = useState("");
   const photoInput = useRef<HTMLInputElement>(null);
-  const lookStudio = useRef<HTMLDivElement>(null);
   const videoInput = useRef<HTMLInputElement>(null);
 
   const { onAction, detailsMedia, closeDetails, toast } = useMediaHandoffRouter("from Avatar & Voice Hub");
@@ -78,8 +76,12 @@ export function AvatarsView() {
 
   useEffect(() => {
     // A Home "video prompt" card passes its starter script in ?script=.
-    const fromLink = new URLSearchParams(window.location.search).get("script");
+    const params = new URLSearchParams(window.location.search);
+    const fromLink = params.get("script");
     if (fromLink) setScript(fromLink.slice(0, 2000));
+    // "Use in a video" / "Make a video" pass the chosen look in ?avatar=.
+    const chosen = params.get("avatar");
+    if (chosen) setPickAvatar(chosen);
   }, []);
 
   useEffect(() => {
@@ -185,10 +187,6 @@ export function AvatarsView() {
     }
   }
 
-  function startLook(avatarId: string) {
-    setLookBase(avatarId);
-    lookStudio.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }
 
   async function makeVoiceGreeting() {
     setBusy("voicegreeting");
@@ -332,13 +330,12 @@ export function AvatarsView() {
                   <p className="truncate text-xs font-medium">{a.name}</p>
                   <p className="text-[11px] text-muted-foreground">{a.avatar_type.replace("_", " ")}</p>
                   {a.avatar_type === "photo_avatar" ? (
-                    <button
-                      type="button"
-                      onClick={() => startLook(a.id)}
+                    <Link
+                      href={`/avatars/looks?avatar=${a.id}`}
                       className="mt-1 inline-flex items-center gap-1 text-[11px] font-medium text-primary hover:underline"
                     >
                       <Shirt className="h-3 w-3" /> New look
-                    </button>
+                    </Link>
                   ) : null}
                 </div>
               </div>
@@ -346,10 +343,6 @@ export function AvatarsView() {
           </div>
         )}
       </section>
-
-      <div ref={lookStudio} className="scroll-mt-4">
-        <AvatarLookStudio avatars={avatars} baseId={lookBase} onBaseChange={setLookBase} onCreated={refresh} />
-      </div>
 
       {/* Talking Avatar */}
       <section className="space-y-3 rounded-2xl border border-border bg-card p-5">

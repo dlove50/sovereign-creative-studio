@@ -108,10 +108,10 @@ export function WelcomeView() {
       action: clone ? { label: "Record a new sample", href: VIBEVOICE_URL, external: true } : { label: "Open VibeVoice Studio", href: VIBEVOICE_URL, external: true } },
     { id: "look", title: "Create a look", icon: Shirt, done: hasLook,
       body: "New outfits and scenes from one prompt, with your face kept the same.",
-      action: { label: hasLook ? "View my looks" : "Create a look", href: "/avatars" } },
+      action: { label: hasLook ? "View my looks" : "Create a look", href: hasLook ? "/avatars" : "/avatars/looks" } },
     { id: "video", title: "Make your first video", icon: Video, done: hasVideo,
       body: "Type a script, pick a voice and a look, and your avatar says it.",
-      action: { label: hasVideo ? "Make another video" : "Make a video", href: "/avatars" } },
+      action: { label: hasVideo ? "Make another video" : "Make a video", href: "/avatars/create" } },
   ];
   const doneCount = steps.filter((s) => s.done).length;
   const currentIndex = steps.findIndex((s) => !s.done);
@@ -154,7 +154,7 @@ export function WelcomeView() {
           {PROMPTS.map((p) => (
             <li key={p.id}>
               <Link
-                href={`/avatars?script=${encodeURIComponent(p.script)}`}
+                href={`/avatars/create?script=${encodeURIComponent(p.script)}`}
                 className="group relative block aspect-[16/7] overflow-hidden rounded-2xl border border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <img src={p.image} alt="" width={960} height={420} className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]" />

@@ -110,6 +110,8 @@ export const adminApi = {
   listAvatars: () => request<AvatarAsset[]>("/api/avatars"),
   createPhotoAvatar: (form: FormData) => formRequest<AvatarAsset>("/api/avatars/photo", form),
   createVideoAvatar: (form: FormData) => formRequest<AvatarAsset>("/api/avatars/video", form),
+  deleteAvatar: (id: string) =>
+    request<void>(`/api/avatars/${encodeURIComponent(id)}`, { method: "DELETE" }),
   listVoices: () => request<VoiceAsset[]>("/api/voices"),
   createVoice: (input: { name: string; voice_type: string }) =>
     request<VoiceAsset>("/api/voices", { method: "POST", body: JSON.stringify(input) }),

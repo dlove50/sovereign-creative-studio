@@ -347,6 +347,32 @@ export function VideosView() {
         onRefresh={refreshStatus}
       />
       <ActiveConfigBadge fields={["video_backend"]} />
+      <details className="rounded-lg border border-border bg-card p-4">
+        <summary className="cursor-pointer text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary">
+          Free online video tools
+        </summary>
+        <p className="mt-3 max-w-prose text-sm text-muted-foreground">
+          Keep local generation as your default, or open a free service below.
+          Sign in on the provider's website if needed, choose its free option,
+          and download your finished clip. Availability and limits vary by service.
+        </p>
+        <nav aria-label="Free video services" className="mt-3 flex flex-wrap gap-2">
+          {[
+            ["ZSky", "https://zsky.ai/create"],
+            ["UsefulShelf", "https://usefulshelf.com/en/ai-tools"],
+            ["Viggle", "https://viggle.ai/tools"],
+            ["GizAI", "https://www.giz.ai/ai-video-generator/"],
+          ].map(([name, href]) => (
+            <a key={name} href={href} target="_blank" rel="noopener noreferrer"
+              className={buttonVariants({ variant: "outline", size: "sm" })}>
+              Open {name}<span className="sr-only"> (new tab)</span>
+            </a>
+          ))}
+        </nav>
+        <p className="mt-3 text-sm text-muted-foreground">
+          These links open external websites. Clips are not automatically imported into Sovereign.
+        </p>
+      </details>
       <div className="grid gap-8 lg:grid-cols-[400px_1fr]">
       <form
         onSubmit={handleSubmit}
