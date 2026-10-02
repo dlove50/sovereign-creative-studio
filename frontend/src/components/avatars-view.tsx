@@ -77,6 +77,12 @@ export function AvatarsView() {
   }, []);
 
   useEffect(() => {
+    // A Home "video prompt" card passes its starter script in ?script=.
+    const fromLink = new URLSearchParams(window.location.search).get("script");
+    if (fromLink) setScript(fromLink.slice(0, 2000));
+  }, []);
+
+  useEffect(() => {
     if (readiness?.greeting_text) setScript((cur) => cur || readiness.greeting_text);
   }, [readiness?.greeting_text]);
 
