@@ -70,7 +70,18 @@ def _store_avatar_upload(file: UploadFile, allowed: set[str], kind: str) -> tupl
     return f"/storage/avatars/uploads/{stored}", original
 
 
-def _create_avatar(db, user, *, avatar_type, allowed, kind, name, file, source_url):
+def _resolve_group(db, user, group_id: str | None) -> str | None:
+    """A new look joins its base avatar's group; the base must be the user's own."""
+    if not group_id:
+        return None
+    base = db.get(AvatarAsset, group_id)
+    if base is None or base.deleted_at is not None or (base.user_id != user.id and user.role != ADMIN_ROLE):
+        raise HTTPException(status_code=404, detail="Base avatar not found")
+    return base.group_id or base.id
+
+
+def _create_avatar(db, user, *, avatar_type, allowed, kind, name, file, source_url, group_id=None, look_label=None):
+    group = _resolve_group(db, user, group_id)
     if file is not None and source_url:
         raise HTTPException(status_code=400, detail="Provide either an upload or an existing source, not both")
     if file is not None:
@@ -95,6 +106,8 @@ def _create_avatar(db, user, *, avatar_type, allowed, kind, name, file, source_u
         status="ready",
         provider="local",
         notes=_CONSENT_NOTE,
+        group_id=group,
+        look_label=(look_label or "").strip()[:160] or None,
     )
     db.add(asset)
     db.commit()
@@ -115,11 +128,30 @@ def list_avatars(scope: str | None = None, db: Session = Depends(get_db), user: 
 def create_photo_avatar(
     name: str | None = Form(default=None),
     source_url: str | None = Form(default=None),
+    group_id: str | None = Form(default=None),
+    look_label: str | None = Form(default=None),
     file: UploadFile | None = File(default=None),
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    return _create_avatar(db, user, avatar_type="photo_avatar", allowed=_IMAGE_EXTS, kind="image", name=name, file=file, source_url=source_url)
+    return _create_avatar(
+        db, user, avatar_type="photo_avatar", allowed=_IMAGE_EXTS, kind="image", name=name,
+        file=file, source_url=source_url, group_id=group_id, look_label=look_label,
+    )
+
+
+@router.delete("/avatars/{avatar_id}", status_code=204)
+def delete_avatar(avatar_id: str, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """Soft-delete one avatar or look. Deleting a base avatar also removes its looks."""
+    avatar = db.get(AvatarAsset, avatar_id)
+    if avatar is None or avatar.deleted_at is not None or (avatar.user_id != user.id and user.role != ADMIN_ROLE):
+        raise HTTPException(status_code=404, detail="Avatar not found")
+    now = datetime.now(timezone.utc)
+    avatar.deleted_at = now
+    if avatar.group_id is None:
+        for look in db.scalars(select(AvatarAsset).where(AvatarAsset.group_id == avatar.id, AvatarAsset.deleted_at.is_(None))):
+            look.deleted_at = now
+    db.commit()
 
 
 @router.post("/avatars/video", response_model=AvatarAssetOut, status_code=201)

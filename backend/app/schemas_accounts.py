@@ -44,6 +44,8 @@ class AvatarAssetOut(BaseModel):
     status: str
     provider: str
     notes: Optional[str] = None
+    group_id: Optional[str] = None
+    look_label: Optional[str] = None
     created_at: datetime
 
 

@@ -273,6 +273,10 @@ class AvatarAsset(Base):
     status: Mapped[str] = mapped_column(String(20), default="ready")
     provider: Mapped[str] = mapped_column(String(24), default="local")
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Looks made from an avatar share its group_id (the base avatar's id); a base
+    # avatar has group_id None. look_label is the short caption shown on the look.
+    group_id: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
+    look_label: Mapped[str | None] = mapped_column(String(160), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=_now, onupdate=_now)
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
