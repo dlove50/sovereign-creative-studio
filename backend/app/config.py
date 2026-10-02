@@ -248,6 +248,9 @@ OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://127.0.0.1:11434")
 OLLAMA_COPY_MODEL = os.getenv("OLLAMA_COPY_MODEL", "llama3.1")
 # Local Ollama presets for the "local-qwen" / "local-deepseek" providers.
 OLLAMA_QWEN_MODEL = os.getenv("OLLAMA_QWEN_MODEL", "qwen3:4b")
+# Video agent script writer. The 27B writes noticeably better scripts (~75 s);
+# set VIDEO_AGENT_MODEL=qwen3:4b for speed (~15 s).
+VIDEO_AGENT_MODEL = os.getenv("VIDEO_AGENT_MODEL", "qwen3.8:27b")
 OLLAMA_DEEPSEEK_MODEL = os.getenv("OLLAMA_DEEPSEEK_MODEL", "qwen3.6:35b")
 # Anthropic (Claude) and Google (Gemini) — optional; no key required at startup.
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")

@@ -37,6 +37,7 @@ from .routers import (
     storyboards,
     transcriptions,
     users,
+    video_agent,
     videos,
     workflow_manager as workflow_manager_router,
 )
@@ -117,6 +118,7 @@ app.include_router(models.router)
 app.include_router(openai_media.router)
 app.include_router(assets.router)
 app.include_router(avatars.router)
+app.include_router(video_agent.router)
 app.include_router(product_scenes.router)
 app.include_router(productions.router)
 app.include_router(copy.router)
