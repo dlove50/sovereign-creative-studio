@@ -10,7 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from .config import FRONTEND_ORIGIN, STORAGE_DIR
 from .database import SessionLocal
 from .db_migrate import upgrade_to_head
-from .models import TranscriptionJob, VideoGeneration
+from .models import AvatarJob, Movie, TranscriptionJob, VideoGeneration
 from .routers import (
     admin,
     assets,
@@ -28,6 +28,7 @@ from .routers import (
     generations,
     library,
     models,
+    movies as movies_router,
     openai_media,
     presets,
     product_scenes,
@@ -59,8 +60,15 @@ def _recover_interrupted_jobs(db) -> None:
     """
     now = datetime.now(timezone.utc)
     recovered = 0
-    for model in (VideoGeneration, TranscriptionJob):
-        rows = db.query(model).filter(model.status == "running").all()
+    # Avatar and movie queues live in memory too, so their queued work is lost on exit.
+    stuck = (
+        (VideoGeneration, ("running",)),
+        (TranscriptionJob, ("running",)),
+        (AvatarJob, ("queued", "running")),
+        (Movie, ("rendering",)),
+    )
+    for model, statuses in stuck:
+        rows = db.query(model).filter(model.status.in_(statuses)).all()
         for row in rows:
             row.status = "failed"
             if hasattr(row, "error"):
@@ -119,6 +127,7 @@ app.include_router(openai_media.router)
 app.include_router(assets.router)
 app.include_router(avatars.router)
 app.include_router(video_agent.router)
+app.include_router(movies_router.router)
 app.include_router(product_scenes.router)
 app.include_router(productions.router)
 app.include_router(copy.router)

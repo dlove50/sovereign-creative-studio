@@ -282,6 +282,25 @@ class AvatarAsset(Base):
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
 
+class Movie(Base):
+    """A scene-by-scene avatar video. Scenes live in scenes_json as a list of
+    {id, avatar_id, tts_voice_id, script, status, voice_id, avatar_job_id, error}."""
+
+    __tablename__ = "movies"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
+    title: Mapped[str] = mapped_column(String(200), default="Untitled video")
+    orientation: Mapped[str] = mapped_column(String(16), default="portrait")
+    scenes_json: Mapped[str] = mapped_column(Text, default="[]")
+    status: Mapped[str] = mapped_column(String(20), default="draft")  # draft | rendering | completed | failed
+    output_video_path: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=_now, onupdate=_now)
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
 class VoiceAsset(Base):
     """A voice profile: a built-in preset, a local-TTS voice, or an uploaded sample."""
 

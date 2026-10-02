@@ -38,11 +38,28 @@ def clean_script(text: str) -> str:
     return " ".join(text.split())
 
 
+_IMPROVE = (
+    "Rewrite this line for a presenter to say on camera. Keep the meaning, facts and roughly "
+    "the same length, but make it sound natural when spoken: short sentences, contractions, "
+    "a warm direct tone, no filler. Return the new words as the script and a short title."
+)
+
+
+def improve_delivery(script: str, model: str | None = None) -> dict:
+    """Rewrite an existing scene script so it reads naturally out loud."""
+    words = len(script.split())
+    return _chat(f"{_IMPROVE}\n\nScript ({words} words):\n{script.strip()}", model, words, fallback_title="Scene")
+
+
 def write_script(prompt: str, seconds: int, model: str | None = None) -> dict:
     """Ask Ollama for a {title, script} for `prompt`, about `seconds` long. Raises on failure."""
-    model = model or config.VIDEO_AGENT_MODEL
     words = target_words(seconds)
     user = f"{prompt.strip()}\n\nMake it about {seconds} seconds long when spoken: about {words} words."
+    return _chat(user, model, words, fallback_title=prompt.strip()[:60])
+
+
+def _chat(user: str, model: str | None, words: int, *, fallback_title: str) -> dict:
+    model = model or config.VIDEO_AGENT_MODEL
     _free_comfyui_vram()
     try:
         resp = httpx.post(
@@ -72,4 +89,4 @@ def write_script(prompt: str, seconds: int, model: str | None = None) -> dict:
         title, script = "", clean_script(content)
     if not script:
         raise RuntimeError("The model returned an empty script. Try rewording your request.")
-    return {"title": title or prompt.strip()[:60], "script": script, "model": model, "target_words": words}
+    return {"title": title or fallback_title, "script": script, "model": model, "target_words": words}

@@ -83,6 +83,17 @@ PRESETS: dict[str, AvatarWanPreset] = {
         cfg=1.0,
         warning="Best with the lightx2v LoRA set in AVATAR_WAN_LORA_NAME.",
     ),
+    "landscape_480p": AvatarWanPreset(
+        id="landscape_480p",
+        label="Landscape 480p",
+        description="Widescreen 832x480 for YouTube and presentations. Long scripts render in 3-second chunks.",
+        width=832,
+        height=480,
+        frames=81,
+        steps=6,
+        cfg=1.0,
+        warning="Best with the lightx2v LoRA set in AVATAR_WAN_LORA_NAME.",
+    ),
 }
 
 

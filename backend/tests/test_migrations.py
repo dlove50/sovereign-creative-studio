@@ -105,7 +105,7 @@ def test_old_db_upgrades_without_deletion(tmp_path):
         "avatar_cfg",
         "avatar_runtime_seconds",
     } <= _columns(engine, "avatar_jobs")
-    assert _current_revision(engine) == "0025"
+    assert _current_revision(engine) == "0026"
     with engine.connect() as conn:
         row = conn.execute(
             sa.text("SELECT filename, mask_url FROM product_assets WHERE id='a1'")
@@ -190,7 +190,7 @@ def test_legacy_create_all_db_can_be_stamped_and_upgraded(tmp_path):
     # 0002 add-columns are inspector-guarded, so this is a safe no-op here.
     command.upgrade(cfg, "head")
 
-    assert _current_revision(engine) == "0025"
+    assert _current_revision(engine) == "0026"
     assert "mask_url" in _columns(engine, "product_assets")
     assert "brand_voice" in _columns(engine, "projects")
     assert "asset_collections" in sa.inspect(engine).get_table_names()
