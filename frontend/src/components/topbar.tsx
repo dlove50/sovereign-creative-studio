@@ -6,12 +6,12 @@ import { usePathname, useRouter } from "next/navigation";
 import { Coins, LogOut, Sparkles, UserCircle } from "lucide-react";
 
 import { api } from "@/lib/api";
-import { ADMIN_NAV, CREATOR_NAV, RAIL_NAV } from "@/lib/navigation";
+import { ADMIN_NAV, CREATE_NAV, CREATOR_NAV, RAIL_NAV } from "@/lib/navigation";
 import { isAuthRoute } from "@/lib/routes";
 import { Badge } from "@/components/ui/badge";
 import { MobileNavigation } from "@/components/mobile-navigation";
 
-const ALL_NAV = [...RAIL_NAV, ...CREATOR_NAV, ...ADMIN_NAV];
+const ALL_NAV = [...RAIL_NAV, ...CREATE_NAV, ...CREATOR_NAV, ...ADMIN_NAV];
 
 /** The page pill at the top left, like HeyGen's "Home" / "Avatars" label. */
 function pageTitle(pathname: string) {

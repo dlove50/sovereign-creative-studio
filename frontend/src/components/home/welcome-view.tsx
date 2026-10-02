@@ -22,13 +22,13 @@ type Step = {
 
 const PROMPTS = [
   { id: "ads", title: "Ads & promo", image: "/sovereign-ui/prompts/ads.webp",
-    script: "Hey! If you've been looking for a better way to get this done, you're going to love what we just launched." },
+    idea: "An upbeat 15-second promo for my business with a clear call to action." },
   { id: "launch", title: "Product launch", image: "/sovereign-ui/prompts/launch.webp",
-    script: "Today we're launching something we've been building for months, and I want to show you exactly what it does." },
+    idea: "Announce a new product launch: what it is, who it helps, and how to get it." },
   { id: "tips", title: "Tips & how-to", image: "/sovereign-ui/prompts/tips.webp",
-    script: "Here are three quick tips that will save you time every single day. Let's start with the first one." },
+    idea: "Three quick, practical tips that save my audience time every day." },
   { id: "edu", title: "Educational video", image: "/sovereign-ui/prompts/edu.webp",
-    script: "In the next minute, I'll explain one big idea in plain language, with an example you can use today." },
+    idea: "Explain one big idea in plain language with a simple everyday example." },
 ];
 
 function useSetupData() {
@@ -111,7 +111,7 @@ export function WelcomeView() {
       action: { label: hasLook ? "View my looks" : "Create a look", href: hasLook ? "/avatars" : "/avatars/looks" } },
     { id: "video", title: "Make your first video", icon: Video, done: hasVideo,
       body: "Type a script, pick a voice and a look, and your avatar says it.",
-      action: { label: hasVideo ? "Make another video" : "Make a video", href: "/avatars/create" } },
+      action: { label: hasVideo ? "Make another video" : "Make a video", href: "/video-agent" } },
   ];
   const doneCount = steps.filter((s) => s.done).length;
   const currentIndex = steps.findIndex((s) => !s.done);
@@ -154,7 +154,7 @@ export function WelcomeView() {
           {PROMPTS.map((p) => (
             <li key={p.id}>
               <Link
-                href={`/avatars/create?script=${encodeURIComponent(p.script)}`}
+                href={`/video-agent?prompt=${encodeURIComponent(p.idea)}`}
                 className="group relative block aspect-[16/7] overflow-hidden rounded-2xl border border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <img src={p.image} alt="" width={960} height={420} className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]" />

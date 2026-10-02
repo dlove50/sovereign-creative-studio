@@ -38,7 +38,7 @@ const APPS: AppEntry[] = [
   { name: "AI video generator", blurb: "Turn a photo and a prompt into a short video clip.", icon: Video, category: "create", href: "/videos" },
   { name: "Image studio", blurb: "Make or edit images from a text prompt.", icon: ImageIcon, category: "create", href: "/create" },
   { name: "Film studio", blurb: "Longer cinematic sequences from your clips.", icon: Film, category: "create", href: "/film-studio" },
-  { name: "Video agent", blurb: "Describe a video and let local AI write and build it.", icon: Sparkles, category: "create" },
+  { name: "Video agent", blurb: "Describe a video and let local AI write and build it.", icon: Sparkles, category: "create", href: "/video-agent" },
   { name: "Video podcast", blurb: "Two avatars in conversation from one script.", icon: MessagesSquare, category: "create" },
   { name: "Slides to video", blurb: "Narrate a PDF or slide deck with your avatar.", icon: FileText, category: "create" },
   { name: "Batch videos", blurb: "Make many avatar videos from a spreadsheet.", icon: Layers, category: "create" },

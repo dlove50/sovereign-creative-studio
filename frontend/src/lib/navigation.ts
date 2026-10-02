@@ -88,6 +88,7 @@ export const RAIL_NAV: NavigationItem[] = [
 
 export const CREATE_NAV: NavigationItem[] = [
   { href: "/", label: "Home", icon: Home },
+  { href: "/video-agent", label: "Video agent", icon: Sparkle },
   { href: "/storyboard-studio", label: "Scene by scene", icon: Clapperboard },
   { href: "/chain", label: "Single scene", icon: Wand2 },
 ];
