@@ -1,0 +1,210 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { ArrowDownWideNarrow, Download, Filter, Folder, FolderPlus, Loader2, Search, Video, X } from "lucide-react";
+
+import { api, assetUrl } from "@/lib/api";
+import type { AvatarJob, Project, VideoGeneration } from "@/lib/types";
+import { cn } from "@/lib/utils";
+
+type Kind = "avatar" | "clip";
+type Item = { id: string; kind: Kind; title: string; url: string | null; status: string; createdAt: string };
+type Sort = "newest" | "oldest" | "name";
+const KIND_LABEL: Record<Kind, string> = { avatar: "Avatar video", clip: "Video clip" };
+
+function timeAgo(iso: string) {
+  const ms = Date.now() - new Date(iso + (iso.endsWith("Z") ? "" : "Z")).getTime();
+  const minutes = Math.max(1, Math.round(ms / 60000));
+  if (minutes < 60) return `${minutes} min ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours} hour${hours === 1 ? "" : "s"} ago`;
+  const days = Math.round(hours / 24);
+  return `${days} day${days === 1 ? "" : "s"} ago`;
+}
+
+function fmtDuration(s: number) {
+  const m = Math.floor(s / 60);
+  const r = Math.round(s % 60);
+  return m ? `${m}m ${r}s` : `${r}s`;
+}
+
+function VideoCard({ item, onOpen }: { item: Item; onOpen: () => void }) {
+  const [duration, setDuration] = useState<number | null>(null);
+  const src = item.url ? assetUrl(item.url) : null;
+  const inProgress = item.status === "queued" || item.status === "running";
+  return (
+    <button type="button" onClick={onOpen} disabled={!src} className="group block w-full text-left focus-visible:outline-none">
+      <div className="relative aspect-video overflow-hidden rounded-2xl border border-border bg-raised transition-colors group-hover:border-primary/60 group-focus-visible:ring-2 group-focus-visible:ring-ring">
+        {src ? (
+          // #t=0.5 makes the browser paint a frame as the thumbnail.
+          <video src={`${src}#t=0.5`} muted preload="metadata" onLoadedMetadata={(e) => setDuration(e.currentTarget.duration)} className="h-full w-full object-cover object-[50%_28%]" />
+        ) : (
+          <span className="flex h-full flex-col items-center justify-center gap-2 text-xs text-muted-foreground">
+            {inProgress ? <Loader2 className="h-5 w-5 animate-spin text-primary" /> : <Video className="h-5 w-5" />}
+            {inProgress ? "Rendering…" : item.status === "failed" ? "Failed" : "No file"}
+          </span>
+        )}
+        {duration ? (
+          <span className="absolute bottom-2 right-2 flex items-center gap-1 rounded-md bg-black/70 px-1.5 py-0.5 text-[11px] text-white">
+            <Video className="h-3 w-3" /> {fmtDuration(duration)}
+          </span>
+        ) : null}
+        {inProgress ? <span className="absolute left-2 top-2 rounded-md bg-black/70 px-1.5 py-0.5 text-[11px] text-white">In progress</span> : null}
+      </div>
+      <p className="mt-2 truncate text-sm font-semibold">{item.title}</p>
+      <p className="text-xs text-muted-foreground">{timeAgo(item.createdAt)} · {KIND_LABEL[item.kind]}</p>
+    </button>
+  );
+}
+
+export function ProjectsLibraryView() {
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [items, setItems] = useState<Item[] | null>(null);
+  const [query, setQuery] = useState("");
+  const [sort, setSort] = useState<Sort>("newest");
+  const [kind, setKind] = useState<"all" | Kind>("all");
+  const [naming, setNaming] = useState(false);
+  const [folderName, setFolderName] = useState("");
+  const [open, setOpen] = useState<Item | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    api.listProjects().then(setProjects).catch(() => setProjects([]));
+    Promise.all([api.listAvatarJobs().catch(() => [] as AvatarJob[]), api.listVideos().catch(() => [] as VideoGeneration[])]).then(([jobs, clips]) => {
+      setItems([
+        ...jobs.filter((j) => j.status !== "setup_required").map((j): Item => ({
+          id: `a-${j.id}`, kind: "avatar", title: j.script_text?.trim() || "Talking avatar", url: j.output_video_path, status: j.status, createdAt: j.created_at,
+        })),
+        ...clips.map((v): Item => ({
+          id: `v-${v.id}`, kind: "clip", title: v.prompt?.trim() || "Video clip", url: v.result_url, status: v.status, createdAt: v.created_at,
+        })),
+      ]);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    function onKey(e: KeyboardEvent) { if (e.key === "Escape") setOpen(null); }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open]);
+
+  const q = query.trim().toLowerCase();
+  const folders = projects.filter((p) => !q || p.name.toLowerCase().includes(q));
+  const videos = useMemo(() => {
+    const list = (items ?? []).filter((i) => (kind === "all" || i.kind === kind) && (!q || i.title.toLowerCase().includes(q)));
+    return list.sort((a, b) =>
+      sort === "name" ? a.title.localeCompare(b.title) : (sort === "newest" ? -1 : 1) * a.createdAt.localeCompare(b.createdAt),
+    );
+  }, [items, kind, q, sort]);
+
+  async function createFolder() {
+    if (!folderName.trim()) return;
+    setError(null);
+    try {
+      const p = await api.createProject(folderName.trim());
+      setProjects((all) => [p, ...all]);
+      setFolderName("");
+      setNaming(false);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "The folder could not be created.");
+    }
+  }
+
+  return (
+    <div className="mx-auto max-w-[1120px]">
+      <div className="flex flex-wrap items-center gap-2">
+        <label className="flex min-w-[220px] flex-1 items-center gap-2 rounded-full border border-border bg-card/60 px-4 py-2">
+          <Search className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search videos and folders" aria-label="Search videos and folders" className="w-full bg-transparent text-sm placeholder:text-muted-foreground focus:outline-none" />
+        </label>
+        <label className="flex items-center gap-1.5 rounded-full border border-border bg-card/60 px-3 py-2 text-sm">
+          <ArrowDownWideNarrow className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+          <select value={sort} onChange={(e) => setSort(e.target.value as Sort)} aria-label="Sort" className="bg-transparent focus:outline-none">
+            <option value="newest">Newest</option>
+            <option value="oldest">Oldest</option>
+            <option value="name">Name</option>
+          </select>
+        </label>
+        <label className="flex items-center gap-1.5 rounded-full border border-border bg-card/60 px-3 py-2 text-sm">
+          <Filter className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+          <select value={kind} onChange={(e) => setKind(e.target.value as "all" | Kind)} aria-label="Filter" className="bg-transparent focus:outline-none">
+            <option value="all">All videos</option>
+            <option value="avatar">Avatar videos</option>
+            <option value="clip">Video clips</option>
+          </select>
+        </label>
+      </div>
+
+      <div className="mt-8 flex items-center gap-2">
+        <h2 className="text-base font-semibold">Folders</h2>
+        <button type="button" onClick={() => setNaming((v) => !v)} aria-label="New folder" className="flex h-7 w-7 items-center justify-center rounded-full border border-border hover:bg-raised">
+          <FolderPlus className="h-3.5 w-3.5" />
+        </button>
+      </div>
+      {naming ? (
+        <div className="mt-3 flex max-w-md gap-2">
+          <input
+            autoFocus
+            value={folderName}
+            onChange={(e) => setFolderName(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && createFolder()}
+            placeholder="Folder name"
+            aria-label="Folder name"
+            className="flex-1 rounded-full border border-input bg-background px-4 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          />
+          <button type="button" onClick={createFolder} disabled={!folderName.trim()} className="rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60">Create folder</button>
+        </div>
+      ) : null}
+      {error ? <p className="mt-2 text-sm text-destructive">{error}</p> : null}
+      {folders.length ? (
+        <ul className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+          {folders.map((p) => (
+            <li key={p.id}>
+              <Link href={`/projects/${p.id}`} className="flex items-center gap-2.5 rounded-xl border border-border bg-card/50 px-3 py-2.5 text-sm hover:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                <Folder className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+                <span className="truncate">{p.name}</span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-2 text-sm text-muted-foreground">{q ? "No folders match." : "No folders yet. Use the + button to make one."}</p>
+      )}
+
+      <h2 className="mb-4 mt-10 text-base font-semibold">Videos</h2>
+      {items === null ? (
+        <p className="py-10 text-center text-sm text-muted-foreground">Loading your videos…</p>
+      ) : videos.length === 0 ? (
+        <div className="py-12 text-center">
+          <p className="font-semibold">{q || kind !== "all" ? "No videos match." : "No videos yet."}</p>
+          <Link href="/video-agent" className="mt-2 inline-block text-sm text-primary hover:underline">Make your first video with the Video agent</Link>
+        </div>
+      ) : (
+        <ul className="grid grid-cols-2 gap-x-4 gap-y-6 md:grid-cols-3">
+          {videos.map((item) => (
+            <li key={item.id}><VideoCard item={item} onOpen={() => setOpen(item)} /></li>
+          ))}
+        </ul>
+      )}
+
+      {open?.url ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4" role="dialog" aria-modal="true" aria-label={open.title} onClick={() => setOpen(null)}>
+          <div className="w-full max-w-3xl overflow-hidden rounded-3xl border border-border bg-card" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between gap-3 border-b border-border px-5 py-3">
+              <p className="truncate font-semibold">{open.title}</p>
+              <button type="button" onClick={() => setOpen(null)} aria-label="Close" className="rounded-full p-1 text-muted-foreground hover:bg-raised"><X className="h-4 w-4" /></button>
+            </div>
+            <video controls autoPlay src={assetUrl(open.url) ?? undefined} className="max-h-[70vh] w-full bg-black" />
+            <div className="flex justify-end px-5 py-3">
+              <a href={assetUrl(open.url) ?? "#"} download className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground">
+                <Download className="h-4 w-4" /> Download
+              </a>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
