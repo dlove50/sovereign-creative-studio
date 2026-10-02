@@ -76,3 +76,32 @@ def test_clone_speech_failure_raises_and_writes_nothing(monkeypatch, tmp_path):
     with pytest.raises(RuntimeError, match="VibeVoice failed: boom"):
         vsvc.generate_speech("Hi", out, voice_id="vibevoice:david")
     assert not out.exists()
+
+
+def test_hallucinated_take_is_rerendered_until_whisper_matches(monkeypatch, tmp_path):
+    calls = _fake_vibevoice(monkeypatch)
+    heard = iter([
+        "the tubes are glinted huge puke purples and hello there second line",
+        "Hello there. Second line.",
+    ])
+    monkeypatch.setattr(vsvc, "_heard", lambda _path: next(heard))
+    out = tmp_path / "clone.wav"
+
+    vsvc.generate_speech("Hello there. Second line.", out, voice_id="vibevoice:david")
+
+    assert sum(1 for _m, p, _c in calls if p == "/api/generate") == 2
+    assert [p for _m, p, _c in calls][-1] == "/api/models/unload"
+    assert out.is_file()
+
+
+def test_gives_up_after_three_bad_takes_and_still_frees_gpu(monkeypatch, tmp_path):
+    calls = _fake_vibevoice(monkeypatch)
+    monkeypatch.setattr(vsvc, "_heard", lambda _path: "completely different words")
+    out = tmp_path / "clone.wav"
+
+    with pytest.raises(RuntimeError, match="did not read the script correctly after 3 tries"):
+        vsvc.generate_speech("Hello there. Second line.", out, voice_id="vibevoice:david")
+
+    assert sum(1 for _m, p, _c in calls if p == "/api/generate") == 3
+    assert [p for _m, p, _c in calls][-1] == "/api/models/unload"
+    assert not out.exists()
