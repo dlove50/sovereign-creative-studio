@@ -17,6 +17,10 @@ const backendOrigin = process.env.BACKEND_ORIGIN || "http://127.0.0.1:8000";
 const nextConfig = {
   reactStrictMode: true,
   distDir,
+  // Cloned-voice synthesis (VibeVoice) runs inside one request and can take
+  // minutes; Next's 30 s proxy default would cut it off. Matches the backend's
+  // VIBEVOICE_TIMEOUT_SECONDS.
+  experimental: { proxyTimeout: 30 * 60 * 1000 },
   async rewrites() {
     return [
       { source: "/api/:path*", destination: `${backendOrigin}/api/:path*` },

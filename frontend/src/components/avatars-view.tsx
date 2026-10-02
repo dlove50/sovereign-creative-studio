@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ImagePlus, Loader2, Mic, Sparkles, Trash2, UserSquare, Video } from "lucide-react";
+import { ImagePlus, Loader2, Mic, Shirt, Sparkles, Trash2, UserSquare, Video } from "lucide-react";
 
 import { api, assetUrl } from "@/lib/api";
-import type { AvatarAsset, AvatarJob, AvatarVoiceReadiness, VoiceAsset } from "@/lib/types";
+import type { AvatarAsset, AvatarJob, AvatarVoiceReadiness, VoiceAsset, VoiceOption } from "@/lib/types";
+import { AvatarLookStudio } from "@/components/avatars/AvatarLookStudio";
 import { MediaActions } from "@/components/media/MediaActions";
 import { MediaDetailsDrawer } from "@/components/media/MediaDetailsDrawer";
 import { useMediaHandoffRouter } from "@/components/media/useMediaHandoffRouter";
@@ -40,7 +41,12 @@ export function AvatarsView() {
   const [avatarPreset, setAvatarPreset] = useState("tiny_test");
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [script, setScript] = useState("");
+  const [ttsVoices, setTtsVoices] = useState<VoiceOption[]>([]);
+  const [ttsVoice, setTtsVoice] = useState("");
+  const [lookBase, setLookBase] = useState("");
   const photoInput = useRef<HTMLInputElement>(null);
+  const lookStudio = useRef<HTMLDivElement>(null);
   const videoInput = useRef<HTMLInputElement>(null);
 
   const { onAction, detailsMedia, closeDetails, toast } = useMediaHandoffRouter("from Avatar & Voice Hub");
@@ -59,8 +65,20 @@ export function AvatarsView() {
   useEffect(() => {
     api.getMe().then((u) => setIsAdmin(u.role === "owner_admin")).catch(() => setIsAdmin(false));
     api.avatarReadiness().then(setReadiness).catch(() => setReadiness(null));
+    // Piper voices plus any VibeVoice clones (listed when VibeVoice Studio is running).
+    api
+      .getAudioMergeReadiness()
+      .then((r) => {
+        setTtsVoices(r.voices);
+        setTtsVoice((cur) => cur || r.voices.find((v) => v.is_default)?.id || r.voices[0]?.id || "");
+      })
+      .catch(() => setTtsVoices([]));
     refresh().catch((e) => setError(e instanceof Error ? e.message : "Could not load avatars"));
   }, []);
+
+  useEffect(() => {
+    if (readiness?.greeting_text) setScript((cur) => cur || readiness.greeting_text);
+  }, [readiness?.greeting_text]);
 
   useEffect(() => {
     if (readiness?.default_avatar_preset) setAvatarPreset(readiness.default_avatar_preset);
@@ -135,7 +153,7 @@ export function AvatarsView() {
         await api.createTalkingAvatar({
           avatar_id: pickAvatar,
           voice_id: pickVoice,
-          script_text: readiness?.greeting_text,
+          script_text: script.trim() || readiness?.greeting_text,
           avatar_preset: avatarPreset,
         }),
       );
@@ -144,6 +162,26 @@ export function AvatarsView() {
     } finally {
       setBusy(null);
     }
+  }
+
+  async function makeScriptVoice() {
+    if (!script.trim()) return;
+    setBusy("scriptvoice");
+    setError(null);
+    try {
+      const voice = await api.generateVoiceGreeting({ script_text: script.trim(), tts_voice_id: ttsVoice || undefined });
+      await refresh();
+      setPickVoice(voice.id);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not create the voice");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  function startLook(avatarId: string) {
+    setLookBase(avatarId);
+    lookStudio.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
   async function makeVoiceGreeting() {
@@ -287,12 +325,25 @@ export function AvatarsView() {
                 <div className="p-2">
                   <p className="truncate text-xs font-medium">{a.name}</p>
                   <p className="text-[11px] text-muted-foreground">{a.avatar_type.replace("_", " ")}</p>
+                  {a.avatar_type === "photo_avatar" ? (
+                    <button
+                      type="button"
+                      onClick={() => startLook(a.id)}
+                      className="mt-1 inline-flex items-center gap-1 text-[11px] font-medium text-primary hover:underline"
+                    >
+                      <Shirt className="h-3 w-3" /> New look
+                    </button>
+                  ) : null}
                 </div>
               </div>
             ))}
           </div>
         )}
       </section>
+
+      <div ref={lookStudio} className="scroll-mt-4">
+        <AvatarLookStudio avatars={avatars} baseId={lookBase} onBaseChange={setLookBase} onCreated={refresh} />
+      </div>
 
       {/* Talking Avatar */}
       <section className="space-y-3 rounded-2xl border border-border bg-card p-5">
@@ -302,8 +353,51 @@ export function AvatarsView() {
           {readiness ? <ReadyBadge ready={readiness.avatar.ready} label="Avatar engine" /> : null}
         </div>
         <p className="text-sm text-muted-foreground">
-          Pick a photo avatar and a generated voice, then create a talking-avatar video.
+          1. Write what your avatar should say and pick a voice. 2. Choose a photo and quality. 3. Create the video —
+          long scripts are rendered in 3-second pieces and joined seamlessly.
         </p>
+        <div className="space-y-2 rounded-xl border border-border/70 bg-background/40 p-3">
+          <label htmlFor="avatar-script" className="text-xs font-medium text-muted-foreground">
+            What should your avatar say?
+          </label>
+          <textarea
+            id="avatar-script"
+            data-testid="avatar-script"
+            value={script}
+            onChange={(e) => setScript(e.target.value)}
+            maxLength={2000}
+            rows={4}
+            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          />
+          <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+            <select
+              value={ttsVoice}
+              onChange={(e) => setTtsVoice(e.target.value)}
+              aria-label="Voice"
+              data-testid="avatar-tts-voice"
+              className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+            >
+              {ttsVoices.length === 0 ? <option value="">Default voice</option> : null}
+              {ttsVoices.map((v) => (
+                <option key={v.id} value={v.id}>{v.label}</option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={makeScriptVoice}
+              disabled={busy === "scriptvoice" || !script.trim()}
+              className="inline-flex items-center justify-center gap-2 rounded-md border border-border px-4 py-2 text-sm font-medium hover:bg-muted disabled:opacity-60"
+            >
+              {busy === "scriptvoice" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mic className="h-4 w-4" />}
+              Generate voice
+            </button>
+          </div>
+          <p className="text-[11px] text-muted-foreground">
+            {busy === "scriptvoice"
+              ? "Generating speech… cloned voices take about 15 seconds per second of speech."
+              : "Clone voices appear here while VibeVoice Studio is running. The new clip is selected below automatically."}
+          </p>
+        </div>
         {avatarPresets.length ? (
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
             {avatarPresets.map((preset) => (
@@ -365,7 +459,7 @@ export function AvatarsView() {
           </button>
         </div>
         {readyVoices.length === 0 ? (
-          <p className="text-xs text-muted-foreground">Create a preset/Piper greeting below first, then it appears here.</p>
+          <p className="text-xs text-muted-foreground">Generate a voice from your script above first, then it appears here.</p>
         ) : null}
         {selectedPreset ? (
           <p className="text-xs text-muted-foreground">

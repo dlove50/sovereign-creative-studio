@@ -115,7 +115,7 @@ export const adminApi = {
     request<VoiceAsset>("/api/voices", { method: "POST", body: JSON.stringify(input) }),
   createGreeting: (input: { script_text?: string; avatar_id?: string; voice_id?: string }) =>
     request<AvatarJob>("/api/avatar-jobs/greeting", { method: "POST", body: JSON.stringify(input) }),
-  generateVoiceGreeting: (input: { script_text?: string } = {}) =>
+  generateVoiceGreeting: (input: { script_text?: string; tts_voice_id?: string } = {}) =>
     request<VoiceAsset>("/api/voices/greeting", { method: "POST", body: JSON.stringify(input) }),
   deleteVoice: (id: string) =>
     request<void>(`/api/voices/${encodeURIComponent(id)}`, { method: "DELETE" }),
