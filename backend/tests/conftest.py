@@ -1,4 +1,12 @@
 import os
+import tempfile
+
+# Never let tests touch the real sovereign.db or storage, whichever test file
+# happens to import app.config first (running a subset of files once wrote test
+# users and charges into the production database).
+_TEST_TMP = tempfile.mkdtemp(prefix="sovereign_tests_")
+os.environ.setdefault("DATABASE_URL", f"sqlite:///{os.path.join(_TEST_TMP, 'test.db')}")
+os.environ.setdefault("STORAGE_DIR", os.path.join(_TEST_TMP, "storage"))
 
 # Pin the full backend-mode stack to deterministic test defaults BEFORE app.config
 # loads, so the persisted production `.env` (real ComfyUI/LTX/local-qwen stack)
