@@ -231,6 +231,12 @@ def execute(job_id: str, payload: dict, suffix: str = "") -> None:
             data = call("heygen", "POST", "/v3/videos", json=body).json()
             job["remote_id"] = data["data"]["video_id"]
             job["status"] = "processing"
+        elif op == "music":
+            binary(job, "POST", "/v1/music", json={
+                "prompt": payload["text"], "music_length_ms": payload["music_seconds"] * 1000,
+                "force_instrumental": payload["instrumental"], "model_id": "music_v1",
+            }, params={"output_format": "mp3_44100_128"})
+            job["status"] = "completed"
         elif op in {"tts", "sound-effects"}:
             body = {"text": payload["text"]}
             if op == "tts":
@@ -244,7 +250,13 @@ def execute(job_id: str, payload: dict, suffix: str = "") -> None:
         else:
             with (folder(job_id) / ("input" + suffix)).open("rb") as stream:
                 file = ("input" + suffix, stream, "application/octet-stream")
-                if op == "transcribe":
+                if op == "align":
+                    data = call("elevenlabs", "POST", "/v1/forced-alignment", files={"file": file},
+                                data={"text": payload["text"]}).json()
+                    add_file(job, "alignment.json", json.dumps(data, ensure_ascii=False, indent=2).encode())
+                    add_file(job, "transcript.txt", payload["text"].encode())
+                    job["status"] = "completed"
+                elif op == "transcribe":
                     data = call("elevenlabs", "POST", "/v1/speech-to-text", files={"file": file},
                                 data={"model_id": settings["transcription_model"], "diarize": "true"}).json()
                     add_file(job, "transcript.json", json.dumps(data, ensure_ascii=False, indent=2).encode())

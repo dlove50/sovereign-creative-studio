@@ -14,8 +14,10 @@ const MODES: { id: CloudOperation; label: string; detail: string }[] = [
   { id: "transcribe", label: "Speech to text", detail: "Transcribe audio or video, with speaker information and word timing saved as JSON." },
   { id: "dubbing", label: "Dubbing", detail: "Translate audio or video into another language using ElevenLabs automatic dubbing." },
   { id: "isolate", label: "Audio isolation", detail: "Remove background noise from a voice recording." },
+  { id: "music", label: "Music", detail: "Describe a soundtrack and save an MP3. Availability depends on your ElevenLabs API plan." },
+  { id: "align", label: "Transcript timing", detail: "Match a supplied transcript to a recording. Download word and character timings as JSON." },
 ];
-const UPLOADS = new Set<CloudOperation>(["voice-changer", "transcribe", "dubbing", "isolate"]);
+const UPLOADS = new Set<CloudOperation>(["voice-changer", "transcribe", "dubbing", "isolate", "align"]);
 const field = "w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary";
 const button = "inline-flex items-center justify-center gap-2 rounded-full border border-border px-4 py-2 text-sm font-medium hover:bg-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-50";
 const message = (e: unknown) => e instanceof Error ? e.message : "Something went wrong. Try again.";
@@ -61,6 +63,8 @@ export function CloudStudioView() {
   const [file, setFile] = useState<File>();
   const [duration, setDuration] = useState(5);
   const [loop, setLoop] = useState(false);
+  const [musicSeconds, setMusicSeconds] = useState(30);
+  const [instrumental, setInstrumental] = useState(true);
   const [language, setLanguage] = useState("es");
   const [ratio, setRatio] = useState("16:9");
   const [engine, setEngine] = useState("avatar_iv");
@@ -135,7 +139,7 @@ export function CloudStudioView() {
     try {
       const job = await cloudApi.submit({ request_id: crypto.randomUUID(), operation: mode, accept_charges: accepted,
         title, text, voice_id: voiceId, avatar_id: avatarId, aspect_ratio: ratio, engine,
-        target_lang: language, duration_seconds: duration, loop }, UPLOADS.has(mode) ? file : undefined);
+        target_lang: language, duration_seconds: duration, loop, music_seconds: musicSeconds, instrumental }, UPLOADS.has(mode) ? file : undefined);
       setJobs(current => [job, ...current.filter(j => j.id !== job.id)]);
       setAccepted(false); setNotice("Job saved. Its progress and downloads appear below.");
     } catch (e) {
@@ -163,7 +167,7 @@ export function CloudStudioView() {
       </header>
       <div className="flex flex-wrap gap-2" aria-label="Cloud tools">
         {MODES.map(m => <button key={m.id} type="button" disabled={busy} aria-pressed={mode === m.id}
-          onClick={() => { setMode(m.id); setAccepted(false); setError(""); setNotice(""); }}
+          onClick={() => { setMode(m.id); setFile(undefined); setAccepted(false); setError(""); setNotice(""); }}
           className={cn(button, mode === m.id && "border-primary bg-primary/10 text-primary")}>{m.label}</button>)}
       </div>
       {error && <p role="alert" className="rounded-xl border border-destructive/40 bg-destructive/10 p-4 text-sm">{error}</p>}
@@ -206,9 +210,11 @@ export function CloudStudioView() {
           {UPLOADS.has(mode) ? <label className="block space-y-2 text-sm font-medium">Source recording
             <input key={mode} type="file" required className={field} accept={mode === "dubbing" || mode === "transcribe" ? "audio/*,video/*" : "audio/*"} onChange={e => setFile(e.target.files?.[0])} />
             <span className="block text-xs font-normal text-muted-foreground">Up to 100 MB. This file will be uploaded to ElevenLabs for processing.</span></label>
-            : <label className="block space-y-2 text-sm font-medium">{mode === "sound-effects" ? "Describe the sound" : "Script"}
-              <textarea required className={cn(field, "min-h-36 resize-y")} value={text} onChange={e => setText(e.target.value)} maxLength={5000}
-                placeholder={mode === "sound-effects" ? "Rain on a workshop roof, soft wind and a distant rumble…" : "Write what the voice should say…"} /></label>}
+            : <label className="block space-y-2 text-sm font-medium">{mode === "sound-effects" ? "Describe the sound" : mode === "music" ? "Describe the music" : "Script"}
+              <textarea required className={cn(field, "min-h-36 resize-y")} value={text} onChange={e => setText(e.target.value)} maxLength={mode === "music" ? 4100 : 5000}
+                placeholder={mode === "sound-effects" ? "Rain on a workshop roof, soft wind and a distant rumble…" : mode === "music" ? "Gentle acoustic guitar, warm piano, a relaxed pace…" : "Write what the voice should say…"} /></label>}
+          {mode === "align" && <label className="block space-y-2 text-sm font-medium">Exact transcript<textarea required rows={7} maxLength={5000} className={field} value={text} onChange={e => setText(e.target.value)} placeholder="Paste the words spoken in the source recording…" /></label>}
+          {mode === "music" && <div className="flex flex-wrap items-end gap-5"><label className="space-y-2 text-sm font-medium">Music duration (seconds)<input type="number" required min={3} max={600} step={1} className={field} value={musicSeconds} onChange={e => setMusicSeconds(Number(e.target.value))} /></label><label className="flex items-center gap-2 py-3 text-sm"><input type="checkbox" checked={instrumental} onChange={e => setInstrumental(e.target.checked)} /> Instrumental only</label></div>}
           {mode === "sound-effects" && <div className="flex flex-wrap items-end gap-5"><label className="space-y-2 text-sm font-medium">Duration (seconds)<input type="number" min={0.5} max={30} step={0.5} className={field} value={duration} onChange={e => setDuration(Number(e.target.value))} /></label>
             <label className="flex items-center gap-2 py-3 text-sm"><input type="checkbox" checked={loop} onChange={e => setLoop(e.target.checked)} /> Seamless loop</label></div>}
           {mode === "dubbing" && <label className="block space-y-2 text-sm font-medium">Target language code

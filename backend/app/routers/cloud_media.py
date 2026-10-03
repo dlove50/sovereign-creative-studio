@@ -14,13 +14,13 @@ from ..services import cloud_media as cloud
 from ..services.integrations import list_providers
 
 router = APIRouter(prefix="/api/cloud", tags=["cloud-media"], dependencies=[Depends(require_admin)])
-UPLOAD_OPERATIONS = {"voice-changer", "transcribe", "dubbing", "isolate"}
+UPLOAD_OPERATIONS = {"voice-changer", "transcribe", "dubbing", "isolate", "align"}
 AUDIO_SUFFIXES = {".mp3", ".wav", ".m4a", ".flac", ".ogg", ".aac", ".webm"}
 
 
 class CloudRequest(BaseModel):
     request_id: UUID
-    operation: Literal["avatar-video", "tts", "sound-effects", "voice-changer", "transcribe", "dubbing", "isolate"]
+    operation: Literal["avatar-video", "tts", "sound-effects", "voice-changer", "transcribe", "dubbing", "isolate", "music", "align"]
     accept_charges: Literal[True]
     title: str = Field(default="", max_length=120)
     text: str = Field(default="", max_length=5000)
@@ -30,13 +30,17 @@ class CloudRequest(BaseModel):
     aspect_ratio: Literal["16:9", "9:16", "1:1"] = "16:9"
     duration_seconds: float = Field(default=5, ge=0.5, le=30)
     loop: bool = False
+    music_seconds: int = Field(default=30, ge=3, le=600)
+    instrumental: bool = True
     target_lang: str = Field(default="en", pattern=r"^[a-z]{2,3}$")
 
     @model_validator(mode="after")
     def required_inputs(self):
         self.text = self.text.strip()
-        if self.operation in {"tts", "sound-effects", "avatar-video"} and not self.text:
+        if self.operation in {"tts", "sound-effects", "avatar-video", "music", "align"} and not self.text:
             raise ValueError("Enter text for this operation.")
+        if self.operation == "music" and len(self.text) > 4100:
+            raise ValueError("Music prompts must be 4100 characters or fewer.")
         if self.operation in {"tts", "voice-changer"} and not self.voice_id:
             raise ValueError("Choose a voice first.")
         if self.operation == "avatar-video" and not self.avatar_id:

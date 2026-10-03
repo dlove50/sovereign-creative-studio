@@ -1,7 +1,7 @@
 import { API_BASE, formRequest, getActiveUserId, request } from "./core";
 import type { IntegrationProvider } from "../types";
 
-export type CloudOperation = "avatar-video" | "tts" | "sound-effects" | "voice-changer" | "transcribe" | "dubbing" | "isolate";
+export type CloudOperation = "avatar-video" | "tts" | "sound-effects" | "voice-changer" | "transcribe" | "dubbing" | "isolate" | "music" | "align";
 export type CloudJob = {
   id: string; provider: string; operation: CloudOperation | "imported-audio"; title: string;
   status: "queued" | "submitting" | "processing" | "completed" | "failed";

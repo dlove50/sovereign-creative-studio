@@ -9,7 +9,7 @@ Read-only checks were performed while existing renders continued. No models were
 | Windows / AMD-DESKTOP | RTX 5070 Ti, 16,303 MiB VRAM; approximately 32 GB system RAM | One ComfyUI Qwen Image Edit 2509 job; 14,909 MiB GPU memory occupied and 100% utilization at sampling time |
 | Linux, 192.168.2.126 | Ryzen 7 1700X; approximately 32 GB RAM; AMD gfx1201 GPU; ComfyUI reports 32,061,259,776 usable VRAM bytes | One ComfyUI Qwen Image Edit 2509 job; ROCm PyTorch 2.9.1+rocm7.2.1 |
 
-Linux ROCm reports the GPU as **AMD Radeon Graphics**, not a retail model name. The existing avatar-generation script mentions R9700, but the precise retail model was not independently confirmed. It has approximately 30 GiB usable device memory according to ComfyUI; do not confuse this with system RAM.
+The owner confirmed the Linux GPU is **AMD Radeon AI PRO R9700**. ROCm reports it generically as AMD Radeon Graphics (gfx1201). It has approximately 30 GiB usable device memory according to ComfyUI; do not confuse this with system RAM.
 
 The existing SSH tunnel forwards Windows `127.0.0.1:18001` to Linux `127.0.0.1:8001`. ComfyUI intentionally listens on Linux loopback. Direct HTTP connections to the Linux LAN address therefore do not establish renderer readiness; the tunnel does.
 
@@ -24,9 +24,9 @@ The signed-in browser exposed TTS, voice creation, sound effects, voice changer,
 - The community sound-effects page explicitly required a plan upgrade to download effects.
 - Sound-effects History was empty; Favorites reported no saved sound effects.
 - The Assets root displayed a My Avatars folder; no downloadable audio files were visible at that root.
-- Text-to-speech History displayed 20 recordings. The bulk download remained Loading and no bulk ZIP arrived; a single George recording downloaded successfully through its MP3 menu.
+- Text-to-speech History displayed 20 recordings. The bulk download remained Loading, so the recordings were exported individually. All 20 unique recordings are now saved and imported.
 - Sovereign's HeyGen/ElevenLabs API settings remain unconfigured. Website sign-in does not configure API authentication.
-- One George history recording (46,740 bytes) was downloaded and imported. The earlier Adam preview is also available. These are audio files, not offline voice models.
+- All 20 unique speech-history recordings were downloaded and imported. The earlier Adam preview is also available. These are audio files, not offline voice models.
 
 ElevenLabs supports downloading generated audio through its UI/history APIs. Its voice catalogs expose profiles for use through the provider, not a local model installation. Preserve provider provenance and applicable usage rights for exported media; do not present exported samples as independently usable voice models.
 
@@ -41,7 +41,7 @@ ElevenLabs supports downloading generated audio through its UI/history APIs. Its
 | Voice isolation | Cloud path implemented. Existing local speech cleanup cuts pauses/fillers. | Add an isolated Demucs worker for vocals/music separation; it supports CPU fallback. Separation and speech denoising are different quality targets. |
 | Sound effects | Prompt-based ElevenLabs route implemented, including duration/loop controls. | First import permitted finished WAV/MP3 files. AudioGen is an experimental local candidate, but its documented 16 GB requirement is tight on a busy 5070 Ti and its model weights are noncommercial. Do not choose it as an unrestricted commercial default. |
 | Dubbing | Cloud automatic dubbing implemented. Local Whisper → Qwen translation → subtitles/script exists. | Local spoken dubbing still needs multilingual voices, segmentation/timing, mixing and QA. The installed English Piper voice is not multilingual dubbing. |
-| Music | No new cloud music integration implemented in this audit. | Treat music generation as separate work with model/license evaluation. Existing audio mixing can use exported music files. |
+| Music | Prompt-based cloud music generation added with duration and instrumental controls. | API credentials and plan access required. No live generation was charged or tested. |
 | Studio / audiobooks | Local scene editor, podcast and batch tools already exist. | Reuse voice generation plus chapter/scene assembly; importing a vendor project is different from importing its finished audio. |
 | Image/video, templates, Flows | Existing ComfyUI, image edit, video and product-scene tools cover parts of these workflows. | Continue the running local avatar/look library. Build equivalent task workflows using owned assets, rather than assuming proprietary templates/models can be exported. |
 
@@ -70,3 +70,8 @@ The George recording is saved in `C:\Users\David\Downloads\Sovereign ElevenLabs 
 The importer `tools/import_elevenlabs_audio.py` accepts ZIP files, uses content hashes to skip duplicates, and writes fixed filenames rather than extracting ZIP paths. It imported one completed Cloud Studio job at `backend/storage/cloud/7d323f81-bb1b-5e70-9250-80ec53b9ae5d/output.mp3`. Imported audio remains usable without provider keys. The new Cloud Studio UI requires the pending application build/restart to become visible in the running app.
 
 Importer, cloud-media and GPU guard tests: 26 passed. Frontend TypeScript check passed. Existing render workers were left running. Cloud calls still require configured API credentials; no proprietary ElevenLabs voice weights were downloaded.
+
+
+## Follow-up completion
+
+The owner confirmed the Linux GPU as AMD Radeon AI PRO R9700. See [ELEVENLABS_DOWNLOAD_REPORT.md](ELEVENLABS_DOWNLOAD_REPORT.md) for the complete download inventory and More tools review. Music generation and forced alignment have been added to Cloud Studio; focused tests: 32 passed, TypeScript passed. Deployment remains pending while render work is active.

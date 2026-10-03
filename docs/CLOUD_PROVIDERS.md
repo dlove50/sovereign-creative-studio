@@ -22,6 +22,8 @@ Website/Gmail login sessions are not API credentials. Do not put API keys in sou
 | Speech to text | ElevenLabs | UTF-8 text and JSON with provider word/speaker information |
 | Dubbing | ElevenLabs automatic dubbing (documented legacy API) | MP3 or MP4 in the selected language; watermark requested |
 | Audio isolation | ElevenLabs | Cleaned audio |
+| Music | ElevenLabs music_v1 | MP3; 3–600 seconds, optional instrumental-only |
+| Transcript timing | ElevenLabs forced alignment | Word/character timing JSON plus the supplied transcript |
 
 Voice/avatar catalogs are paginated and fetched on demand. HeyGen exposes public/private ownership through these endpoints; the website's category tabs and Favorites are not assumed to be API filters. Account voices are not promised to be free. The integration does not scrape a sound library, clone provider-owned profiles, download model weights, or grant offline use of their voices.
 

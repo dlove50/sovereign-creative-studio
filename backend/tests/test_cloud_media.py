@@ -216,3 +216,44 @@ def test_live_connection_check_is_read_only(client, provider):
     result = integrations.test_connection("elevenlabs")
     assert "Connected" in result["result"]
     assert [request.method for request in requests] == ["GET"]
+
+
+def test_music_duration_and_instrumental_saved_once(client, provider):
+    requests, responses = provider
+    responses.append((200, b"ID3-music", "audio/mpeg"))
+    body = payload("music", music_seconds=45, instrumental=True)
+    assert client.post("/api/cloud/jobs", json=body).status_code == 202
+    assert cloud.read(body["request_id"])["files"] == ["output.mp3"]
+    assert requests[0].url.path == "/v1/music"
+    assert json.loads(requests[0].content) == {
+        "prompt": body["text"], "music_length_ms": 45000,
+        "force_instrumental": True, "model_id": "music_v1",
+    }
+    assert client.post("/api/cloud/jobs", json=body).status_code == 202
+    assert len(requests) == 1
+
+
+def test_alignment_upload_preserves_timings_and_removes_source(client, provider):
+    requests, responses = provider
+    timings = {"words": [{"text": "Hello", "start": 0.25, "end": 0.8}], "characters": [], "loss": 0.1}
+    responses.append((200, timings, ""))
+    body = payload("align", text="Hello")
+    result = client.post("/api/cloud/upload-jobs", data={"payload": json.dumps(body)},
+                         files={"file": ("voice.wav", b"source", "audio/wav")})
+    assert result.status_code == 202
+    job = cloud.read(body["request_id"])
+    assert job["status"] == "completed"
+    assert job["files"] == ["alignment.json", "transcript.txt"]
+    assert requests[0].url.path == "/v1/forced-alignment"
+    assert b'name="text"\r\n\r\nHello' in requests[0].content
+    assert json.loads((cloud.folder(job["id"]) / "alignment.json").read_text()) == timings
+    assert not (cloud.folder(job["id"]) / "input.wav").exists()
+
+
+@pytest.mark.parametrize("operation,fields", [
+    ("music", {"music_seconds": 2}), ("music", {"music_seconds": 601}),
+    ("music", {"text": "x" * 4101}), ("align", {"text": " "}),
+])
+def test_additional_tools_validate_before_provider_call(client, provider, operation, fields):
+    assert client.post("/api/cloud/jobs", json=payload(operation, **fields)).status_code == 422
+    assert not provider[0]
