@@ -198,6 +198,9 @@ After ANY later backend change: `stop` then `start --hidden` (only when no job i
 ## Remaining App-library backlog (listed as "Coming next")
 
 Video podcast (InfiniteTalk `two_speakers` mode), Translate video, Slides to video, Interactive video.
+(**Speech cleanup is built** — real tests: a 2.5 s inserted pause was cut (17.9 s -> 15.5 s); filler detection via Whisper `base`
+finds only ~3 of 5 spoken fillers in a synthetic test (Whisper tends to drop "um/uh"; a filler-style `initial_prompt` did
+not help); a larger Whisper model may raise recall.)
 (**Auto clips is built**: `/auto-clips`, `POST /api/auto-clips`; Whisper CPU transcript -> Qwen picks moments ->
 FFmpeg cuts, with a speech-density fallback; 7 tests with a faked transcript/LLM and real FFmpeg; the real
 Whisper + Qwen path was NOT run end to end on a long video.) (**Batch videos is built**: `/batch`, `POST /api/movies/batch`, CSV upload, all-or-nothing credit

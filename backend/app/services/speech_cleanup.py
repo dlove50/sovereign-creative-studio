@@ -132,7 +132,7 @@ def clean(src: Path, out: Path, *, remove_pauses: bool = True, remove_fillers: b
     else:
         out.parent.mkdir(parents=True, exist_ok=True)
         _cut(src, out, keep, has_video)
-        new_duration = sum(end - start for start, end in keep)
+        new_duration = float(sum(end - start for start, end in keep))
     return {
         "original_seconds": round(duration, 2), "new_seconds": round(new_duration, 2),
         "seconds_removed": round(duration - new_duration, 2),
