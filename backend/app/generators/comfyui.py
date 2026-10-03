@@ -57,6 +57,7 @@ class ComfyUIGenerator(Generator):
         *,
         mode: str = "text_to_image",
         source_image_name: str | None = None,
+        reference_image_names: list[str] | None = None,
     ) -> dict:
         workflow_path = (
             self.image_edit_workflow_path if mode == "image_edit" else self.workflow_path
@@ -77,6 +78,8 @@ class ComfyUIGenerator(Generator):
                     source_injected = True
             if node.get("class_type") == "KSampler" and "seed" in inputs:
                 inputs["seed"] = random.randint(0, 2**32 - 1)
+        if reference_image_names and mode == "image_edit":
+            self._add_references(workflow, reference_image_names)
         if not prompt_injected:
             raise RuntimeError(
                 f"Workflow {workflow_path} has no '{PROMPT_PLACEHOLDER}' "
@@ -88,6 +91,22 @@ class ComfyUIGenerator(Generator):
                 "image node to inject the source image into."
             )
         return workflow
+
+    @staticmethod
+    def _add_references(workflow: dict, names: list[str]) -> None:
+        """Feed extra images to the Qwen edit prompt nodes as image2 and image3, each scaled like the source."""
+        encoders = [n for n in workflow.values() if str(n.get("class_type", "")).startswith("TextEncodeQwenImageEdit")]
+        if not encoders:
+            raise RuntimeError("This image edit workflow cannot take reference images.")
+        next_id = max(int(k) for k in workflow if k.isdigit()) + 1
+        for slot, name in enumerate(names, start=2):
+            load_id, scale_id = str(next_id), str(next_id + 1)
+            next_id += 2
+            workflow[load_id] = {"class_type": "LoadImage", "inputs": {"image": name, "upload": "image"}}
+            workflow[scale_id] = {"class_type": "ImageScaleToTotalPixels", "inputs": {
+                "image": [load_id, 0], "upscale_method": "lanczos", "megapixels": 1.0, "resolution_steps": 8}}
+            for encoder in encoders:
+                encoder["inputs"][f"image{slot}"] = [scale_id, 0]
 
     @staticmethod
     def _resolve_storage_path(file_url: str | None) -> Path | None:
@@ -171,6 +190,7 @@ class ComfyUIGenerator(Generator):
         media_type: str,
         mode: str = "text_to_image",
         source_image_url: str | None = None,
+        reference_image_urls: list[str] | None = None,
     ) -> GenerationResult:
         if media_type != "image":
             raise ValueError("ComfyUI adapter currently supports image generation only")
@@ -179,6 +199,7 @@ class ComfyUIGenerator(Generator):
             base_url=self.base_url, timeout=_HTTP_TIMEOUT_SECONDS
         ) as client:
             source_image_name = None
+            reference_names: list[str] = []
             if mode == "image_edit":
                 source = self._resolve_storage_path(source_image_url)
                 if source is None or not source.is_file():
@@ -186,11 +207,16 @@ class ComfyUIGenerator(Generator):
                         "Local image edit requires a source image stored under /storage."
                     )
                 source_image_name = await self._upload_image(client, source)
+                for ref_url in reference_image_urls or []:
+                    ref = self._resolve_storage_path(ref_url)
+                    if ref is None or not ref.is_file():
+                        raise RuntimeError("A reference image is missing from storage.")
+                    reference_names.append(await self._upload_image(client, ref))
             elif mode != "text_to_image":
                 raise RuntimeError(f"ComfyUI image adapter does not support {mode}.")
 
             workflow = self._build_workflow(
-                prompt, mode=mode, source_image_name=source_image_name
+                prompt, mode=mode, source_image_name=source_image_name, reference_image_names=reference_names
             )
             prompt_id = await self._submit(client, workflow)
             outputs = await self._await_outputs(client, prompt_id)

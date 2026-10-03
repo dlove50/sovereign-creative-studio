@@ -12,6 +12,17 @@ import { KEEP_IDENTITY, type LookVariant } from "@/lib/look-templates";
 const STORAGE_KEY = "scs_pending_looks";
 const POLL_MS = 4000;
 
+export type LookOrientation = "Same as photo" | "Portrait" | "Landscape" | "Square";
+export type LookOptions = { references?: string[]; orientation?: LookOrientation };
+
+// Qwen keeps the source photo's shape, so orientation is a framing instruction, not a resize.
+const FRAMING: Record<LookOrientation, string> = {
+  "Same as photo": "",
+  Portrait: " Frame it as a tall vertical portrait.",
+  Landscape: " Frame it as a wide horizontal shot.",
+  Square: " Frame it as a square shot.",
+};
+
 export type PendingLook = {
   generationId: string;
   groupId: string;
@@ -43,13 +54,16 @@ export function useLookQueue(onLookCreated?: () => void) {
 
   useEffect(() => setPending(read()), []);
 
-  const start = useCallback(async (base: AvatarAsset, variants: LookVariant[]) => {
+  const start = useCallback(async (base: AvatarAsset, variants: LookVariant[], options: LookOptions = {}) => {
     if (!base.source_file_path) throw new Error("This avatar has no photo to restyle.");
     const groupId = base.group_id || base.id;
     const added: PendingLook[] = [];
     for (const v of variants) {
+      const refs = options.references ?? [];
+      const borrow = refs.length ? ` Take the clothing, setting or style from ${refs.length === 1 ? "image 2" : "images 2 and 3"}.` : "";
       const gen = await api.createGeneration({
-        prompt: `${v.prompt} ${KEEP_IDENTITY}`,
+        prompt: `${v.prompt}${borrow} ${KEEP_IDENTITY}${FRAMING[options.orientation ?? "Same as photo"]}`,
+        reference_image_urls: refs,
         media_type: "image",
         provider: "local_comfyui",
         mode: "image_edit",

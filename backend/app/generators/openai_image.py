@@ -48,6 +48,7 @@ class OpenAIImageGenerator(Generator):
         media_type: str,
         mode: str = "text_to_image",
         source_image_url: str | None = None,
+        reference_image_urls: list[str] | None = None,
     ) -> GenerationResult:
         self._require_configured()
         if media_type != "image":

@@ -77,6 +77,7 @@ class MockGenerator(Generator):
         media_type: str,
         mode: str = "text_to_image",
         source_image_url: str | None = None,
+        reference_image_urls: list[str] | None = None,
     ) -> GenerationResult:
         await asyncio.sleep(_SIMULATED_LATENCY_SECONDS)
         filename = f"{generation_id}.svg"

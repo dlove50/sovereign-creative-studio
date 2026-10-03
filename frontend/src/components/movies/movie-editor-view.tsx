@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Check, Download, Loader2, Monitor, Plus, Smartphone, Sparkles, Trash2, UserRound, Wand2 } from "lucide-react";
 
+import { defaultVoiceFor } from "@/lib/avatar-voice";
 import { api, assetUrl } from "@/lib/api";
 import type { AvatarAsset, Movie, MovieOrientation, MovieScene, VoiceOption } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -314,7 +315,11 @@ export function MovieEditorView({ movieId }: { movieId: string }) {
               <select
                 value={scene.avatar_id ?? ""}
                 disabled={locked}
-                onChange={(e) => changeScene(selectedIndex, { avatar_id: e.target.value || null })}
+                onChange={(e) => {
+                  const avatarId = e.target.value || null;
+                  const saved = scene.tts_voice_id ? null : defaultVoiceFor(avatars.find((a) => a.id === avatarId), avatars, voices);
+                  changeScene(selectedIndex, saved ? { avatar_id: avatarId, tts_voice_id: saved } : { avatar_id: avatarId });
+                }}
                 className="mt-1 h-10 w-full rounded-xl border border-input bg-background px-3 text-sm text-foreground"
               >
                 <option value="">Choose a look…</option>

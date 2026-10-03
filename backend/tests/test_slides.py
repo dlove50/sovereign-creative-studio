@@ -104,3 +104,18 @@ def test_upload_creates_a_draft_movie_with_one_scene_per_slide(monkeypatch):
         assert movie["title"] == "My Deck" and movie["status"] == "draft"
         assert [s["script"] for s in movie["scenes"]] == ["Alpha", "Beta"]
         assert c.post("/api/slides/to-movie", data={"avatar_id": "a1"}, files={"file": ("x.txt", b"hi")}).status_code == 400
+
+
+def test_extract_text_reads_text_and_decks_and_rejects_other_files():
+    with TestClient(app) as c:
+        assert c.post("/api/auth/signup", json={"username": "kn_user", "password": "knowledge1pw", "name": "K"}).status_code == 201
+        txt = c.post("/api/slides/extract-text", files={"file": ("notes.md", b"# Title  Some   facts here.")})
+        assert txt.status_code == 200 and txt.json()["text"] == "# Title Some facts here." and txt.json()["truncated"] is False
+        buf = io.BytesIO()
+        _pptx(buf, [["Alpha"], ["Beta"]])
+        deck = c.post("/api/slides/extract-text", files={"file": ("d.pptx", buf.getvalue())})
+        assert deck.json()["text"] == "Alpha Beta"
+        long = c.post("/api/slides/extract-text", files={"file": ("big.txt", b"word " * 3000)})
+        assert long.json()["truncated"] is True and len(long.json()["text"]) == 5000
+        assert c.post("/api/slides/extract-text", files={"file": ("x.exe", b"MZ")}).status_code == 400
+        assert c.post("/api/slides/extract-text", files={"file": ("empty.txt", b"   ")}).status_code == 422

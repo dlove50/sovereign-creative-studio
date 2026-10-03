@@ -1,3 +1,4 @@
+import json
 import shutil
 import uuid
 from pathlib import Path
@@ -7,6 +8,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from ..services.transcription import resolve_storage_url
 from ..config import (
     BASE_DIR,
     COMFYUI_BASE_URL,
@@ -341,6 +343,17 @@ def create_generation(
     else:
         final_prompt = prompt_presets.apply_style_preset(payload.prompt, payload.style_preset)
 
+    if payload.reference_image_urls:
+        if provider == "openai_image_api" or mode != "image_edit":
+            raise HTTPException(status_code=400, detail="Reference images work with local Image Edit only.")
+        for ref in payload.reference_image_urls:
+            if Path(ref).suffix.lower() not in _ALLOWED_SOURCE_EXTENSIONS:
+                raise HTTPException(status_code=400, detail="Reference images must be image files.")
+            try:
+                resolve_storage_url(ref)  # path-traversal-safe
+            except RuntimeError as exc:
+                raise HTTPException(status_code=400, detail="A reference image was not found. Upload it again.") from exc
+
     gen = Generation(
         user_id=user.id,
         project_id=payload.project_id,
@@ -357,6 +370,7 @@ def create_generation(
             )
         ),
         source_image_url=payload.source_image_url if mode == "image_edit" else None,
+        reference_image_urls=json.dumps(payload.reference_image_urls) if payload.reference_image_urls and mode == "image_edit" else None,
         credits_cost=cost if provider == "openai_image_api" else 0,
         status="queued",
     )

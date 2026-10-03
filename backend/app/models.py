@@ -92,6 +92,8 @@ class Generation(Base):
     provider_task_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     provider_model: Mapped[str | None] = mapped_column(String(120), nullable=True)
     source_image_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    # JSON list of up to two extra images an image edit can borrow from (an outfit, a place).
+    reference_image_urls: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(String(16), default="queued")
     file_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
     error: Mapped[str | None] = mapped_column(Text, nullable=True)

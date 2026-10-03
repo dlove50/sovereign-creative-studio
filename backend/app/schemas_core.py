@@ -133,6 +133,8 @@ class GenerationCreate(BaseModel):
     provider: Literal["local_comfyui", "openai_image_api"] = "local_comfyui"
     mode: Literal["text_to_image", "image_edit"] = "text_to_image"
     source_image_url: Optional[str] = None
+    # Local Image Edit only: up to two more /storage images to borrow an outfit or place from.
+    reference_image_urls: list[str] = Field(default_factory=list, max_length=2)
     # Local image quality preset (model). None -> server default. Ignored for OpenAI.
     quality_preset: Optional[str] = Field(default=None, max_length=40)
     # Prompt style preset (e.g. "animal_portrait"). None/"none" -> no change.

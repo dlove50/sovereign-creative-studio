@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowUp, Check, History, Layers, Loader2, Search, UserRound, X } from "lucide-react";
+import { ArrowUp, Check, History, ImagePlus, Layers, Loader2, Search, UserRound, X } from "lucide-react";
 
 import { api, assetUrl } from "@/lib/api";
 import type { AvatarAsset } from "@/lib/types";
@@ -11,7 +11,7 @@ import {
   LOOK_CATEGORIES, LOOK_TEMPLATES, MAX_CUSTOM_PACK, MIN_CUSTOM_PACK, isPack,
   type LookCategory, type LookTemplate, type LookVariant,
 } from "@/lib/look-templates";
-import { useLookQueue } from "@/lib/look-queue";
+import { useLookQueue, type LookOrientation } from "@/lib/look-queue";
 import { cn } from "@/lib/utils";
 
 const CREDITS_PER_LOOK = 5;
@@ -80,6 +80,8 @@ function PackModal({
   );
 }
 
+const MAX_REFERENCES = 2;
+
 export function LookStudioView() {
   const router = useRouter();
   const [avatars, setAvatars] = useState<AvatarAsset[]>([]);
@@ -93,6 +95,10 @@ export function LookStudioView() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const promptRef = useRef<HTMLTextAreaElement>(null);
+  const refInput = useRef<HTMLInputElement>(null);
+  const [references, setReferences] = useState<{ url: string; name: string }[]>([]);
+  const [orientation, setOrientation] = useState<LookOrientation>("Same as photo");
+  const [uploadingRef, setUploadingRef] = useState(false);
 
   const refresh = useCallback(async () => setAvatars(await api.listAvatars()), []);
   const queue = useLookQueue(refresh);
@@ -116,12 +122,25 @@ export function LookStudioView() {
     );
   }, [filter, query]);
 
+  async function addReference(file: File) {
+    setError(null);
+    setUploadingRef(true);
+    try {
+      const up = await api.uploadGenerationSource(file);
+      setReferences((all) => [...all, { url: up.source_image_url, name: file.name }].slice(0, MAX_REFERENCES));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "The reference image could not be uploaded.");
+    } finally {
+      setUploadingRef(false);
+    }
+  }
+
   async function create(variants: LookVariant[]) {
     if (!avatar) { setError("Pick the avatar to restyle first."); return; }
     setError(null);
     setBusy(true);
     try {
-      await queue.start(avatar, variants);
+      await queue.start(avatar, variants, { references: references.map((r) => r.url), orientation });
       router.push(`/avatars/${avatar.group_id || avatar.id}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "The looks could not be started.");
@@ -168,6 +187,22 @@ export function LookStudioView() {
               </select>
               <button
                 type="button"
+                onClick={() => refInput.current?.click()}
+                disabled={references.length >= MAX_REFERENCES || uploadingRef}
+                className="inline-flex h-9 items-center gap-1.5 rounded-full border border-border px-3 text-sm hover:bg-raised disabled:opacity-50"
+              >
+                {uploadingRef ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImagePlus className="h-4 w-4" />} References{references.length ? ` (${references.length})` : ""}
+              </button>
+              <select
+                value={orientation}
+                onChange={(e) => setOrientation(e.target.value as LookOrientation)}
+                aria-label="Orientation"
+                className="h-9 rounded-full border border-border bg-background px-3 text-sm"
+              >
+                {(["Same as photo", "Portrait", "Landscape", "Square"] as const).map((o) => <option key={o} value={o}>{o}</option>)}
+              </select>
+              <button
+                type="button"
                 aria-label="Create this look"
                 disabled={busy || !prompt.trim() || !avatar}
                 onClick={() => create([{ label: prompt.trim().slice(0, 60), prompt: prompt.trim() }])}
@@ -176,8 +211,20 @@ export function LookStudioView() {
                 {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowUp className="h-4 w-4" />}
               </button>
             </div>
+            {references.length ? (
+              <ul className="flex flex-wrap gap-2 pt-2" aria-label="Reference images">
+                {references.map((r, i) => (
+                  <li key={r.url} className="flex items-center gap-1.5 rounded-full border border-border bg-background py-1 pl-1 pr-2 text-xs">
+                    <img src={assetUrl(r.url) ?? undefined} alt="" className="h-6 w-6 rounded-full object-cover" />
+                    <span>Image {i + 2}: {r.name.slice(0, 18)}</span>
+                    <button type="button" aria-label={`Remove ${r.name}`} onClick={() => setReferences((all) => all.filter((x) => x.url !== r.url))} className="text-muted-foreground hover:text-foreground"><X className="h-3 w-3" /></button>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
           </div>
         </div>
+        <input ref={refInput} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) void addReference(f); }} />
       </section>
       {error ? <p className="mt-3 rounded-xl bg-destructive/15 px-3 py-2 text-sm text-destructive">{error}</p> : null}
 

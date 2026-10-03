@@ -64,3 +64,31 @@ def slides_to_movie(
     db.commit()
     return {"movie_id": movie.id, "scenes": len(scenes), "warnings": cap_note + warnings,
             "credits_estimate": movies.cost_estimate(scenes)}
+
+
+_KNOWLEDGE_SUFFIXES = {".pdf", ".pptx", ".txt", ".md"}
+_KNOWLEDGE_CHARS = 5000
+
+
+@router.post("/extract-text")
+def extract_text(file: UploadFile = File(...), user: User = Depends(get_current_user)):
+    """Plain text from a PDF, PowerPoint, .txt or .md file, so the video agent can write from it."""
+    suffix = Path(file.filename or "").suffix.lower()
+    if suffix not in _KNOWLEDGE_SUFFIXES:
+        raise HTTPException(status_code=400, detail="Upload a PDF, PowerPoint, .txt or .md file.")
+    data = file.file.read(_MAX_MB * 1024 * 1024 + 1)
+    if len(data) > _MAX_MB * 1024 * 1024:
+        raise HTTPException(status_code=413, detail=f"File is larger than {_MAX_MB} MB.")
+    if suffix in {".txt", ".md"}:
+        text = " ".join(data.decode("utf-8", errors="replace").split())
+    else:
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp) / f"doc{suffix}"
+            source.write_bytes(data)
+            try:
+                text = " ".join(slides.extract_slides(source))
+            except RuntimeError as exc:
+                raise HTTPException(status_code=422, detail=str(exc)) from exc
+    if not text.strip():
+        raise HTTPException(status_code=422, detail="No readable text was found in that file.")
+    return {"name": Path(file.filename or "file").name, "text": text[:_KNOWLEDGE_CHARS], "truncated": len(text) > _KNOWLEDGE_CHARS}

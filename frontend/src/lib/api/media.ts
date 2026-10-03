@@ -93,6 +93,7 @@ export const mediaApi = {
     provider?: ImageProvider;
     mode?: ImageGenerationMode;
     source_image_url?: string | null;
+    reference_image_urls?: string[];
     quality_preset?: string | null;
     style_preset?: string | null;
     image_mode?: string | null;

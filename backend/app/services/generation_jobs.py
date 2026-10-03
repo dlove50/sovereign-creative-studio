@@ -5,6 +5,7 @@ processed by one daemon worker thread, while durable status/result data stays in
 SQLite so the existing API can poll generations by id.
 """
 import asyncio
+import json
 import queue
 import threading
 
@@ -68,6 +69,7 @@ def _run_generation_job(generation_id: str) -> None:
                     media_type=gen.media_type,
                     mode="image_edit" if gen.source_image_url else "text_to_image",
                     source_image_url=gen.source_image_url,
+                    reference_image_urls=json.loads(gen.reference_image_urls) if gen.reference_image_urls else None,
                 )
             )
         except Exception as exc:  # noqa: BLE001 - persist backend failure details

@@ -12,7 +12,7 @@ router = APIRouter(prefix="/api/video-agent", tags=["video-agent"])
 
 
 class ScriptIn(BaseModel):
-    prompt: str = Field(min_length=3, max_length=2000)
+    prompt: str = Field(min_length=3, max_length=8000)
     seconds: int = Field(default=30, ge=10, le=180)
 
 

@@ -19,6 +19,7 @@ class Generator(ABC):
         media_type: str,
         mode: str = "text_to_image",
         source_image_url: str | None = None,
+        reference_image_urls: list[str] | None = None,
     ) -> GenerationResult:
         """Produce an asset for the prompt and return its public URL.
 

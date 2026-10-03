@@ -1,15 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Check, ChevronRight, Clapperboard, Mic, Play, Shirt, UserRound, Video } from "lucide-react";
+import { Check, ChevronRight, Clapperboard, Mic, Pause, Play, Shirt, UserRound, Video } from "lucide-react";
 
 import { api, assetUrl } from "@/lib/api";
-import type { AvatarAsset, AvatarJob, VoiceAsset } from "@/lib/types";
+import type { AvatarAsset, AvatarJob, VoiceOption } from "@/lib/types";
+import { cleanVoiceLabel, isCloneVoice } from "@/lib/voice-meta";
 import { cn } from "@/lib/utils";
-
-// VibeVoice Studio runs beside Sovereign; recording a new voice sample happens there.
-const VIBEVOICE_URL = "http://127.0.0.1:8010";
 
 type Step = {
   id: string;
@@ -17,7 +15,8 @@ type Step = {
   body: string;
   icon: typeof UserRound;
   done: boolean;
-  action: { label: string; href: string; external?: boolean };
+  action: { label: string; href: string };
+  extra?: React.ReactNode;
 };
 
 const PROMPTS = [
@@ -32,12 +31,12 @@ const PROMPTS = [
 ];
 
 function useSetupData() {
-  const [data, setData] = useState<{ name: string; avatars: AvatarAsset[]; voices: VoiceAsset[]; jobs: AvatarJob[] } | null>(null);
+  const [data, setData] = useState<{ name: string; avatars: AvatarAsset[]; voices: VoiceOption[]; jobs: AvatarJob[] } | null>(null);
   useEffect(() => {
     Promise.all([
       api.authMe().then((u) => u.name).catch(() => ""),
       api.listAvatars().catch(() => [] as AvatarAsset[]),
-      api.listVoices().catch(() => [] as VoiceAsset[]),
+      api.getAudioMergeReadiness().then((r) => r.voices).catch(() => [] as VoiceOption[]),
       api.listAvatarJobs().catch(() => [] as AvatarJob[]),
     ]).then(([name, avatars, voices, jobs]) => setData({ name, avatars, voices, jobs }));
   }, []);
@@ -46,11 +45,7 @@ function useSetupData() {
 
 function StepCard({ step, index, current }: { step: Step; index: number; current: boolean }) {
   const Icon = step.icon;
-  const action = step.action.external ? (
-    <a href={step.action.href} target="_blank" rel="noreferrer" className={actionClass(current)}>
-      {step.action.label} <ChevronRight className="h-4 w-4" />
-    </a>
-  ) : (
+  const action = (
     <Link href={step.action.href} className={actionClass(current)}>
       {step.action.label} <ChevronRight className="h-4 w-4" />
     </Link>
@@ -79,8 +74,35 @@ function StepCard({ step, index, current }: { step: Step; index: number; current
         {step.title}
       </h3>
       <p className="mt-1.5 flex-1 text-[13px] leading-relaxed text-muted-foreground">{step.body}</p>
+      {step.extra ? <div className="mt-3">{step.extra}</div> : null}
       <div className="mt-4">{action}</div>
     </li>
+  );
+}
+
+/** A small "play this voice" chip, like the one on HeyGen's setup card. */
+function VoiceChip({ voice }: { voice: VoiceOption }) {
+  const audio = useRef<HTMLAudioElement | null>(null);
+  const [playing, setPlaying] = useState(false);
+  useEffect(() => () => audio.current?.pause(), []);
+  async function toggle() {
+    if (playing) { audio.current?.pause(); setPlaying(false); return; }
+    try {
+      const { url } = await api.voicePreview(voice.id);
+      const el = new Audio(assetUrl(url) ?? undefined);
+      el.onended = () => setPlaying(false);
+      audio.current = el;
+      setPlaying(true);
+      await el.play();
+    } catch {
+      setPlaying(false);
+    }
+  }
+  return (
+    <button type="button" onClick={toggle} aria-label={`${playing ? "Stop" : "Play"} ${cleanVoiceLabel(voice)}`} className="flex w-full items-center gap-2 rounded-full bg-raised px-3 py-1.5 text-left text-xs font-medium hover:bg-raised/70">
+      {playing ? <Pause className="h-3.5 w-3.5 text-primary" /> : <Play className="h-3.5 w-3.5 text-primary" />}
+      <span className="truncate">{cleanVoiceLabel(voice)}</span>
+    </button>
   );
 }
 
@@ -94,23 +116,24 @@ function actionClass(current: boolean) {
 export function WelcomeView() {
   const data = useSetupData();
   const avatars = data?.avatars ?? [];
-  const clone = (data?.voices ?? []).find((v) => v.provider === "vibevoice" && v.sample_file_path);
+  const clone = (data?.voices ?? []).find(isCloneVoice);
   const hasTwin = avatars.some((a) => !a.group_id);
   const hasLook = avatars.some((a) => a.group_id);
   const hasVideo = (data?.jobs ?? []).some((j) => j.status === "completed");
 
   const steps: Step[] = [
     { id: "twin", title: "Create your avatar", icon: UserRound, done: hasTwin,
-      body: "Upload a clear photo of yourself. Outfit and background can be changed later.",
-      action: { label: hasTwin ? "View my avatar" : "Upload a photo", href: "/avatars" } },
-    { id: "voice", title: "Clone your voice", icon: Mic, done: Boolean(clone),
-      body: "Record a short sample in VibeVoice Studio, then generate a clip in your own voice.",
-      action: clone ? { label: "Record a new sample", href: VIBEVOICE_URL, external: true } : { label: "Open VibeVoice Studio", href: VIBEVOICE_URL, external: true } },
+      body: "Upload a video of yourself talking, or a clear photo. Outfit and background can be changed later.",
+      action: { label: hasTwin ? "View my avatars" : "Create my avatar", href: hasTwin ? "/avatars" : "/avatars/new" } },
+    { id: "voice", title: "Polish your voice", icon: Mic, done: Boolean(clone),
+      body: "Hear the clone made from your recording, or record a cleaner sample and clone it again.",
+      extra: clone ? <VoiceChip voice={clone} /> : undefined,
+      action: { label: clone ? "Re-record voice" : "Clone my voice", href: "/voices" } },
     { id: "look", title: "Create a look", icon: Shirt, done: hasLook,
-      body: "New outfits and scenes from one prompt, with your face kept the same.",
+      body: "New outfits and scenes from one prompt, and your face stays locked.",
       action: { label: hasLook ? "View my looks" : "Create a look", href: hasLook ? "/avatars" : "/avatars/looks" } },
     { id: "video", title: "Make your first video", icon: Video, done: hasVideo,
-      body: "Type a script, pick a voice and a look, and your avatar says it.",
+      body: "Start from a script, a prompt, or scene by scene in the video editor.",
       action: { label: hasVideo ? "Make another video" : "Make a video", href: "/video-agent" } },
   ];
   const doneCount = steps.filter((s) => s.done).length;
@@ -136,13 +159,6 @@ export function WelcomeView() {
             <StepCard key={step.id} step={step} index={i} current={i === currentIndex} />
           ))}
         </ol>
-        {clone?.sample_file_path ? (
-          <div className="mt-3 flex items-center gap-3 rounded-xl bg-raised/60 px-3 py-2 text-sm">
-            <Play className="h-4 w-4 text-primary" aria-hidden="true" />
-            <span className="shrink-0 text-muted-foreground">Latest clip in your voice</span>
-            <audio controls src={assetUrl(clone.sample_file_path) ?? undefined} className="h-8 w-full max-w-md" />
-          </div>
-        ) : null}
       </section>
 
       <section aria-labelledby="prompts-heading" className="mt-10">

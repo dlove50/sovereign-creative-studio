@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ImagePlus, Loader2, Mic, Shirt, Sparkles, Trash2, UserSquare, Video } from "lucide-react";
 
+import { defaultVoiceFor } from "@/lib/avatar-voice";
 import { api, assetUrl } from "@/lib/api";
 import type { AvatarAsset, AvatarJob, AvatarVoiceReadiness, VoiceAsset, VoiceOption } from "@/lib/types";
 import Link from "next/link";
@@ -83,6 +84,11 @@ export function AvatarsView() {
     const chosen = params.get("avatar");
     if (chosen) setPickAvatar(chosen);
   }, []);
+
+  useEffect(() => {
+    const saved = defaultVoiceFor(avatars.find((a) => a.id === pickAvatar), avatars, ttsVoices);
+    if (saved) setTtsVoice(saved);
+  }, [pickAvatar, avatars, ttsVoices]);
 
   useEffect(() => {
     if (readiness?.greeting_text) setScript((cur) => cur || readiness.greeting_text);

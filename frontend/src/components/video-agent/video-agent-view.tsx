@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { Check, ChevronRight, Clock, Loader2, Mic, Palette, PenLine, Sparkles, UserRound, X } from "lucide-react";
+import { Check, ChevronRight, Clock, Loader2, Mic, Palette, Paperclip, PenLine, Sparkles, UserRound, X } from "lucide-react";
 
+import { defaultVoiceFor } from "@/lib/avatar-voice";
 import { api, assetUrl } from "@/lib/api";
 import type { AvatarAsset, AvatarJob, BrandKit, VoiceOption } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -89,6 +90,10 @@ export function VideoAgentView() {
   const [avatarId, setAvatarId] = useState("");
   const [voiceId, setVoiceId] = useState("");
   const [seconds, setSeconds] = useState<number>(30);
+  const [instructions, setInstructions] = useState("");
+  const [knowledge, setKnowledge] = useState<{ name: string; text: string }[]>([]);
+  const [knowledgeError, setKnowledgeError] = useState<string | null>(null);
+  const knowledgeInput = useRef<HTMLInputElement>(null);
   const [mode, setMode] = useState<Mode>("review");
   const [brands, setBrands] = useState<Brand[]>([]);
   const [brandId, setBrandId] = useState("");
@@ -121,6 +126,12 @@ export function VideoAgentView() {
       setVoiceId((cur) => cur || clone?.id || r.voices.find((v) => v.is_default)?.id || r.voices[0]?.id || "");
     }).catch(() => setVoices([]));
   }, []);
+
+  // Picking an avatar switches to the voice saved on it (the user can still change it afterwards).
+  useEffect(() => {
+    const saved = defaultVoiceFor(avatars.find((a) => a.id === avatarId), avatars, voices);
+    if (saved) setVoiceId(saved);
+  }, [avatarId, avatars, voices]);
 
   // Follow the talking-avatar render until it finishes.
   useEffect(() => {
@@ -159,16 +170,31 @@ export function VideoAgentView() {
     }
   }
 
+  async function addKnowledge(file: File) {
+    setKnowledgeError(null);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const out = await api.extractKnowledge(form);
+      setKnowledge((all) => [...all, { name: out.name, text: out.text }].slice(0, 3));
+    } catch (e) {
+      setKnowledgeError(e instanceof Error ? e.message : "That file could not be read.");
+    }
+  }
+
   async function submit() {
     if (!prompt.trim() || busy) return;
     setError(null);
     setJob(null);
     setStage("writing");
     try {
-      const context = brandContext(brands.find((b) => b.id === brandId));
-      const out = await api.writeAgentScript({ prompt: context ? `${prompt.trim()}
-
-${context}` : prompt.trim(), seconds });
+      const parts = [
+        prompt.trim(),
+        brandContext(brands.find((b) => b.id === brandId)),
+        instructions.trim() ? `Extra instructions: ${instructions.trim()}` : "",
+        ...knowledge.map((k) => `Use only facts from this material (${k.name}): ${k.text}`),
+      ].filter(Boolean);
+      const out = await api.writeAgentScript({ prompt: parts.join(" ").slice(0, 8000), seconds });
       setTitle(out.title);
       setScript(out.script);
       if (mode === "autopilot") await makeVideo(out.script);
@@ -217,6 +243,20 @@ ${context}` : prompt.trim(), seconds });
             </select>
           </Chip>
         </div>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <input value={instructions} onChange={(e) => setInstructions(e.target.value.slice(0, 500))} aria-label="Instructions" placeholder="Instructions (optional): tone, must-include points, things to avoid" className="h-9 min-w-[240px] flex-1 rounded-full border border-border bg-background px-4 text-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+          <button type="button" onClick={() => knowledgeInput.current?.click()} disabled={knowledge.length >= 3} className="inline-flex h-9 items-center gap-1.5 rounded-full border border-border px-3 text-xs hover:bg-raised disabled:opacity-50">
+            <Paperclip className="h-3.5 w-3.5" /> Add knowledge
+          </button>
+          <input ref={knowledgeInput} type="file" accept=".pdf,.pptx,.txt,.md" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) void addKnowledge(f); }} />
+          {knowledge.map((k) => (
+            <span key={k.name} className="inline-flex items-center gap-1.5 rounded-full bg-raised px-3 py-1 text-xs">
+              {k.name.slice(0, 24)}
+              <button type="button" aria-label={`Remove ${k.name}`} onClick={() => setKnowledge((all) => all.filter((x) => x.name !== k.name))} className="text-muted-foreground hover:text-foreground"><X className="h-3 w-3" /></button>
+            </span>
+          ))}
+        </div>
+        {knowledgeError ? <p className="mt-2 text-xs text-destructive">{knowledgeError}</p> : null}
         <textarea
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
