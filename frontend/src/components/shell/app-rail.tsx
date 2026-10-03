@@ -7,7 +7,7 @@ import { Coins, ShieldCheck, Sparkles } from "lucide-react";
 
 import { api } from "@/lib/api";
 import type { AvatarJob } from "@/lib/types";
-import { CREATE_NAV, RAIL_NAV, type NavigationItem } from "@/lib/navigation";
+import { AVATAR_NAV, CREATE_NAV, RAIL_NAV, type NavigationItem } from "@/lib/navigation";
 import { isAuthRoute } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 
@@ -26,13 +26,15 @@ function timeAgo(iso: string) {
   return `${days} day${days === 1 ? "" : "s"} ago`;
 }
 
-function RailItem({ item, pathname }: { item: NavigationItem; pathname: string }) {
+function RailItem({ item, pathname, onHover }: { item: NavigationItem; pathname: string; onHover?: () => void }) {
   const active = isActive(item.href, pathname);
   const Icon = item.icon;
   return (
     <Link
       href={item.href}
       aria-current={active ? "page" : undefined}
+      onMouseEnter={onHover}
+      onFocus={onHover}
       className="group flex flex-col items-center gap-1 py-1.5 text-[11px] font-medium focus-visible:outline-none"
     >
       <span
@@ -53,7 +55,8 @@ export function AppRail() {
   const pathname = usePathname();
   const [isAdmin, setIsAdmin] = useState(false);
   const [initial, setInitial] = useState("S");
-  const [open, setOpen] = useState(false);
+  const [panel, setPanel] = useState<"create" | "avatars" | null>(null);
+  const open = panel === "create";
   const [recents, setRecents] = useState<AvatarJob[]>([]);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -67,7 +70,7 @@ export function AppRail() {
       .catch(() => setIsAdmin(false));
   }, [pathname]);
 
-  useEffect(() => setOpen(false), [pathname]);
+  useEffect(() => setPanel(null), [pathname]);
 
   useEffect(() => {
     if (!open) return;
@@ -79,12 +82,12 @@ export function AppRail() {
 
   if (isAuthRoute(pathname)) return null;
 
-  function show() {
+  function show(which: "create" | "avatars" = "create") {
     if (closeTimer.current) clearTimeout(closeTimer.current);
-    setOpen(true);
+    setPanel(which);
   }
   function hideSoon() {
-    closeTimer.current = setTimeout(() => setOpen(false), 180);
+    closeTimer.current = setTimeout(() => setPanel(null), 180);
   }
 
   return (
@@ -92,9 +95,9 @@ export function AppRail() {
       <aside className="sticky top-0 flex h-screen w-[76px] flex-col items-center gap-2 border-r border-border bg-card/60 py-4">
         <button
           type="button"
-          onMouseEnter={show}
-          onFocus={show}
-          onClick={() => setOpen((v) => !v)}
+          onMouseEnter={() => show("create")}
+          onFocus={() => show("create")}
+          onClick={() => setPanel((v) => (v === "create" ? null : "create"))}
           aria-expanded={open}
           aria-label="Create"
           className="mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-400 via-primary to-violet-500 text-primary-foreground shadow-[0_0_24px_hsl(197_87%_54%/0.35)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -103,7 +106,7 @@ export function AppRail() {
         </button>
         <nav className="flex flex-col gap-1" aria-label="Main">
           {RAIL_NAV.map((item) => (
-            <RailItem key={item.href} item={item} pathname={pathname} />
+            <RailItem key={item.href} item={item} pathname={pathname} onHover={() => (item.href === "/avatars" ? show("avatars") : setPanel(null))} />
           ))}
         </nav>
         <div className="mt-auto flex flex-col items-center gap-2">
@@ -119,9 +122,38 @@ export function AppRail() {
         </div>
       </aside>
 
+      {panel === "avatars" ? (
+        <div
+          onMouseEnter={() => show("avatars")}
+          className="absolute left-[76px] top-0 z-40 flex h-screen w-[248px] flex-col border-r border-border bg-card shadow-2xl shadow-black/40"
+        >
+          <p className="px-5 pb-2 pt-5 text-xs font-medium text-muted-foreground">Manage avatars</p>
+          <nav className="flex flex-col gap-0.5 px-3" aria-label="Manage avatars">
+            {AVATAR_NAV.map((item) => {
+              const Icon = item.icon;
+              const active = item.href === "/avatars" ? pathname === "/avatars" || /^\/avatars\/(?!looks)/.test(pathname) : pathname.startsWith(item.href);
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  aria-current={active ? "page" : undefined}
+                  className={cn(
+                    "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                    active ? "bg-raised text-foreground" : "text-foreground/85 hover:bg-raised",
+                  )}
+                >
+                  <Icon className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                  {item.label}
+                </Link>
+              );
+            })}
+          </nav>
+        </div>
+      ) : null}
+
       {open ? (
         <div
-          onMouseEnter={show}
+          onMouseEnter={() => show("create")}
           className="absolute left-[76px] top-0 z-40 flex h-screen w-[248px] flex-col border-r border-border bg-card shadow-2xl shadow-black/40"
         >
           <p className="px-5 pb-2 pt-5 text-xs font-medium text-muted-foreground">Create</p>

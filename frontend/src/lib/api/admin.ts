@@ -115,6 +115,15 @@ export const adminApi = {
   avatarReadiness: () => request<AvatarVoiceReadiness>("/api/avatars/readiness"),
   listAvatars: () => request<AvatarAsset[]>("/api/avatars"),
   createPhotoAvatar: (form: FormData) => formRequest<AvatarAsset>("/api/avatars/photo", form),
+  cloneRealPerson: (form: FormData) =>
+    formRequest<{ avatar: AvatarAsset; voice_id: string | null; voice_note: string | null }>("/api/avatars/clone", form),
+  updateAvatar: (id: string, patch: { name?: string; default_voice_id?: string }) =>
+    request<AvatarAsset>(`/api/avatars/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(patch) }),
+  voicePreview: (voiceId: string) =>
+    request<{ url: string; kind: "synthesised" | "reference" }>(`/api/voice-library/preview?voice_id=${encodeURIComponent(voiceId)}`),
+  deleteClonedVoice: (name: string) =>
+    request<void>(`/api/voice-library/${encodeURIComponent(name)}`, { method: "DELETE" }),
+  cloneVoice: (form: FormData) => formRequest<{ voice_id: string; name: string }>("/api/voice-library/clone", form),
   createVideoAvatar: (form: FormData) => formRequest<AvatarAsset>("/api/avatars/video", form),
   writeAgentScript: (input: { prompt: string; seconds: number }) =>
     request<{ title: string; script: string; model: string; target_words: number }>("/api/video-agent/script", {

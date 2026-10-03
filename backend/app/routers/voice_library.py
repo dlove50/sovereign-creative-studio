@@ -82,3 +82,17 @@ def clone_voice(
     if voice_name is None:
         raise HTTPException(status_code=503, detail="The voice app is not running. Start it and try again.")
     return {"voice_id": f"{voice_provider.VIBEVOICE_PREFIX}{voice_name}", "name": voice_name}
+
+
+@router.delete("/{name}", status_code=204)
+def delete_clone(name: str, user: User = Depends(get_current_user)):
+    """Remove a cloned voice from the voice app. Built-in voices cannot be deleted."""
+    if f"{voice_provider.VIBEVOICE_PREFIX}{name}" not in {v["id"] for v in voice_provider.list_voices()}:
+        raise HTTPException(status_code=404, detail="Cloned voice not found")
+    try:
+        resp = httpx.delete(f"{config.VIBEVOICE_BASE_URL}/api/voices/{name}", timeout=20.0)
+    except httpx.HTTPError as exc:
+        raise HTTPException(status_code=503, detail="The voice app is not running.") from exc
+    if resp.status_code == 404:
+        raise HTTPException(status_code=404, detail="Cloned voice not found")
+    resp.raise_for_status()

@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ImagePlus, LayoutGrid, List, Loader2, Search, Sparkles, UserPlus, UserRound, Video } from "lucide-react";
+import { LayoutGrid, List, Search, UserPlus, UserRound, Video } from "lucide-react";
 
 import { api, assetUrl } from "@/lib/api";
 import type { AvatarAsset } from "@/lib/types";
@@ -59,112 +59,15 @@ function GroupCard({ group, list }: { group: AvatarGroup; list: boolean }) {
   );
 }
 
-function NewAvatarMenu({ onCreated }: { onCreated: () => Promise<void> }) {
-  const [open, setOpen] = useState(false);
-  const [designing, setDesigning] = useState(false);
-  const [prompt, setPrompt] = useState("");
-  const [busy, setBusy] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const photoInput = useRef<HTMLInputElement>(null);
-  const videoInput = useRef<HTMLInputElement>(null);
-  const router = useRouter();
-
-  async function upload(kind: "photo" | "video", file: File) {
-    setBusy(kind);
-    setError(null);
-    try {
-      const form = new FormData();
-      form.append("file", file);
-      form.append("name", file.name.replace(/\.[^.]+$/, ""));
-      const created = kind === "photo" ? await api.createPhotoAvatar(form) : await api.createVideoAvatar(form);
-      await onCreated();
-      router.push(`/avatars/${created.id}`);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Upload failed.");
-    } finally {
-      setBusy(null);
-      setOpen(false);
-    }
-  }
-
-  async function design() {
-    if (!prompt.trim()) return;
-    setBusy("design");
-    setError(null);
-    try {
-      let gen = await api.createGeneration({
-        prompt: `Waist-up portrait photo of ${prompt.trim()}, facing the camera, mouth closed, soft natural light, photorealistic`,
-        media_type: "image",
-        provider: "local_comfyui",
-        mode: "text_to_image",
-        quality_preset: "krea2_turbo_fp8",
-      });
-      while (gen.status !== "completed" && gen.status !== "failed") {
-        await new Promise((r) => setTimeout(r, 3000));
-        gen = await api.getGeneration(gen.id);
-      }
-      if (gen.status === "failed" || !gen.file_url) throw new Error(gen.error || "The avatar could not be designed.");
-      const form = new FormData();
-      form.append("name", prompt.trim().slice(0, 60));
-      form.append("source_url", gen.file_url);
-      const created = await api.createPhotoAvatar(form);
-      await onCreated();
-      router.push(`/avatars/${created.id}`);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "The avatar could not be designed.");
-    } finally {
-      setBusy(null);
-    }
-  }
-
+function NewAvatarButton() {
   return (
-    <div className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
-        className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-      >
-        {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
-        New avatar
-      </button>
-      {open ? (
-        <div className="absolute right-0 z-30 mt-2 w-72 rounded-2xl border border-border bg-card p-2 shadow-2xl shadow-black/40">
-          <button type="button" onClick={() => photoInput.current?.click()} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm hover:bg-raised">
-            <ImagePlus className="h-4 w-4 text-muted-foreground" /> Upload a photo
-          </button>
-          <button type="button" onClick={() => videoInput.current?.click()} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm hover:bg-raised">
-            <Video className="h-4 w-4 text-muted-foreground" /> Upload a video of yourself
-          </button>
-          <button type="button" onClick={() => setDesigning((v) => !v)} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm hover:bg-raised">
-            <Sparkles className="h-4 w-4 text-muted-foreground" /> Design with AI
-          </button>
-          {designing ? (
-            <div className="space-y-2 px-2 pb-2 pt-1">
-              <textarea
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                rows={3}
-                maxLength={300}
-                placeholder="e.g. a friendly woman in her 40s with short grey hair and a denim jacket"
-                className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              />
-              <button
-                type="button"
-                onClick={design}
-                disabled={busy === "design" || !prompt.trim()}
-                className="w-full rounded-xl bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
-              >
-                {busy === "design" ? "Designing… (about 10 seconds)" : "Design avatar"}
-              </button>
-            </div>
-          ) : null}
-          {error ? <p className="px-3 pb-2 text-xs text-destructive">{error}</p> : null}
-        </div>
-      ) : null}
-      <input ref={photoInput} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(e) => e.target.files?.[0] && upload("photo", e.target.files[0])} />
-      <input ref={videoInput} type="file" accept="video/mp4,video/quicktime,video/webm" className="hidden" onChange={(e) => e.target.files?.[0] && upload("video", e.target.files[0])} />
-    </div>
+    <Link
+      href="/avatars/new"
+      className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      <UserPlus className="h-4 w-4" />
+      New avatar
+    </Link>
   );
 }
 
@@ -242,7 +145,7 @@ export function AvatarGalleryView() {
             </button>
           ))}
         </div>
-        <div className="mb-2"><NewAvatarMenu onCreated={refresh} /></div>
+        <div className="mb-2"><NewAvatarButton /></div>
       </div>
 
       {tab === "mine" ? (

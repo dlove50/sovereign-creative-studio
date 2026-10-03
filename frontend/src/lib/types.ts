@@ -39,6 +39,7 @@ export interface AvatarAsset {
   created_at: string;
   group_id?: string | null;
   look_label?: string | null;
+  default_voice_id?: string | null;
 }
 
 export interface VoiceAsset {

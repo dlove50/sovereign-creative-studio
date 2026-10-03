@@ -62,3 +62,21 @@ def test_clone_voice_from_an_audio_file(tmp_path, monkeypatch):
         monkeypatch.setattr(avatar_clone, "register_voice", lambda name, sample: None)
         off = c.post("/api/voice-library/clone", data={"name": "Quiet"}, files={"file": ("me.wav", wav.read_bytes())})
         assert off.status_code == 503 and "not running" in off.json()["detail"]
+
+
+def test_delete_clone_only_removes_real_cloned_voices(monkeypatch):
+    sent = []
+
+    class _Resp:
+        status_code = 200
+
+        def raise_for_status(self):
+            pass
+
+    monkeypatch.setattr(voice_library.voice_provider, "list_voices", lambda: [{"id": "vibevoice:Mine"}, {"id": "en_US-amy-medium"}])
+    monkeypatch.setattr(voice_library.httpx, "delete", lambda url, **kw: sent.append(url) or _Resp())
+    with TestClient(app) as c:
+        _login(c, "vl_user4")
+        assert c.delete("/api/voice-library/Mine").status_code == 204 and sent[0].endswith("/api/voices/Mine")
+        assert c.delete("/api/voice-library/en_US-amy-medium").status_code == 404  # built-in voices are not clones
+        assert c.delete("/api/voice-library/..%2Fsecret").status_code == 404

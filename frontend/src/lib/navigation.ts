@@ -10,6 +10,7 @@ import {
   Film,
   Folder,
   Home,
+  Mic,
   LayoutGrid,
   Palette,
   Images,
@@ -87,6 +88,13 @@ export const RAIL_NAV: NavigationItem[] = [
   { href: "/brand", label: "Brand", icon: Palette },
   { href: "/apps", label: "Apps", icon: LayoutGrid },
   { href: "/projects", label: "Projects", icon: Folder },
+];
+
+// The Avatar section's own pages, shown in a panel when the Avatar rail item is hovered.
+export const AVATAR_NAV: NavigationItem[] = [
+  { href: "/avatars", label: "Avatars", icon: PersonStanding },
+  { href: "/avatars/looks", label: "Design a look", icon: Wand2 },
+  { href: "/voices", label: "Voices", icon: Mic },
 ];
 
 export const CREATE_NAV: NavigationItem[] = [
