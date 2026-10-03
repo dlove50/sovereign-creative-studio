@@ -166,12 +166,16 @@ Backend tests: **528 passing** at the time of writing (run from `backend/`).
   turbo 4 steps default, `quality_preset="h3_full"` = 20 steps), settings `H3_*` in `config.py`,
   readiness `_h3_ready()` in `routers/videos.py` (lists exactly which files ComfyUI still lacks),
   provider option in `videos-view.tsx`. Cost `CREDITS_PER_H3_VIDEO=20`.
-- **Not yet verified on the GPU** (files were still downloading). Once the log says `ALL DONE`:
-  restart ComfyUI so it lists the new files, confirm `GET /api/videos/modes` shows `local_h3` available,
-  then generate one 2-second text→video and one image→video clip from Video Generator → provider
-  "MiniMax H3". Expect heavy RAM offload (21 GB model on a 16 GB GPU, 31 GB system RAM); if it OOMs,
-  lower `H3_LONG_SIDE/H3_SHORT_SIDE` (832/480) or try `minimax_h3_fl2va_pruned_w6a8` (16 GB) via `H3_UNET_NAME`.
-  Do not run H3 while a movie/avatar render is active (single 16 GB GPU).
+- **GPU-verified (2026-10-03, RTX 5070 Ti 16 GB)** with files `fl2va_pruned_int8_convrot` + NVFP4 text encoder + fp16 video VAE +
+  4-step turbo LoRA, default `H3_*` settings:
+  - Text -> video, 2 s: **32 s** of GPU time, 832x480, 24 fps, stereo 32 kHz AAC audio (quiet: mean -34 dB). A calm-ocean
+    prompt gave a convincing sunrise beach with waves and gulls.
+  - Image -> video, 2 s (avatar look as first frame): **26-31 s**; identity kept, head turn and smile, audio present.
+  - VRAM used ~14.2 GB during the run; ComfyUI offloads the rest (no OOM at 2 s).
+  - **Bug found and fixed:** a square source was stretched to 16:9 (output size only chose portrait/landscape). Output size now
+    follows the source aspect (`h3_size_for_aspect`, ~same pixel area, multiples of 32): 1:1 -> 640x640, 9:16 -> 480x832.
+  - Not tried: clips longer than 2 s (the model's trained range is ~124-362 frames, 5-15 s), `h3_full` (20 steps), larger sizes.
+  Test clips are in Downloads: `sovereign-h3-text-to-video-test.mp4`, `sovereign-h3-image-to-video-test.mp4`.
 - Not built yet: reference-to-video (`ref2va`, `MiniMaxH3ReferenceToVideo` node), ControlNet union
   (`MiniMaxH3FunControlNetApply`), effect embeddings in the UI, first+last-frame mode in the UI,
   H3 entry in Model Manager. The files for these are in the download list.

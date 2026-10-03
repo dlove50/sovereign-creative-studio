@@ -15,7 +15,9 @@ from app import config  # noqa: E402
 from app.main import app  # noqa: E402
 from app.routers import videos as videos_router  # noqa: E402
 from app.video_generators import MiniMaxH3VideoGenerator, get_video_generator  # noqa: E402
-from app.video_generators.minimax_h3 import build_h3_workflow, h3_length_frames, h3_size  # noqa: E402
+from app.video_generators.minimax_h3 import (  # noqa: E402
+    build_h3_workflow, h3_length_frames, h3_size, h3_size_for_aspect,
+)
 
 
 @pytest.mark.parametrize("seconds,frames", [(1, 56), (2, 56), (5, 124), (10, 243), (60, 362)])
@@ -28,6 +30,14 @@ def test_size_follows_orientation_in_multiples_of_32():
     assert h3_size(portrait=False) == (config.H3_LONG_SIDE, config.H3_SHORT_SIDE)
     assert h3_size(portrait=True) == (config.H3_SHORT_SIDE, config.H3_LONG_SIDE)
     assert all(v % 32 == 0 for v in (*h3_size(False), *h3_size(True)))
+
+
+@pytest.mark.parametrize("aspect,expected", [(1.0, (640, 640)), (16 / 9, (832, 480)), (9 / 16, (480, 832)), (4 / 3, (736, 544))])
+def test_output_keeps_the_source_aspect_ratio_instead_of_stretching_to_16_9(aspect, expected):
+    width, height = h3_size_for_aspect(aspect)
+    assert (width, height) == expected
+    assert width % 32 == 0 and height % 32 == 0
+    assert abs(width / height - aspect) / aspect < 0.1  # within snapping error
 
 
 def test_image_to_video_graph_has_first_frame_turbo_and_audio():

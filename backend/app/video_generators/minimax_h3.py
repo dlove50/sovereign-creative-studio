@@ -38,6 +38,15 @@ def h3_size(portrait: bool) -> tuple[int, int]:
     return (short_side, long_side) if portrait else (long_side, short_side)
 
 
+def h3_size_for_aspect(aspect: float) -> tuple[int, int]:
+    """(width, height) with the source's aspect ratio and about the configured pixel
+    area, in multiples of 32, so a square or tall image is never stretched to 16:9."""
+    area = config.H3_LONG_SIDE * config.H3_SHORT_SIDE
+    height = (area / aspect) ** 0.5
+    snap = lambda v: max(256, round(v / 32) * 32)  # noqa: E731
+    return snap(height * aspect), snap(height)
+
+
 def build_h3_workflow(
     *, prompt: str, width: int, height: int, length: int, image_name: str | None,
     turbo: bool = True, seed: int | None = None,
@@ -78,16 +87,16 @@ def build_h3_workflow(
     return workflow
 
 
-def _is_portrait(image_path) -> bool:
-    """Orientation of the source image via ffmpeg (no Pillow in the backend venv)."""
+def _image_aspect(image_path) -> float | None:
+    """width / height of the source image via ffmpeg (no Pillow in the backend venv)."""
     from ..services.audio_merge import _ffmpeg
 
     ffmpeg = _ffmpeg()
     if not ffmpeg:
-        return False
+        return None
     out = subprocess.run([ffmpeg, "-hide_banner", "-i", str(image_path)], capture_output=True, text=True).stderr
     m = re.search(r"Video:.*?,\s*(\d{2,5})x(\d{2,5})", out)
-    return bool(m and int(m.group(2)) > int(m.group(1)))
+    return int(m.group(1)) / int(m.group(2)) if m else None
 
 
 class MiniMaxH3VideoGenerator(ComfyUIVideoGenerator):
@@ -111,8 +120,8 @@ class MiniMaxH3VideoGenerator(ComfyUIVideoGenerator):
         if mode not in {"text_to_video", "image_to_video"}:
             raise RuntimeError("MiniMax H3 supports Text -> Video and Image -> Video.")
         source = None if mode == "text_to_video" else self._resolve_source_image(source_image_url)
-        portrait = bool(source and _is_portrait(source))
-        width, height = h3_size(portrait)
+        aspect = _image_aspect(source) if source else None
+        width, height = h3_size_for_aspect(aspect) if aspect else h3_size(portrait=False)
         async with httpx.AsyncClient(base_url=self.base_url, timeout=60.0) as client:
             image_name = await self._upload_image(client, source) if source else None
             workflow = build_h3_workflow(
