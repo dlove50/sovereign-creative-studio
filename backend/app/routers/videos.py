@@ -22,6 +22,7 @@ from ..config import (
     COMFYUI_WAN_VIDEO_MODEL_NAME,
     COMFYUI_WAN_VIDEO_WORKFLOW_PATH,
     H3_AUDIO_VAE_NAME,
+    H3_CONTROLNET_NAME,
     H3_TEXT_ENCODER_NAME,
     H3_TURBO_LORA_NAME,
     H3_UNET_NAME,
@@ -136,6 +137,7 @@ def list_video_modes():
     seedance_ready, seedance_note = _seedance_ready()
     wan_ready, wan_note = _wan_ready()
     h3_ready, h3_note = _h3_ready()
+    h3_control_ready, h3_control_note = _h3_controlnet_ready()
     options = []
     for mode_id, label, description, source_required in _VIDEO_MODES:
         if is_mock:
@@ -191,15 +193,18 @@ def list_video_modes():
                         ),
                     ),
                     "local_h3": VideoProviderReadiness(
-                        available=h3_ready and mode_id in {"text_to_video", "image_to_video"},
+                        available=(
+                            h3_control_ready if mode_id == "video_to_video"
+                            else h3_ready and mode_id in {"text_to_video", "image_to_video"}
+                        ),
                         cost=CREDITS_PER_H3_VIDEO,
                         note=(
-                            h3_note
-                            if not h3_ready
+                            (h3_control_note if mode_id == "video_to_video" else h3_note)
+                            if not (h3_control_ready if mode_id == "video_to_video" else h3_ready)
                             else (
                                 None
-                                if mode_id in {"text_to_video", "image_to_video"}
-                                else "MiniMax H3 makes video with sound from text or an image."
+                                if mode_id in {"text_to_video", "image_to_video", "video_to_video"}
+                                else "MiniMax H3 makes video with sound from text, an image or a guide video."
                             )
                         ),
                     ),
@@ -322,6 +327,29 @@ def _h3_ready() -> tuple[bool, str | None]:
     ]
     if still_downloading:
         return False, "MiniMax H3 files not in ComfyUI yet: " + ", ".join(still_downloading)
+    return True, None
+
+
+_H3_CONTROL_NODES = ("MiniMaxH3FunControlNetApply", "ModelPatchLoader", "Canny", "LoadVideo", "GetVideoComponents")
+
+
+def _h3_controlnet_ready() -> tuple[bool, str | None]:
+    """Video -> Video on H3 needs the Fun ControlNet file and a few ComfyUI nodes."""
+    ready, note = _h3_ready()
+    if not ready:
+        return False, note
+    if VIDEO_BACKEND == "mock":
+        return True, None
+    try:
+        with httpx.Client(base_url=COMFYUI_BASE_URL.rstrip("/"), timeout=_COMFY_TIMEOUT_SECONDS) as client:
+            object_info = client.get("/object_info").json()
+    except Exception as exc:  # noqa: BLE001
+        return False, f"ComfyUI unavailable at {COMFYUI_BASE_URL}: {exc}"
+    missing = [n for n in _H3_CONTROL_NODES if n not in object_info]
+    if missing:
+        return False, "Update ComfyUI: missing nodes " + ", ".join(missing)
+    if H3_CONTROLNET_NAME not in _loader_options(object_info, "ModelPatchLoader", "name"):
+        return False, "MiniMax H3 ControlNet file not in ComfyUI yet."
     return True, None
 
 
@@ -615,12 +643,12 @@ def create_video(
                 detail="Seedance is only wired for Text -> Video and Image -> Video in Phase 14A.",
             )
     if provider == "local_h3":
-        if payload.mode not in {"text_to_video", "image_to_video"}:
+        if payload.mode not in {"text_to_video", "image_to_video", "video_to_video"}:
             raise HTTPException(
                 status_code=409,
-                detail="MiniMax H3 is wired for Text -> Video and Image -> Video.",
+                detail="MiniMax H3 is wired for Text -> Video, Image -> Video and Video -> Video.",
             )
-        ready, reason = _h3_ready()
+        ready, reason = _h3_controlnet_ready() if payload.mode == "video_to_video" else _h3_ready()
         if not ready:
             raise HTTPException(status_code=409, detail=f"MiniMax H3 is not ready: {reason}")
     if provider == "local_wan":

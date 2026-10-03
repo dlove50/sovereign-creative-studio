@@ -118,7 +118,7 @@ def test_creating_an_h3_video_is_refused_with_a_reason_until_ready(monkeypatch):
         r = c.post("/api/videos", json={**body, "mode": "text_to_video", "duration_seconds": 5})
         assert r.status_code == 409 and "MiniMax H3 is not ready" in r.json()["detail"]
         r = c.post("/api/videos", json={**body, "mode": "video_upscale"})
-        assert r.status_code == 409 and "Text -> Video and Image -> Video" in r.json()["detail"]
+        assert r.status_code == 409 and "Text -> Video, Image -> Video and Video -> Video" in r.json()["detail"]
 
 
 def test_reference_graph_uses_ref_model_ref_lora_and_the_picture_tag():
@@ -148,3 +148,52 @@ def test_h3_quality_presets_are_accepted_by_the_api_schema():
 
     for preset in ("h3_full", "h3_reference"):
         assert VideoCreate(project_id="p", prompt="x", motion_preset="subtle_breathing", quality_preset=preset).quality_preset == preset
+
+
+def test_controlnet_graph_patches_the_model_with_canny_edges_of_the_control_clip():
+    wf = build_h3_workflow(prompt="a robot dances", width=832, height=480, length=56, image_name=None, control_video_name="c.mp4")
+    assert wf["20"]["inputs"]["file"] == "c.mp4" and wf["22"]["class_type"] == "Canny"
+    cn = wf["24"]["inputs"]
+    assert wf["24"]["class_type"] == "MiniMaxH3FunControlNetApply" and cn["control_video"] == ["22", 0]
+    assert cn["model"] == ["6", 0] and wf["23"]["inputs"]["name"] == config.H3_CONTROLNET_NAME
+    # both the guider and the scheduler use the patched model
+    assert wf["9"]["inputs"]["model"] == ["24", 0] and wf["11"]["inputs"]["model"] == ["24", 0]
+    assert all(v[0] in wf for n in wf.values() for v in n["inputs"].values() if isinstance(v, list))
+
+
+def test_no_controlnet_nodes_without_a_control_clip():
+    wf = build_h3_workflow(prompt="x", width=832, height=480, length=56, image_name=None)
+    assert not any(n["class_type"] in {"Canny", "MiniMaxH3FunControlNetApply"} for n in wf.values())
+
+
+def test_prepare_control_video_is_24fps_cropped_to_size_and_trimmed(tmp_path):
+    import subprocess
+
+    from app.services.audio_merge import _ffmpeg
+    from app.services.speech_cleanup import probe
+    from app.video_generators.minimax_h3 import prepare_control_video
+
+    ffmpeg = _ffmpeg()
+    if not ffmpeg:
+        pytest.skip("FFmpeg not installed")
+    src = tmp_path / "src.mp4"
+    subprocess.run([ffmpeg, "-y", "-v", "error", "-f", "lavfi", "-i", "testsrc=size=320x240:rate=8:duration=4", "-pix_fmt", "yuv420p", str(src)], check=True)
+    out = tmp_path / "control.mp4"
+    prepare_control_video(src, out, 480, 320, 56)
+    duration, has_video = probe(out)
+    assert has_video and abs(duration - 56 / 24) < 0.1
+    banner = subprocess.run([ffmpeg, "-hide_banner", "-i", str(out)], capture_output=True, text=True).stderr
+    assert "480x320" in banner and "24 fps" in banner
+
+
+def test_result_is_the_saved_video_not_the_loader_preview_of_the_control_clip():
+    from app.video_generators.minimax_h3 import h3_result_output
+
+    # Real history order from a ControlNet run: LoadVideo's input preview comes first.
+    outputs = {
+        "20": {"images": [{"filename": "control_x.mp4", "subfolder": "", "type": "input"}], "animated": [True]},
+        "16": {"images": [{"filename": "Sovereign_H3_00007_.mp4", "subfolder": "video", "type": "output"}], "animated": [True]},
+    }
+    assert h3_result_output(outputs)["filename"] == "Sovereign_H3_00007_.mp4"
+    with pytest.raises(RuntimeError, match="no saved video"):
+        h3_result_output({"20": outputs["20"]})
