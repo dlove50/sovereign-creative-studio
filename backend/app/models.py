@@ -277,6 +277,8 @@ class AvatarAsset(Base):
     # avatar has group_id None. look_label is the short caption shown on the look.
     group_id: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
     look_label: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    # Voice the avatar speaks with unless a video picks another (a VoiceAsset id or vibevoice:<name>).
+    default_voice_id: Mapped[str | None] = mapped_column(String(200), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=_now, onupdate=_now)
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)

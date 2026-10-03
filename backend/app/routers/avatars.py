@@ -8,8 +8,10 @@ required for this foundation.
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -19,6 +21,7 @@ from ..deps import ADMIN_ROLE, get_current_user
 from ..models import AvatarAsset, AvatarJob, User, VoiceAsset
 from ..schemas import (
     AvatarAssetOut,
+    AvatarCloneOut,
     AvatarJobOut,
     AvatarVoiceReadinessOut,
     GreetingJobIn,
@@ -27,6 +30,7 @@ from ..schemas import (
     VoiceCreateIn,
 )
 from ..services import avatar as avatar_provider
+from ..services import avatar_clone
 from ..services import avatar_presets
 from ..services import avatar_jobs, voice as voice_provider
 from ..services import trash
@@ -164,6 +168,57 @@ def create_video_avatar(
     user: User = Depends(get_current_user),
 ):
     return _create_avatar(db, user, avatar_type="video_avatar", allowed=_VIDEO_EXTS, kind="video", name=name, file=file, source_url=source_url)
+
+
+class AvatarPatch(BaseModel):
+    name: Optional[str] = Field(default=None, min_length=1, max_length=160)
+    default_voice_id: Optional[str] = Field(default=None, max_length=200)
+
+
+@router.patch("/avatars/{avatar_id}", response_model=AvatarAssetOut)
+def update_avatar(avatar_id: str, payload: AvatarPatch, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """Rename an avatar or set the voice it uses by default (an empty string clears it)."""
+    avatar = db.get(AvatarAsset, avatar_id)
+    if avatar is None or avatar.deleted_at is not None or (avatar.user_id != user.id and user.role != ADMIN_ROLE):
+        raise HTTPException(status_code=404, detail="Avatar not found")
+    if payload.name is not None:
+        avatar.name = payload.name.strip()[:160]
+    if payload.default_voice_id is not None:
+        avatar.default_voice_id = payload.default_voice_id.strip() or None
+    db.commit()
+    db.refresh(avatar)
+    return avatar
+
+
+@router.post("/avatars/clone", response_model=AvatarCloneOut, status_code=201)
+def clone_real_person(
+    name: str = Form(min_length=1, max_length=120),
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Make a photo avatar and a cloned voice from one video of a person talking. Local FFmpeg only;
+    the voice is added when the VibeVoice app is running. The caller must have the person's consent."""
+    video_url, _ = _store_avatar_upload(file, _VIDEO_EXTS, "video")
+    work = config.STORAGE_DIR / "avatars" / "clone" / uuid.uuid4().hex
+    try:
+        made = avatar_clone.clone(resolve_storage_url(video_url), work, name)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    stored = f"{uuid.uuid4().hex}.jpg"
+    photo = config.STORAGE_DIR / "avatars" / "uploads" / stored
+    made["frame"].replace(photo)
+    voice_id = f"{voice_provider.VIBEVOICE_PREFIX}{made['voice_name']}" if made["voice_name"] else None
+    asset = AvatarAsset(
+        user_id=user.id, name=name.strip()[:160], avatar_type="photo_avatar",
+        source_file_path=f"/storage/avatars/uploads/{stored}", thumbnail_path=f"/storage/avatars/uploads/{stored}",
+        status="ready", provider="local", notes=_CONSENT_NOTE, default_voice_id=voice_id,
+    )
+    db.add(asset)
+    db.commit()
+    db.refresh(asset)
+    note = None if voice_id else "The voice was not cloned because the voice app is not running. Start it and try again."
+    return {"avatar": asset, "voice_id": voice_id, "voice_note": note}
 
 
 # --- voices ------------------------------------------------------------------

@@ -46,7 +46,14 @@ class AvatarAssetOut(BaseModel):
     notes: Optional[str] = None
     group_id: Optional[str] = None
     look_label: Optional[str] = None
+    default_voice_id: Optional[str] = None
     created_at: datetime
+
+
+class AvatarCloneOut(BaseModel):
+    avatar: AvatarAssetOut
+    voice_id: Optional[str] = None
+    voice_note: Optional[str] = None
 
 
 class VoiceAssetOut(BaseModel):
