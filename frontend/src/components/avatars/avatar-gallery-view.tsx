@@ -9,6 +9,7 @@ import { api, assetUrl } from "@/lib/api";
 import type { AvatarAsset } from "@/lib/types";
 import { LOOK_TEMPLATES } from "@/lib/look-templates";
 import { cn } from "@/lib/utils";
+import { AvatarMenu, FavoriteButton } from "./avatar-actions";
 
 export type AvatarGroup = { base: AvatarAsset; looks: AvatarAsset[] };
 
@@ -32,7 +33,7 @@ function Thumb({ avatar, className }: { avatar?: AvatarAsset; className?: string
   );
 }
 
-function GroupCard({ group, list }: { group: AvatarGroup; list: boolean }) {
+function GroupCard({ group, list, onChanged }: { group: AvatarGroup; list: boolean; onChanged: () => void }) {
   const [first, second] = group.looks;
   if (list) {
     return (
@@ -46,16 +47,24 @@ function GroupCard({ group, list }: { group: AvatarGroup; list: boolean }) {
     );
   }
   return (
-    <Link href={`/avatars/${group.base.id}`} className="group block focus-visible:outline-none">
-      <div className="grid aspect-[16/10] grid-cols-[2fr_1fr] gap-1 overflow-hidden rounded-2xl border border-border transition-colors group-hover:border-primary/60 group-focus-visible:ring-2 group-focus-visible:ring-ring">
-        <Thumb avatar={group.base} className="h-full" />
-        <div className="grid grid-rows-2 gap-1">
-          <Thumb avatar={first} className="h-full" />
-          <Thumb avatar={second} className="h-full" />
+    <div className="group">
+      <Link href={`/avatars/${group.base.id}`} className="block focus-visible:outline-none">
+        <div className="grid aspect-[16/10] grid-cols-[2fr_1fr] gap-1 overflow-hidden rounded-2xl border border-border transition-colors group-hover:border-primary/60 focus-visible:ring-2 focus-visible:ring-ring">
+          <Thumb avatar={group.base} className="h-full" />
+          <div className="grid grid-rows-2 gap-1">
+            <Thumb avatar={first} className="h-full" />
+            <Thumb avatar={second} className="h-full" />
+          </div>
         </div>
+      </Link>
+      <div className="mt-2.5 flex items-center gap-1">
+        <Link href={`/avatars/${group.base.id}`} className="min-w-0 flex-1 truncate font-semibold focus-visible:outline-none focus-visible:underline">{group.base.name}</Link>
+        <span className="flex items-center opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 [&:has([aria-pressed=true])]:opacity-100">
+          <AvatarMenu avatar={group.base} lookCount={group.looks.length + 1} onRenamed={onChanged} onDeleted={onChanged} />
+          <FavoriteButton avatar={group.base} onChanged={onChanged} />
+        </span>
       </div>
-      <p className="mt-2.5 truncate font-semibold">{group.base.name}</p>
-    </Link>
+    </div>
   );
 }
 
@@ -174,7 +183,7 @@ export function AvatarGalleryView() {
           ) : (
             <ul className={cn("mt-6 grid gap-x-5 gap-y-7", list ? "grid-cols-1 md:grid-cols-2" : "sm:grid-cols-2")}>
               {groups.map((g) => (
-                <li key={g.base.id}><GroupCard group={g} list={list} /></li>
+                <li key={g.base.id}><GroupCard group={g} list={list} onChanged={() => void refresh()} /></li>
               ))}
             </ul>
           )}

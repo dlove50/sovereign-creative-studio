@@ -40,6 +40,7 @@ export interface AvatarAsset {
   group_id?: string | null;
   look_label?: string | null;
   default_voice_id?: string | null;
+  is_favorite?: boolean;
 }
 
 export interface VoiceAsset {

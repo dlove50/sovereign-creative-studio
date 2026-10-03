@@ -47,6 +47,7 @@ class AvatarAssetOut(BaseModel):
     group_id: Optional[str] = None
     look_label: Optional[str] = None
     default_voice_id: Optional[str] = None
+    is_favorite: bool = False
     created_at: datetime
 
 

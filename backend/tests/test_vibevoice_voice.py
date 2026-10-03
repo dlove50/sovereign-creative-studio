@@ -46,6 +46,7 @@ def test_vibevoice_voices_are_listed_with_prefix(monkeypatch):
     _fake_vibevoice(monkeypatch)
     ids = [v["id"] for v in vsvc._vibevoice_voices()]
     assert ids == ["vibevoice:en-Carter_man", "vibevoice:david"]
+    assert [v["quality"] for v in vsvc._vibevoice_voices()] == ["preset", "clone"]
 
 
 def test_vibevoice_voices_empty_when_app_not_running(monkeypatch):

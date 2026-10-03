@@ -6,7 +6,7 @@ so multi-user auth drops in cleanly later."""
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import JSON, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .database import Base
@@ -279,6 +279,7 @@ class AvatarAsset(Base):
     look_label: Mapped[str | None] = mapped_column(String(160), nullable=True)
     # Voice the avatar speaks with unless a video picks another (a VoiceAsset id or vibevoice:<name>).
     default_voice_id: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    is_favorite: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=_now, onupdate=_now)
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)

@@ -76,3 +76,27 @@ def test_clone_endpoint_reports_when_the_voice_app_is_off(tmp_path, monkeypatch)
         assert c.post("/api/auth/signup", json={"username": "clone_user2", "password": "clonepass12", "name": "C"}).status_code == 201
         body = c.post("/api/avatars/clone", data={"name": "Quiet"}, files={"file": ("me.mp4", clip.read_bytes())}).json()
         assert body["voice_id"] is None and "not running" in body["voice_note"]
+
+
+def test_favorite_flag_and_look_from_video(tmp_path):
+    clip = tmp_path / "look.mp4"
+    _talking_clip(clip, seconds=4)
+    with TestClient(app) as c:
+        assert c.post("/api/auth/signup", json={"username": "look_user", "password": "lookpass123", "name": "L"}).status_code == 201
+        base = c.post("/api/avatars/photo", data={"name": "Base"}, files={"file": ("a.png", _png_bytes())})
+        assert base.status_code == 201, base.text
+        base_id = base.json()["id"]
+        assert base.json()["is_favorite"] is False
+        assert c.patch(f"/api/avatars/{base_id}", json={"is_favorite": True}).json()["is_favorite"] is True
+        look = c.post("/api/avatars/looks/from-video", data={"group_id": base_id, "look_label": "Office"}, files={"file": ("look.mp4", clip.read_bytes())})
+        assert look.status_code == 201, look.text
+        assert look.json()["group_id"] == base_id and look.json()["look_label"] == "Office"
+        assert look.json()["thumbnail_path"].endswith(".jpg")
+        bad = c.post("/api/avatars/looks/from-video", data={"group_id": "nope"}, files={"file": ("look.mp4", clip.read_bytes())})
+        assert bad.status_code == 404
+
+
+def _png_bytes():
+    import base64
+
+    return base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==")

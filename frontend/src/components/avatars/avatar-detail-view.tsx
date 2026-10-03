@@ -8,6 +8,7 @@ import { ArrowLeft, Camera, Loader2, PenLine, Plus, Repeat2, Sparkles, Trash2, U
 import { api, assetUrl } from "@/lib/api";
 import type { AvatarAsset } from "@/lib/types";
 import { useLookQueue } from "@/lib/look-queue";
+import { AvatarMenu, FavoriteButton, VoicePill } from "./avatar-actions";
 
 // One-click edits from the "Edit look" panel; each makes a new look.
 const QUICK_EDITS = {
@@ -101,6 +102,8 @@ export function AvatarDetailView({ avatarId }: { avatarId: string }) {
   const queue = useLookQueue(refresh);
   useEffect(() => { refresh().catch(() => setAvatars([])); }, [refresh]);
 
+  const replace = (updated: AvatarAsset) => setAvatars((all) => (all ?? []).map((a) => (a.id === updated.id ? updated : a)));
+
   const clicked = avatars?.find((a) => a.id === avatarId);
   const base = clicked?.group_id ? avatars?.find((a) => a.id === clicked.group_id) : clicked;
   if (avatars === null) return <p className="py-16 text-center text-sm text-muted-foreground">Loading…</p>;
@@ -124,21 +127,9 @@ export function AvatarDetailView({ avatarId }: { avatarId: string }) {
           {photo ? <img src={photo} alt="" className="h-full w-full object-cover" /> : <UserRound className="h-5 w-5 text-muted-foreground" />}
         </span>
         <h1 className="min-w-0 flex-1 truncate text-2xl font-extrabold tracking-[-0.02em]">{base.name}</h1>
-        <Link href={`/avatars/create?avatar=${base.id}`} className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90">
-          <Video className="h-4 w-4" /> Make a video
-        </Link>
-        <button
-          type="button"
-          onClick={async () => {
-            if (!window.confirm(`Delete “${base.name}” and all ${looks.length} looks? This can't be undone.`)) return;
-            await api.deleteAvatar(base.id);
-            router.push("/avatars");
-          }}
-          aria-label="Delete avatar"
-          className="flex h-9 w-9 items-center justify-center rounded-full border border-border text-muted-foreground hover:bg-raised hover:text-destructive"
-        >
-          <Trash2 className="h-4 w-4" />
-        </button>
+        <VoicePill avatar={base} onChanged={replace} />
+        <FavoriteButton avatar={base} onChanged={replace} />
+        <AvatarMenu avatar={base} lookCount={looks.length} onRenamed={replace} onDeleted={() => router.push("/avatars")} />
       </header>
 
       <p className="mb-3 mt-5 text-sm text-muted-foreground">{looks.length} {looks.length === 1 ? "look" : "looks"}</p>
@@ -149,7 +140,7 @@ export function AvatarDetailView({ avatarId }: { avatarId: string }) {
       ) : null}
       <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
         <li>
-          <Link href={`/avatars/looks?avatar=${base.id}`} className="flex aspect-[4/3] flex-col items-center justify-center gap-2 rounded-2xl border border-border bg-card/60 text-sm font-semibold hover:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <Link href={`/avatars/add-looks?avatar=${base.id}`} className="flex aspect-[4/3] flex-col items-center justify-center gap-2 rounded-2xl border border-border bg-card/60 text-sm font-semibold hover:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
             <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-primary-foreground"><Plus className="h-5 w-5" /></span>
             Add looks
           </Link>

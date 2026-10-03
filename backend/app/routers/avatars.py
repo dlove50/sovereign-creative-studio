@@ -31,6 +31,7 @@ from ..schemas import (
 )
 from ..services import avatar as avatar_provider
 from ..services import avatar_clone
+from ..services.speech_cleanup import probe
 from ..services import avatar_presets
 from ..services import avatar_jobs, voice as voice_provider
 from ..services import trash
@@ -173,6 +174,7 @@ def create_video_avatar(
 class AvatarPatch(BaseModel):
     name: Optional[str] = Field(default=None, min_length=1, max_length=160)
     default_voice_id: Optional[str] = Field(default=None, max_length=200)
+    is_favorite: Optional[bool] = None
 
 
 @router.patch("/avatars/{avatar_id}", response_model=AvatarAssetOut)
@@ -185,6 +187,8 @@ def update_avatar(avatar_id: str, payload: AvatarPatch, db: Session = Depends(ge
         avatar.name = payload.name.strip()[:160]
     if payload.default_voice_id is not None:
         avatar.default_voice_id = payload.default_voice_id.strip() or None
+    if payload.is_favorite is not None:
+        avatar.is_favorite = payload.is_favorite
     db.commit()
     db.refresh(avatar)
     return avatar
@@ -219,6 +223,41 @@ def clone_real_person(
     db.refresh(asset)
     note = None if voice_id else "The voice was not cloned because the voice app is not running. Start it and try again."
     return {"avatar": asset, "voice_id": voice_id, "voice_note": note}
+
+
+@router.post("/avatars/looks/from-video", response_model=AvatarAssetOut, status_code=201)
+def look_from_video(
+    group_id: str = Form(...),
+    look_label: str | None = Form(default=None),
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """A new look for an existing avatar from a video: its sharpest still becomes the look's photo."""
+    group = _resolve_group(db, user, group_id)
+    video_url, original = _store_avatar_upload(file, _VIDEO_EXTS, "video")
+    video = resolve_storage_url(video_url)
+    try:
+        duration, has_video = probe(video)
+        if not has_video:
+            raise RuntimeError("Upload a video that shows the person.")
+        stored = f"{uuid.uuid4().hex}.jpg"
+        photo = config.STORAGE_DIR / "avatars" / "uploads" / stored
+        avatar_clone.best_frame(video, photo, duration)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    finally:
+        video.unlink(missing_ok=True)  # only the still is kept
+    asset = AvatarAsset(
+        user_id=user.id, name=(look_label or Path(original).stem).strip()[:160], avatar_type="photo_avatar",
+        source_file_path=f"/storage/avatars/uploads/{stored}", thumbnail_path=f"/storage/avatars/uploads/{stored}",
+        status="ready", provider="local", notes=_CONSENT_NOTE, group_id=group,
+        look_label=(look_label or "").strip()[:160] or None,
+    )
+    db.add(asset)
+    db.commit()
+    db.refresh(asset)
+    return asset
 
 
 # --- voices ------------------------------------------------------------------

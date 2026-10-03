@@ -87,23 +87,23 @@ def list_voices() -> list[dict]:
 
 
 def _vibevoice_voices() -> list[dict]:
-    """Cloned voices from the local VibeVoice Studio app; empty when it isn't running."""
+    """Voices from the local VibeVoice Studio app (its presets and your clones); empty when it isn't running."""
     try:
         resp = httpx.get(f"{config.VIBEVOICE_BASE_URL}/api/voices", timeout=2.0)
         resp.raise_for_status()
-        names = [v["name"] for v in resp.json().get("voices", [])]
+        entries = [(v["name"], bool(v.get("preset"))) for v in resp.json().get("voices", [])]
     except (httpx.HTTPError, ValueError, KeyError, TypeError):
         return []
     return [
         {
             "id": f"{VIBEVOICE_PREFIX}{name}",
-            "label": f"{name} (VibeVoice clone)",
+            "label": f"{name} (VibeVoice {'preset' if preset else 'clone'})",
             "language": name.split("-")[0] if "-" in name else "en",
-            "quality": "clone",
+            "quality": "preset" if preset else "clone",
             "is_default": False,
             "ready": True,
         }
-        for name in names
+        for name, preset in entries
     ]
 
 
