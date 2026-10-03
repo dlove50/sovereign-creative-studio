@@ -11,6 +11,7 @@ import {
   Folder,
   Home,
   LayoutGrid,
+  Palette,
   Images,
   ImageIcon,
   Layers3,
@@ -83,6 +84,7 @@ export const ADMIN_NAV: NavigationItem[] = [
 export const RAIL_NAV: NavigationItem[] = [
   { href: "/", label: "Home", icon: Home },
   { href: "/avatars", label: "Avatar", icon: PersonStanding },
+  { href: "/brand", label: "Brand", icon: Palette },
   { href: "/apps", label: "Apps", icon: LayoutGrid },
   { href: "/projects", label: "Projects", icon: Folder },
 ];

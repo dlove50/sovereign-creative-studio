@@ -2,10 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Check, ChevronRight, Clock, Loader2, Mic, PenLine, Sparkles, UserRound, X } from "lucide-react";
+import { Check, ChevronRight, Clock, Loader2, Mic, Palette, PenLine, Sparkles, UserRound, X } from "lucide-react";
 
 import { api, assetUrl } from "@/lib/api";
-import type { AvatarAsset, AvatarJob, VoiceOption } from "@/lib/types";
+import type { AvatarAsset, AvatarJob, BrandKit, VoiceOption } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const LENGTHS = [15, 30, 60] as const;
@@ -65,6 +65,22 @@ function Chip({ icon: Icon, label, children }: { icon: typeof UserRound; label: 
   );
 }
 
+type Brand = { id: string; name: string; kit: BrandKit };
+
+/** Short instruction block that makes the script follow a brand system. */
+export function brandContext(brand: Brand | undefined): string {
+  if (!brand) return "";
+  const { kit } = brand;
+  const parts = [
+    kit.brand_name || brand.name ? `Brand: ${kit.brand_name || brand.name}.` : "",
+    kit.brand_voice ? `Voice and tone: ${kit.brand_voice}.` : "",
+    kit.target_audience ? `Audience: ${kit.target_audience}.` : "",
+    kit.product_positioning ? `What it offers: ${kit.product_positioning}.` : "",
+    kit.negative_keywords ? `Avoid: ${kit.negative_keywords}.` : "",
+  ].filter(Boolean);
+  return parts.length ? `Write in line with this brand. ${parts.join(" ")}` : "";
+}
+
 const selectClass = "max-w-[180px] truncate bg-transparent text-xs font-medium focus:outline-none";
 
 export function VideoAgentView() {
@@ -74,6 +90,8 @@ export function VideoAgentView() {
   const [voiceId, setVoiceId] = useState("");
   const [seconds, setSeconds] = useState<number>(30);
   const [mode, setMode] = useState<Mode>("review");
+  const [brands, setBrands] = useState<Brand[]>([]);
+  const [brandId, setBrandId] = useState("");
   const [prompt, setPrompt] = useState("");
   const [tab, setTab] = useState(TABS[0].id);
   const [stage, setStage] = useState<Stage>("idle");
@@ -90,6 +108,13 @@ export function VideoAgentView() {
       setAvatars(photos);
       setAvatarId((cur) => cur || photos[0]?.id || "");
     }).catch(() => setAvatars([]));
+    api.listProjects().then(async (projects) => {
+      const kits = await Promise.all(projects.map((p) => api.getBrandKit(p.id).catch(() => null)));
+      setBrands(projects.flatMap((p, i) => {
+        const kit = kits[i];
+        return kit && Object.values(kit).some((v) => v && String(v).trim()) ? [{ id: p.id, name: p.name, kit }] : [];
+      }));
+    }).catch(() => setBrands([]));
     api.getAudioMergeReadiness().then((r) => {
       setVoices(r.voices);
       const clone = r.voices.find((v) => v.id.startsWith("vibevoice:") && !/_(man|woman)/.test(v.id));
@@ -140,7 +165,10 @@ export function VideoAgentView() {
     setJob(null);
     setStage("writing");
     try {
-      const out = await api.writeAgentScript({ prompt: prompt.trim(), seconds });
+      const context = brandContext(brands.find((b) => b.id === brandId));
+      const out = await api.writeAgentScript({ prompt: context ? `${prompt.trim()}
+
+${context}` : prompt.trim(), seconds });
       setTitle(out.title);
       setScript(out.script);
       if (mode === "autopilot") await makeVideo(out.script);
@@ -175,6 +203,12 @@ export function VideoAgentView() {
           <Chip icon={Mic} label="Voice">
             <select value={voiceId} onChange={(e) => setVoiceId(e.target.value)} className={selectClass} aria-label="Voice">
               {voices.map((v) => <option key={v.id} value={v.id}>{v.label}</option>)}
+            </select>
+          </Chip>
+          <Chip icon={Palette} label="Brand">
+            <select value={brandId} onChange={(e) => setBrandId(e.target.value)} className={selectClass} aria-label="Brand">
+              <option value="">None</option>
+              {brands.map((b) => <option key={b.id} value={b.id}>{b.kit.brand_name || b.name}</option>)}
             </select>
           </Chip>
           <Chip icon={Clock} label="Length">
