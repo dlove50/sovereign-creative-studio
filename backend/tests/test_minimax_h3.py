@@ -119,3 +119,32 @@ def test_creating_an_h3_video_is_refused_with_a_reason_until_ready(monkeypatch):
         assert r.status_code == 409 and "MiniMax H3 is not ready" in r.json()["detail"]
         r = c.post("/api/videos", json={**body, "mode": "video_upscale"})
         assert r.status_code == 409 and "Text -> Video and Image -> Video" in r.json()["detail"]
+
+
+def test_reference_graph_uses_ref_model_ref_lora_and_the_picture_tag():
+    wf = build_h3_workflow(prompt="He waves", width=640, height=640, length=56, image_name="me.png", reference=True)
+    assert wf["1"]["inputs"]["unet_name"] == config.H3_REF_UNET_NAME
+    assert wf["6"]["inputs"]["lora_name"] == config.H3_REF_TURBO_LORA_NAME
+    node = wf["7"]
+    assert node["class_type"] == "MiniMaxH3ReferenceToVideo"
+    assert node["inputs"]["ref_images.ref_image_0"] == ["5", 0] and "first_frame" not in node["inputs"]
+    assert "<Picture 1>" in node["inputs"]["prompt"] and node["inputs"]["prompt"].startswith("He waves")
+    assert node["inputs"]["audio_vae"] == ["4", 0]
+    assert all(v[0] in wf for n in wf.values() for v in n["inputs"].values() if isinstance(v, list))
+
+
+def test_reference_prompt_that_already_tags_the_picture_is_left_alone():
+    wf = build_h3_workflow(prompt="<Picture 1> walks", width=640, height=640, length=56, image_name="a.png", reference=True)
+    assert wf["7"]["inputs"]["prompt"] == "<Picture 1> walks"
+
+
+def test_reference_without_an_image_is_rejected():
+    with pytest.raises(RuntimeError, match="reference image"):
+        build_h3_workflow(prompt="x", width=640, height=640, length=56, image_name=None, reference=True)
+
+
+def test_h3_quality_presets_are_accepted_by_the_api_schema():
+    from app.schemas_workflows import VideoCreate
+
+    for preset in ("h3_full", "h3_reference"):
+        assert VideoCreate(project_id="p", prompt="x", motion_preset="subtle_breathing", quality_preset=preset).quality_preset == preset

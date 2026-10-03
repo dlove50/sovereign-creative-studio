@@ -19,6 +19,10 @@ VideoQualityPreset = Literal[
     "standard_local",
     "best_local",
     "image_to_video_best",
+    # MiniMax H3 only: 20 steps without the turbo LoRA / keep the subject from reference pictures.
+    "h3_turbo",
+    "h3_full",
+    "h3_reference",
 ]
 
 

@@ -385,7 +385,10 @@ export type VideoQualityPreset =
   | "safe_preview"
   | "standard_local"
   | "best_local"
-  | "image_to_video_best";
+  | "image_to_video_best"
+  | "h3_turbo"
+  | "h3_full"
+  | "h3_reference";
 
 export interface VideoModeOption {
   id: VideoMode;

@@ -122,6 +122,28 @@ const QUALITY_PRESETS: {
   },
 ];
 
+// MiniMax H3 has its own quality choices (and makes sound with the picture).
+const H3_QUALITY_PRESETS: typeof QUALITY_PRESETS = [
+  {
+    value: "h3_turbo",
+    label: "Fast (turbo)",
+    description: "4 steps, about 30-50 seconds for a short clip.",
+    bestFor: "Recommended default.",
+  },
+  {
+    value: "h3_full",
+    label: "Full quality",
+    description: "20 steps without the turbo add-on, several times slower.",
+    bestFor: "When detail matters more than speed.",
+  },
+  {
+    value: "h3_reference",
+    label: "Keep my subject",
+    description: "Uses the picture as a reference, so the same person appears in a brand-new scene.",
+    bestFor: "Image -> Video only. Describe the new scene and mention <Picture 1>.",
+  },
+];
+
 const STATUS_VARIANT = {
   queued: "muted",
   running: "default",
@@ -212,8 +234,13 @@ export function VideosView() {
           ? "Seedance provider is not configured. Admin setup required."
           : "Wan 2.1 is not available for this mode.")
       : null;
-  const selectedQuality =
-    QUALITY_PRESETS.find((item) => item.value === qualityPreset) ?? QUALITY_PRESETS[1];
+  const presets = provider === "local_h3" ? H3_QUALITY_PRESETS : QUALITY_PRESETS;
+  const selectedQuality = presets.find((item) => item.value === qualityPreset) ?? presets[provider === "local_h3" ? 0 : 1];
+
+  // Keep the quality choice valid for the provider (H3 and LTX have different lists).
+  useEffect(() => {
+    if (!presets.some((item) => item.value === qualityPreset)) setQualityPreset(presets[provider === "local_h3" ? 0 : 1].value);
+  }, [provider]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     async function load() {
@@ -407,7 +434,7 @@ export function VideosView() {
         <div className="space-y-2">
           <Label>Video quality mode</Label>
           <div className="grid gap-2">
-            {QUALITY_PRESETS.map((preset) => (
+            {presets.map((preset) => (
               <button
                 key={preset.value}
                 type="button"

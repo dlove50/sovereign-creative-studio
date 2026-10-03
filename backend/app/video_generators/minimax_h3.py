@@ -49,12 +49,17 @@ def h3_size_for_aspect(aspect: float) -> tuple[int, int]:
 
 def build_h3_workflow(
     *, prompt: str, width: int, height: int, length: int, image_name: str | None,
-    turbo: bool = True, seed: int | None = None,
+    turbo: bool = True, seed: int | None = None, reference: bool = False,
 ) -> dict:
-    """ComfyUI API workflow for one H3 clip (mirrors ComfyUI's own i2v template)."""
+    """ComfyUI API workflow for one H3 clip (mirrors ComfyUI's own i2v / r2v templates).
+
+    reference=True uses the ref2va model: the image is a subject reference (<Picture 1>)
+    that keeps its identity, instead of the clip's first frame.
+    """
     model_ref: list = ["1", 0]
+    unet = config.H3_REF_UNET_NAME if reference else config.H3_UNET_NAME
     workflow: dict = {
-        "1": {"class_type": "UNETLoader", "inputs": {"unet_name": config.H3_UNET_NAME, "weight_dtype": "default"}},
+        "1": {"class_type": "UNETLoader", "inputs": {"unet_name": unet, "weight_dtype": "default"}},
         "2": {"class_type": "CLIPLoader", "inputs": {"clip_name": config.H3_TEXT_ENCODER_NAME, "type": "minimax", "device": "default"}},
         "3": {"class_type": "VAELoader", "inputs": {"vae_name": config.H3_VIDEO_VAE_NAME}},
         "4": {"class_type": "VAELoader", "inputs": {"vae_name": config.H3_AUDIO_VAE_NAME}},
@@ -64,11 +69,21 @@ def build_h3_workflow(
     }
     if image_name:
         workflow["5"] = {"class_type": "LoadImage", "inputs": {"image": image_name}}
-        cond_inputs["first_frame"] = ["5", 0]
-    workflow["7"] = {"class_type": "MiniMaxH3ImageToVideo", "inputs": cond_inputs}
+    if reference:
+        if not image_name:
+            raise RuntimeError("Reference-to-video needs a reference image.")
+        cond_inputs.update({"audio_vae": ["4", 0], "ref_image_size": "match", "ref_images.ref_image_0": ["5", 0]})
+        if "<Picture 1>" not in prompt:
+            cond_inputs["prompt"] = f"{prompt}\nThe main subject is the person in <Picture 1>."
+        workflow["7"] = {"class_type": "MiniMaxH3ReferenceToVideo", "inputs": cond_inputs}
+    else:
+        if image_name:
+            cond_inputs["first_frame"] = ["5", 0]
+        workflow["7"] = {"class_type": "MiniMaxH3ImageToVideo", "inputs": cond_inputs}
     if turbo:
+        lora = config.H3_REF_TURBO_LORA_NAME if reference else config.H3_TURBO_LORA_NAME
         workflow["6"] = {"class_type": "LoraLoaderModelOnly", "inputs": {
-            "model": ["1", 0], "lora_name": config.H3_TURBO_LORA_NAME, "strength_model": 1.0}}
+            "model": ["1", 0], "lora_name": lora, "strength_model": 1.0}}
         model_ref = ["6", 0]
     steps = config.H3_TURBO_STEPS if turbo else config.H3_FULL_STEPS
     seed = seed if seed is not None else random.randint(0, 2**32 - 1)
@@ -120,13 +135,16 @@ class MiniMaxH3VideoGenerator(ComfyUIVideoGenerator):
         if mode not in {"text_to_video", "image_to_video"}:
             raise RuntimeError("MiniMax H3 supports Text -> Video and Image -> Video.")
         source = None if mode == "text_to_video" else self._resolve_source_image(source_image_url)
+        reference = quality_preset == "h3_reference"
+        if reference and mode != "image_to_video":
+            raise RuntimeError("H3 reference mode needs an image: use Image -> Video.")
         aspect = _image_aspect(source) if source else None
         width, height = h3_size_for_aspect(aspect) if aspect else h3_size(portrait=False)
         async with httpx.AsyncClient(base_url=self.base_url, timeout=60.0) as client:
             image_name = await self._upload_image(client, source) if source else None
             workflow = build_h3_workflow(
                 prompt=prompt, width=width, height=height, length=h3_length_frames(duration_seconds),
-                image_name=image_name, turbo=quality_preset != "h3_full",
+                image_name=image_name, turbo=quality_preset != "h3_full", reference=reference,
             )
             prompt_id = await self._submit(client, workflow)
             outputs = await self._await_h3(client, prompt_id)

@@ -274,6 +274,9 @@ H3_TEXT_ENCODER_NAME = os.getenv("H3_TEXT_ENCODER_NAME", "qwen3vl_32b_minimax_h3
 H3_VIDEO_VAE_NAME = os.getenv("H3_VIDEO_VAE_NAME", "minimax_h3_video_vae_fp16.safetensors")
 H3_AUDIO_VAE_NAME = os.getenv("H3_AUDIO_VAE_NAME", "minimax_h3_audio_vae_fp32.safetensors")
 H3_TURBO_LORA_NAME = os.getenv("H3_TURBO_LORA_NAME", "minimax_h3_fl2v_turbo_4step_v1.0_768p_comfyui_bf16.safetensors")
+# Reference-to-video (keeps a subject's identity from reference pictures): own model and turbo LoRA.
+H3_REF_UNET_NAME = os.getenv("H3_REF_UNET_NAME", "minimax_h3_ref2va_pruned_int8_convrot.safetensors")
+H3_REF_TURBO_LORA_NAME = os.getenv("H3_REF_TURBO_LORA_NAME", "minimax_h3_ref2v_turbo_4step_v0.1_comfyui_bf16.safetensors")
 H3_TURBO_STEPS = int(os.getenv("H3_TURBO_STEPS", "4"))
 H3_FULL_STEPS = int(os.getenv("H3_FULL_STEPS", "20"))
 # Long side / short side in pixels (multiples of 32). 832x480 keeps 16 GB workable.

@@ -176,9 +176,15 @@ Backend tests: **528 passing** at the time of writing (run from `backend/`).
     follows the source aspect (`h3_size_for_aspect`, ~same pixel area, multiples of 32): 1:1 -> 640x640, 9:16 -> 480x832.
   - Not tried: clips longer than 2 s (the model's trained range is ~124-362 frames, 5-15 s), `h3_full` (20 steps), larger sizes.
   Test clips are in Downloads: `sovereign-h3-text-to-video-test.mp4`, `sovereign-h3-image-to-video-test.mp4`.
-- Not built yet: reference-to-video (`ref2va`, `MiniMaxH3ReferenceToVideo` node), ControlNet union
-  (`MiniMaxH3FunControlNetApply`), effect embeddings in the UI, first+last-frame mode in the UI,
-  H3 entry in Model Manager. The files for these are in the download list.
+- **Reference-to-video is built and GPU-verified**: quality choice `h3_reference` with Image -> Video (uses the `ref2va` model,
+  its turbo LoRA and the `MiniMaxH3ReferenceToVideo` node; the image becomes `<Picture 1>`). Test: the avatar look in a new
+  "walking down a sunny city street" scene kept the same man (curly hair, grey beard, linen shirt) - 640x640, 3 s, 36 s.
+  Video Generator page shows H3 quality choices (Fast turbo / Full quality / Keep my subject) when H3 is the provider.
+  Schema values added: `h3_turbo`, `h3_full`, `h3_reference` (`schemas_workflows.VideoQualityPreset`).
+- **5 s text -> video**: 47 s, 832x480, 124 frames, audio mean -29 dB. All download files verified (sizes match, 0 retries).
+- Still not wired: ControlNet union (`MiniMaxH3FunControlNetApply`, file downloaded), effect embeddings in the UI
+  (10 files in `models/embeddings`; use `embedding:minimaxh3_<name>` in prompts), multi-reference / video / audio references,
+  first+last-frame mode in the UI, an H3 entry in Model Manager, clips longer than 5 s, `h3_full` not run.
 
 ## Real two-scene movie validation (stage 5b follow-up) — DONE, PASSED
 
