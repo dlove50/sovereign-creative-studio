@@ -43,7 +43,7 @@ const APPS: AppEntry[] = [
   { name: "Slides to video", blurb: "Narrate a PDF or slide deck with your avatar.", icon: FileText, category: "create" },
   { name: "Batch videos", blurb: "Make many avatar videos from a spreadsheet.", icon: Layers, category: "create" },
   { name: "Upscale video", blurb: "Sharpen a finished clip to a higher resolution.", icon: ZoomIn, category: "enhance", href: "/chain" },
-  { name: "Speech cleanup", blurb: "Cut long pauses and filler words automatically.", icon: Mic, category: "enhance" },
+  { name: "Speech cleanup", blurb: "Cut long pauses and filler words automatically.", icon: Mic, category: "enhance", href: "/speech-cleanup" },
   { name: "Translate video", blurb: "Re-voice a video in another language with lip sync.", icon: Languages, category: "enhance" },
   { name: "Transcribe video", blurb: "Get a text transcript and summary of any video.", icon: Type, category: "edit", href: "/video-to-text" },
   { name: "OCR studio", blurb: "Pull text out of images and scanned pages.", icon: ScanText, category: "edit", href: "/ocr-studio" },

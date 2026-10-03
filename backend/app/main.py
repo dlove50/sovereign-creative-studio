@@ -38,6 +38,7 @@ from .routers import (
     storyboards,
     transcriptions,
     users,
+    speech_cleanup as speech_cleanup_router,
     video_agent,
     videos,
     workflow_manager as workflow_manager_router,
@@ -128,6 +129,7 @@ app.include_router(assets.router)
 app.include_router(avatars.router)
 app.include_router(video_agent.router)
 app.include_router(movies_router.router)
+app.include_router(speech_cleanup_router.router)
 app.include_router(product_scenes.router)
 app.include_router(productions.router)
 app.include_router(copy.router)

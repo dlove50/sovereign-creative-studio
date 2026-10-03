@@ -132,6 +132,11 @@ export const adminApi = {
   renderMovie: (id: string) => request<Movie>(`/api/movies/${encodeURIComponent(id)}/render`, { method: "POST" }),
   improveDelivery: (script: string) =>
     request<{ title: string; script: string }>("/api/movies/improve-delivery", { method: "POST", body: JSON.stringify({ script }) }),
+  cleanSpeech: (form: FormData) =>
+    formRequest<{
+      output_url: string; filename: string; has_video: boolean; original_seconds: number; new_seconds: number;
+      seconds_removed: number; pauses_removed: number; fillers_removed: number;
+    }>("/api/speech-cleanup", form),
   deleteAvatar: (id: string) =>
     request<void>(`/api/avatars/${encodeURIComponent(id)}`, { method: "DELETE" }),
   listVoices: () => request<VoiceAsset[]>("/api/voices"),
