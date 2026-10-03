@@ -202,6 +202,7 @@ Video podcast (InfiniteTalk `two_speakers` mode), Translate video, Slides to vid
 finds only ~3 of 5 spoken fillers in a synthetic test (Whisper tends to drop "um/uh"; a filler-style `initial_prompt` did
 not help); a larger Whisper model may raise recall.)
 (**Auto clips is built**: `/auto-clips`, `POST /api/auto-clips`; Whisper CPU transcript -> Qwen picks moments ->
-FFmpeg cuts, with a speech-density fallback; 7 tests with a faked transcript/LLM and real FFmpeg; the real
-Whisper + Qwen path was NOT run end to end on a long video.) (**Batch videos is built**: `/batch`, `POST /api/movies/batch`, CSV upload, all-or-nothing credit
+FFmpeg cuts, with a speech-density fallback; 7 tests with a faked transcript/LLM and real FFmpeg; **real run passed**:
+real Whisper (CPU) + real Qwen 27B on a 41 s test video gave 2 clips in ~30 s (AI titles, played in the page); clips came out
+8-10 s when ~15 s was requested because they snap to sentence ends and the min is 8 s.) (**Batch videos is built**: `/batch`, `POST /api/movies/batch`, CSV upload, all-or-nothing credit
 check; verified creating 3 drafts in the browser; "Create and render all" not run on the GPU.) Not buildable locally at HeyGen scale: LiveAvatar real-time, 175-language translation.
