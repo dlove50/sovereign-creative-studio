@@ -146,6 +146,8 @@ export const adminApi = {
       output_url: string; filename: string; has_video: boolean; original_seconds: number; new_seconds: number;
       seconds_removed: number; pauses_removed: number; fillers_removed: number;
     }>("/api/speech-cleanup", form),
+  slidesToMovie: (form: FormData) =>
+    formRequest<{ movie_id: string; scenes: number; warnings: string[]; credits_estimate: number }>("/api/slides/to-movie", form),
   deleteAvatar: (id: string) =>
     request<void>(`/api/avatars/${encodeURIComponent(id)}`, { method: "DELETE" }),
   listVoices: () => request<VoiceAsset[]>("/api/voices"),
