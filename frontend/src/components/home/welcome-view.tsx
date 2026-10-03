@@ -116,7 +116,10 @@ function actionClass(current: boolean) {
 export function WelcomeView() {
   const data = useSetupData();
   const avatars = data?.avatars ?? [];
-  const clone = (data?.voices ?? []).find(isCloneVoice);
+  // Prefer the voice saved on one of your avatars; otherwise the first cloned voice.
+  const savedVoiceId = avatars.find((a) => !a.group_id && a.default_voice_id)?.default_voice_id;
+  const clones = (data?.voices ?? []).filter(isCloneVoice);
+  const clone = clones.find((v) => v.id === savedVoiceId) ?? clones[0];
   const hasTwin = avatars.some((a) => !a.group_id);
   const hasLook = avatars.some((a) => a.group_id);
   const hasVideo = (data?.jobs ?? []).some((j) => j.status === "completed");

@@ -212,7 +212,7 @@ export function LookStudioView() {
               </button>
             </div>
             {references.length ? (
-              <ul className="flex flex-wrap gap-2 pt-2" aria-label="Reference images">
+              <ul className="flex flex-wrap gap-2 pt-2" aria-label="Reference images" title="Use pictures of clothes, rooms or objects. A picture with a person in it can change your avatar's face.">
                 {references.map((r, i) => (
                   <li key={r.url} className="flex items-center gap-1.5 rounded-full border border-border bg-background py-1 pl-1 pr-2 text-xs">
                     <img src={assetUrl(r.url) ?? undefined} alt="" className="h-6 w-6 rounded-full object-cover" />
@@ -224,6 +224,7 @@ export function LookStudioView() {
             ) : null}
           </div>
         </div>
+        {references.length ? <p className="mt-3 text-xs text-muted-foreground">Use pictures of clothes, rooms or objects. A picture with a person in it can change your avatar&apos;s face.</p> : null}
         <input ref={refInput} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) void addReference(f); }} />
       </section>
       {error ? <p className="mt-3 rounded-xl bg-destructive/15 px-3 py-2 text-sm text-destructive">{error}</p> : null}

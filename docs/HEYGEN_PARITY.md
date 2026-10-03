@@ -49,8 +49,11 @@ Legend: **Built** = works and was checked in the real app · **Partial** = works
 | Import voice from ElevenLabs by API key | Skipped on purpose: it sends data to a cloud service | Not built (by design) |
 | Avatar page: voice pill (play, Improve voice, Switch voice), favorite, menu (Edit, Share, Delete, Copy ID) | Voice pill, favorite, menu with Edit name, Make a video, Copy avatar ID, Delete | Built (no Share: nothing to share to) |
 | Add looks page: upload video/photo, Record now, Add from phone, Google Drive link, tips | Upload video/photo, Record now (webcam), tips. Video looks use a still. No phone or Drive link | Partial |
-| Design a look: prompt, References, orientation switch, "Improve likeness with a personal model", templates, Look Packs, recents | Prompt, templates, Look Packs, recents. References, orientation switch and personal-model training are not built | Partial |
-| Per-avatar default voice used when making a video | Saved on the avatar (`default_voice_id`); the video agent and scene editor do not read it yet | Partial |
+| Design a look: prompt, References, orientation switch, "Improve likeness with a personal model", templates, Look Packs, recents | Prompt, up to 2 reference images, orientation (a framing instruction only), templates, Look Packs, recents. **Reference photos that contain a person can replace the avatar's face** (tested twice on the GPU, 2026-10-03), so use clothes/rooms/objects only. Personal-model training is not built | Partial |
+| Per-avatar default voice used when making a video | Saved on the avatar; the video agent, single-video page and scene editor preselect it (a look inherits its base avatar's voice) | Built |
+| Video agent options: Avatar, Voice, Brand, duration, Instructions, Attachments/Knowledge, Chat vs Auto-pilot | All present (Instructions, Knowledge from PDF/PPTX/txt/md, Review-first vs Auto-pilot). No aspect or Captions switch, no Seedance B-roll | Partial |
+| AI Studio landing: New video (landscape/portrait), recent drafts, templates by category | `/movies`: same, with 11 starter script templates in 7 categories. Templates are scripts, not slide layouts | Partial |
+| Home setup tracker: Create Digital Twin, Polish your Voice (play chip, Re-Record Voice), Create a Look, Make your first video | Same four steps; voice chip plays your saved or first cloned voice | Built |
 
 ## Apps in the library
 

@@ -60,7 +60,7 @@ export function useLookQueue(onLookCreated?: () => void) {
     const added: PendingLook[] = [];
     for (const v of variants) {
       const refs = options.references ?? [];
-      const borrow = refs.length ? ` Take the clothing, setting or style from ${refs.length === 1 ? "image 2" : "images 2 and 3"}.` : "";
+      const borrow = refs.length ? ` Use ${refs.length === 1 ? "image 2" : "images 2 and 3"} only for the clothing, setting or style. Never copy any face, hair or beard from ${refs.length === 1 ? "it" : "them"}.` : "";
       const gen = await api.createGeneration({
         prompt: `${v.prompt}${borrow} ${KEEP_IDENTITY}${FRAMING[options.orientation ?? "Same as photo"]}`,
         reference_image_urls: refs,

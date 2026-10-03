@@ -12,10 +12,12 @@ still), gallery hover menu and heart, and a Manage avatars rail panel. Backend: 
 (preview, clone, delete). 570 backend tests pass. VibeVoice presets are now labelled `quality: "preset"` so they are not shown as
 clones. The full gap table is in `docs/HEYGEN_PARITY.md` (section "Avatar creation, voices and looks").
 
-Next, in order: (1) make the video agent and scene editor preselect the avatar's `default_voice_id`; (2) Design a look:
-References images, orientation switch; (3) Home setup tracker to match HeyGen's four steps (Create Digital Twin, Polish your
-Voice, Create a Look, Make your first video); (4) review Brand systems against HeyGen's Brand page; (5) re-audit Video agent
-and AI Studio screens. Cannot be built locally: Design a voice, motion-cloning Digital Twin, real-time LiveAvatar.
+Done after that: saved avatar voice is preselected everywhere; Design a look has References (up to 2, migration 0030, Qwen
+image2/image3) and an orientation hint; Home tracker matches HeyGen; `/movies` is the AI Studio-style landing with templates; the
+video agent has Instructions and Knowledge (`POST /api/slides/extract-text`). KNOWN PROBLEM: reference photos containing a person
+replace the avatar's face (tested on the GPU twice, even with a strong prompt). Idea: crop or mask faces out of references, or use a
+face-preserving workflow. Next: (1) fix that; (2) Captions for the agent/editor (Whisper to SRT exists in `services/translate.py`);
+(3) aspect-ratio option in the agent; (4) review Brand systems against HeyGen's Brand page. Cannot be built locally: Design a voice, motion-cloning Digital Twin, real-time LiveAvatar.
 
 ## LATEST STATUS (2026-10-03): every app in the library now exists
 
