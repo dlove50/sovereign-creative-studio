@@ -43,6 +43,7 @@ export type NavigationItem = {
 export const CREATOR_NAV: NavigationItem[] = [
   { href: "/", label: "Home", icon: Home },
   { href: "/chain", label: "Quick Chain", icon: Wand2 },
+  { href: "/movies/new", label: "Scene by scene", icon: Clapperboard },
   { href: "/videos", label: "Video Generator", icon: Video },
   { href: "/video-to-text", label: "Transcribe Video", icon: Type },
   { href: "/ocr-studio", label: "OCR Studio", icon: ScanText },
@@ -89,6 +90,6 @@ export const RAIL_NAV: NavigationItem[] = [
 export const CREATE_NAV: NavigationItem[] = [
   { href: "/", label: "Home", icon: Home },
   { href: "/video-agent", label: "Video agent", icon: Sparkle },
-  { href: "/storyboard-studio", label: "Scene by scene", icon: Clapperboard },
+  { href: "/movies/new", label: "Scene by scene", icon: Clapperboard },
   { href: "/chain", label: "Single scene", icon: Wand2 },
 ];

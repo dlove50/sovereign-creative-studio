@@ -15,6 +15,7 @@ const ALL_NAV = [...RAIL_NAV, ...CREATE_NAV, ...CREATOR_NAV, ...ADMIN_NAV];
 
 /** The page pill at the top left, like HeyGen's "Home" / "Avatars" label. */
 function pageTitle(pathname: string) {
+  if (pathname.startsWith("/movies/")) return "Scene by scene";
   const match = ALL_NAV.filter((n) => (n.href === "/" ? pathname === "/" : pathname.startsWith(n.href)))
     .sort((a, b) => b.href.length - a.href.length)[0];
   return match?.label ?? "Sovereign";

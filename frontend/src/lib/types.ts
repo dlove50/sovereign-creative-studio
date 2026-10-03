@@ -1045,3 +1045,26 @@ export interface CreativeDirectorResult {
   summary: string;
   recommendations: CreativeDirectorRecommendation[];
 }
+
+export type MovieOrientation = "portrait" | "landscape";
+export type MovieStatus = "draft" | "rendering" | "completed" | "failed";
+export interface MovieScene {
+  id: string;
+  avatar_id: string | null;
+  tts_voice_id: string | null;
+  script: string;
+  status?: "draft" | "voice" | "video" | "completed" | "failed";
+  error?: string | null;
+}
+export interface Movie {
+  id: string;
+  title: string;
+  orientation: MovieOrientation;
+  scenes: MovieScene[];
+  status: MovieStatus;
+  output_video_path: string | null;
+  error_message: string | null;
+  credits_estimate: number;
+  created_at: string;
+  updated_at: string;
+}

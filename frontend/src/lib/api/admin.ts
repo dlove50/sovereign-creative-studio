@@ -73,6 +73,9 @@ import type {
   TranscriptionJob,
   TranscriptionSummaryType,
   AudioMergeReadiness,
+  Movie,
+  MovieOrientation,
+  MovieScene,
   AudioMergeOut,
   AudioPreviewOut,
   AudioTranscribeResult,
@@ -119,6 +122,16 @@ export const adminApi = {
     request<void>(`/api/avatar-jobs/${encodeURIComponent(id)}`, { method: "DELETE" }),
   trashVideo: (id: string) =>
     request<void>(`/api/videos/${encodeURIComponent(id)}`, { method: "DELETE" }),
+  listMovies: () => request<Movie[]>("/api/movies"),
+  createMovie: (input: { title?: string; orientation?: MovieOrientation; scenes?: Partial<MovieScene>[] } = {}) =>
+    request<Movie>("/api/movies", { method: "POST", body: JSON.stringify(input) }),
+  getMovie: (id: string) => request<Movie>(`/api/movies/${encodeURIComponent(id)}`),
+  updateMovie: (id: string, input: { title?: string; orientation?: MovieOrientation; scenes?: Partial<MovieScene>[] }) =>
+    request<Movie>(`/api/movies/${encodeURIComponent(id)}`, { method: "PUT", body: JSON.stringify(input) }),
+  deleteMovie: (id: string) => request<void>(`/api/movies/${encodeURIComponent(id)}`, { method: "DELETE" }),
+  renderMovie: (id: string) => request<Movie>(`/api/movies/${encodeURIComponent(id)}/render`, { method: "POST" }),
+  improveDelivery: (script: string) =>
+    request<{ title: string; script: string }>("/api/movies/improve-delivery", { method: "POST", body: JSON.stringify({ script }) }),
   deleteAvatar: (id: string) =>
     request<void>(`/api/avatars/${encodeURIComponent(id)}`, { method: "DELETE" }),
   listVoices: () => request<VoiceAsset[]>("/api/voices"),

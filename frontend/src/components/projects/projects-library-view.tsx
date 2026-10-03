@@ -2,16 +2,17 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ArrowDownWideNarrow, Download, Filter, Folder, FolderPlus, Loader2, Search, Trash2, Video, X } from "lucide-react";
 
 import { api, assetUrl } from "@/lib/api";
-import type { AvatarJob, Project, VideoGeneration } from "@/lib/types";
+import type { AvatarJob, Movie, Project, VideoGeneration } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-type Kind = "avatar" | "clip";
+type Kind = "avatar" | "clip" | "movie";
 type Item = { id: string; kind: Kind; title: string; url: string | null; status: string; createdAt: string };
 type Sort = "newest" | "oldest" | "name";
-const KIND_LABEL: Record<Kind, string> = { avatar: "Avatar video", clip: "Video clip" };
+const KIND_LABEL: Record<Kind, string> = { avatar: "Avatar video", clip: "Video clip", movie: "Scene-by-scene video" };
 
 function timeAgo(iso: string) {
   const ms = Date.now() - new Date(iso + (iso.endsWith("Z") ? "" : "Z")).getTime();
@@ -32,9 +33,9 @@ function fmtDuration(s: number) {
 function VideoCard({ item, onOpen }: { item: Item; onOpen: () => void }) {
   const [duration, setDuration] = useState<number | null>(null);
   const src = item.url ? assetUrl(item.url) : null;
-  const inProgress = item.status === "queued" || item.status === "running";
+  const inProgress = item.status === "queued" || item.status === "running" || item.status === "rendering";
   return (
-    <button type="button" onClick={onOpen} disabled={!src} className="group block w-full text-left focus-visible:outline-none">
+    <button type="button" onClick={onOpen} disabled={!src && item.kind !== "movie"} className="group block w-full text-left focus-visible:outline-none">
       <div className="relative aspect-video overflow-hidden rounded-2xl border border-border bg-raised transition-colors group-hover:border-primary/60 group-focus-visible:ring-2 group-focus-visible:ring-ring">
         {src ? (
           // #t=0.5 makes the browser paint a frame as the thumbnail.
@@ -42,7 +43,7 @@ function VideoCard({ item, onOpen }: { item: Item; onOpen: () => void }) {
         ) : (
           <span className="flex h-full flex-col items-center justify-center gap-2 text-xs text-muted-foreground">
             {inProgress ? <Loader2 className="h-5 w-5 animate-spin text-primary" /> : <Video className="h-5 w-5" />}
-            {inProgress ? "Rendering…" : item.status === "failed" ? "Failed" : "No file"}
+            {inProgress ? "Rendering…" : item.status === "failed" ? "Failed" : item.status === "draft" ? "Continue editing" : "No file"}
           </span>
         )}
         {duration ? (
@@ -50,6 +51,7 @@ function VideoCard({ item, onOpen }: { item: Item; onOpen: () => void }) {
             <Video className="h-3 w-3" /> {fmtDuration(duration)}
           </span>
         ) : null}
+        {item.status === "draft" ? <span className="absolute left-2 top-2 rounded-md bg-black/70 px-2 py-1 text-xs text-white">Draft</span> : null}
         {inProgress ? <span className="absolute left-2 top-2 rounded-md bg-black/70 px-1.5 py-0.5 text-[11px] text-white">In progress</span> : null}
       </div>
       <p className="mt-2 truncate text-sm font-semibold">{item.title}</p>
@@ -59,6 +61,7 @@ function VideoCard({ item, onOpen }: { item: Item; onOpen: () => void }) {
 }
 
 export function ProjectsLibraryView() {
+  const router = useRouter();
   const [projects, setProjects] = useState<Project[]>([]);
   const [items, setItems] = useState<Item[] | null>(null);
   const [query, setQuery] = useState("");
@@ -71,8 +74,9 @@ export function ProjectsLibraryView() {
 
   useEffect(() => {
     api.listProjects().then(setProjects).catch(() => setProjects([]));
-    Promise.all([api.listAvatarJobs().catch(() => [] as AvatarJob[]), api.listVideos().catch(() => [] as VideoGeneration[])]).then(([jobs, clips]) => {
+    Promise.all([api.listAvatarJobs().catch(() => [] as AvatarJob[]), api.listVideos().catch(() => [] as VideoGeneration[]), api.listMovies().catch(() => { setError("Scene-by-scene videos could not be loaded. Reload to try again."); return [] as Movie[]; })]).then(([jobs, clips, movies]) => {
       setItems([
+        ...movies.map((m): Item => ({ id: `m-${m.id}`, kind: "movie", title: m.title, url: m.output_video_path, status: m.status, createdAt: m.updated_at })),
         ...jobs.filter((j) => j.status !== "setup_required").map((j): Item => ({
           id: `a-${j.id}`, kind: "avatar", title: j.script_text?.trim() || "Talking avatar", url: j.output_video_path, status: j.status, createdAt: j.created_at,
         })),
@@ -145,6 +149,7 @@ export function ProjectsLibraryView() {
           <select value={kind} onChange={(e) => setKind(e.target.value as "all" | Kind)} aria-label="Filter" className="bg-transparent focus:outline-none">
             <option value="all">All videos</option>
             <option value="avatar">Avatar videos</option>
+            <option value="movie">Scene-by-scene videos</option>
             <option value="clip">Video clips</option>
           </select>
         </label>
@@ -197,7 +202,7 @@ export function ProjectsLibraryView() {
       ) : (
         <ul className="grid grid-cols-2 gap-x-4 gap-y-6 md:grid-cols-3">
           {videos.map((item) => (
-            <li key={item.id}><VideoCard item={item} onOpen={() => setOpen(item)} /></li>
+            <li key={item.id}><VideoCard item={item} onOpen={() => item.kind === "movie" ? router.push(`/movies/${item.id.slice(2)}`) : setOpen(item)} /></li>
           ))}
         </ul>
       )}

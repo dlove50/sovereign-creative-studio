@@ -1,6 +1,42 @@
 # Handoff: HeyGen-style rebuild of Sovereign Creative Studio (Claude → Codex)
 
-Last updated: 2026-10-02 · Branch `master` · Latest commit `fbc1107`
+Last updated: 2026-10-02 · Branch `master` · Backend baseline `fbc1107`
+
+## Resume checkpoint — stage 5b completed, 2026-10-02
+
+Stage 5b is implemented. Continue from the local commit titled
+`feat: finish scene-by-scene movie editor`; do not recreate this work.
+
+Completed:
+- `/movies/new` creates one draft and redirects to `/movies/[id]`.
+- Desktop Create and mobile navigation now open the movie editor.
+- Projects includes searchable/filterable movie cards, draft badges, and editor links.
+- Editor supports title/orientation, scene selection/add/delete, avatar looks, voices,
+  scripts, Improve delivery, autosave, Generate, polling, playback, and download.
+- Saves are serialized and Generate waits for the latest save. Failed saves can be retried.
+- Delayed Improve delivery responses preserve newer edits and target the original scene.
+- Rendering locks editing; mobile layout fits a 390px viewport.
+
+Validation from this session:
+- Backend: **498 passed** with an isolated temporary database (66.67 seconds).
+- Frontend: `npx tsc --noEmit` passed; production build passed.
+- Browser: **5 Playwright tests passed**, covering create/edit/reload/Projects,
+  overlapping saves and rendering, delayed Improve delivery, failed-save retry,
+  and desktop/mobile layout. API responses are mocked; no test movies are created
+  in the production database. Screenshots were visually inspected.
+- Re-run browser tests after `npm run build` with
+  `npx playwright test -c playwright.movies.config.ts` from `frontend/`.
+- Mechanical UI detector returned no findings. Existing charcoal/cyan styling was
+  preserved; no new visual system or design-token changes were introduced.
+- Running frontend rebuilt and restarted through the launcher. The old backend was
+  restarted after confirming an empty ComfyUI queue; migration 0025 -> 0026 applied.
+  The live frontend's `/api/movies` proxy returned HTTP 200 and Projects loaded.
+
+Remaining validation limitation: a real GPU movie render and real Qwen delivery
+improvement were not performed in this session. The browser tests simulate those
+responses; they do not establish voice/lip-sync quality or real render completion.
+A real multi-scene render is the next integration check before calling the entire
+movie pipeline end-to-end verified. Future app features below remain unimplemented.
 
 ## Goal
 
@@ -31,7 +67,7 @@ After backend changes: `stop` then `start` (migrations run on startup).
 Also needed: **Ollama** (`C:\Users\David\AppData\Local\Programs\Ollama\ollama app.exe`) for
 scripts, and **VibeVoice Studio** on :8010 (desktop shortcut) for cloned voices.
 
-## Done (all verified in the real app)
+## Earlier completed stages (prior agent's verification record)
 
 | Stage | What | Key files |
 |---|---|---|
@@ -44,9 +80,9 @@ scripts, and **VibeVoice Studio** on :8010 (desktop shortcut) for cloned voices.
 | 4 Projects | Search/sort/filter, folders (= projects), video grid, player, Move to trash (recoverable) | `frontend/src/components/projects/projects-library-view.tsx` |
 | 5a Movies backend | `movies` table (0026), `/api/movies` CRUD, `/render`, `/improve-delivery`, worker renders scenes then joins | `backend/app/services/movies.py`, `backend/app/routers/movies.py` |
 
-Tests: **498 passed, 0 failed** at `fbc1107`.
+Tests: **498 passed, 0 failed** at `fbc1107`, rerun successfully during stage 5b.
 
-## Next: stage 5b — scene-by-scene editor (frontend)
+## Stage 5b — implemented frontend contract
 
 Route `/movies/[id]` (+ `/movies/new` that POSTs and redirects). Point the Create
 fly-out "Scene by scene" (`frontend/src/lib/navigation.ts`, `CREATE_NAV`) at `/movies/new`,
