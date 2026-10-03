@@ -32,6 +32,7 @@ const FEATURED = [
 // Apps without an href are planned; they are listed so the roadmap is visible,
 // but never rendered as links.
 const APPS: AppEntry[] = [
+  { name: "Cloud studio", blurb: "HeyGen profiles and ElevenLabs speech, sounds, transcription and dubbing.", icon: Sparkles, category: "create", href: "/cloud-studio" },
   { name: "Talking avatar", blurb: "Your photo speaks your script in your cloned voice.", icon: PersonStanding, category: "create", href: "/avatars/create" },
   { name: "Scene by scene", blurb: "Plan a video as a storyboard of scenes.", icon: Clapperboard, category: "create", href: "/storyboard-studio" },
   { name: "Quick Chain", blurb: "Image, motion, upscale and voice in one guided flow.", icon: Wand2, category: "create", href: "/chain" },

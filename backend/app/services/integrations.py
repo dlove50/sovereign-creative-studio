@@ -4,7 +4,7 @@ Local ComfyUI/LTX/Qwen remain the default engine. Seedance/C-Dance and OpenAI ar
 optional cloud providers an admin can configure later. API keys are stored ONLY
 in the backend secrets folder (never served to the browser, never logged, masked
 in the UI, excluded from backups, gitignored). This phase is the configuration
-shell — it does not yet route generation to these providers.
+shell for Seedance/OpenAI; HeyGen and ElevenLabs are connected in Cloud Studio.
 """
 from __future__ import annotations
 
@@ -17,6 +17,22 @@ from fastapi import HTTPException
 from .. import config
 
 _PROVIDERS = {
+    "heygen": {
+        "name": "HeyGen",
+        "kind": "video",
+        "note": "Use your account's avatar looks and voices through HeyGen. External API usage may cost money.",
+        "defaults": {},
+    },
+    "elevenlabs": {
+        "name": "ElevenLabs",
+        "kind": "audio",
+        "note": "Speech, sound effects, voice changer, transcription, isolation and dubbing. External API usage may cost money.",
+        "defaults": {
+            "tts_model": "eleven_multilingual_v2",
+            "sts_model": "eleven_multilingual_sts_v2",
+            "transcription_model": "scribe_v2",
+        },
+    },
     "seedance": {
         "name": "Seedance / C-Dance 2.0 API",
         "kind": "video",
@@ -190,6 +206,9 @@ def test_connection(provider: str) -> dict:
     entry = data.get(provider, {})
     if not entry.get("api_key"):
         result = "Not configured — add an API key first."
+    elif provider in {"heygen", "elevenlabs"}:
+        from .cloud_media import connection_test
+        result = connection_test(provider, entry["api_key"])
     else:
         result = "Not tested yet — live connection test arrives when this provider is wired."
     entry["last_test_result"] = result

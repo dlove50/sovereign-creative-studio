@@ -5,12 +5,13 @@ from datetime import datetime, timezone
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 
 from .config import FRONTEND_ORIGIN, STORAGE_DIR
 from .database import SessionLocal
 from .db_migrate import upgrade_to_head
 from .models import AvatarJob, Movie, TranscriptionJob, VideoGeneration
+from .services.private_storage import PublicStorage
+from .routers import cloud_media
 from .routers import (
     admin,
     assets,
@@ -102,6 +103,8 @@ async def lifespan(_: FastAPI):
     with SessionLocal() as db:
         ensure_owner_admin(db)
         _recover_interrupted_jobs(db)
+    from .services.cloud_media import recover as recover_cloud_jobs
+    recover_cloud_jobs()
     yield
 
 
@@ -117,7 +120,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.mount("/storage", StaticFiles(directory=STORAGE_DIR), name="storage")
+app.mount("/storage", PublicStorage(directory=STORAGE_DIR), name="storage")
+app.include_router(cloud_media.router)
 
 app.include_router(auth.router)
 app.include_router(users.router)

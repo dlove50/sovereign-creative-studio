@@ -14,6 +14,11 @@ const LOCAL_DEFAULTS = [
 ];
 
 const CONFIG_FIELDS: Record<string, [string, string][]> = {
+  elevenlabs: [
+    ["tts_model", "Text-to-speech model"],
+    ["sts_model", "Voice changer model"],
+    ["transcription_model", "Transcription model"],
+  ],
   seedance: [
     ["base_url", "Base URL"],
     ["model_id", "Model ID"],

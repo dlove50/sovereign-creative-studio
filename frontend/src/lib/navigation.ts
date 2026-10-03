@@ -59,6 +59,7 @@ export const CREATOR_NAV: NavigationItem[] = [
 ];
 
 export const ADMIN_NAV: NavigationItem[] = [
+  { href: "/cloud-studio", label: "Cloud Studio", icon: Sparkle },
   { href: "/admin", label: "Admin Dashboard", icon: ShieldCheck },
   { href: "/admin/integrations", label: "Provider Integrations", icon: Plug },
   { href: "/product-scenes", label: "Product Scenes", icon: Megaphone },
