@@ -52,7 +52,7 @@ The owner confirmed Linux GPU **AMD Radeon AI PRO R9700** at `192.168.2.126`. Wi
 
 - 32 focused cloud/import/GPU guard tests passed without real credentials or GPU generation.
 - TypeScript check passed; UI detector returned no findings.
-- Music and transcript timing controls inspected at desktop and mobile widths on the isolated dev server. Live cloud requests remain untested.
+- Music and transcript timing controls inspected at desktop and mobile widths on the isolated dev server. Its configured backend at 127.0.0.1:8000 refused connections, so this was a layout/form inspection only; authenticated history and live cloud requests were not verified in the browser.
 - Download integrity checked with ffprobe and SHA-256; content hashes drive import deduplication.
 
 Sources: [Music API](https://elevenlabs.io/docs/api-reference/music/compose), [forced alignment API](https://elevenlabs.io/docs/api-reference/forced-alignment/create), and the signed-in ElevenLabs UI inspected during this task.
