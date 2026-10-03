@@ -197,5 +197,6 @@ After ANY later backend change: `stop` then `start --hidden` (only when no job i
 
 ## Remaining App-library backlog (listed as "Coming next")
 
-Auto clips, Video podcast (InfiniteTalk `two_speakers` mode), Translate video, Slides to video, Batch videos,
-Interactive video. Not buildable locally at HeyGen scale: LiveAvatar real-time, 175-language translation.
+Auto clips, Video podcast (InfiniteTalk `two_speakers` mode), Translate video, Slides to video,
+Interactive video. (**Batch videos is built**: `/batch`, `POST /api/movies/batch`, CSV upload, all-or-nothing credit
+check; verified creating 3 drafts in the browser; "Create and render all" not run on the GPU.) Not buildable locally at HeyGen scale: LiveAvatar real-time, 175-language translation.

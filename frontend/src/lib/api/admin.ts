@@ -122,6 +122,10 @@ export const adminApi = {
     request<void>(`/api/avatar-jobs/${encodeURIComponent(id)}`, { method: "DELETE" }),
   trashVideo: (id: string) =>
     request<void>(`/api/videos/${encodeURIComponent(id)}`, { method: "DELETE" }),
+  createBatch: (input: {
+    avatar_id: string; tts_voice_id?: string | null; orientation: MovieOrientation;
+    rows: { title: string; script: string }[]; render: boolean;
+  }) => request<Movie[]>("/api/movies/batch", { method: "POST", body: JSON.stringify(input) }),
   listMovies: () => request<Movie[]>("/api/movies"),
   createMovie: (input: { title?: string; orientation?: MovieOrientation; scenes?: Partial<MovieScene>[] } = {}) =>
     request<Movie>("/api/movies", { method: "POST", body: JSON.stringify(input) }),

@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..deps import ADMIN_ROLE, get_current_user
-from ..models import Movie, User
+from ..models import AvatarAsset, Movie, User
 from ..services import movies, video_agent
 
 router = APIRouter(prefix="/api/movies", tags=["movies"])
@@ -28,6 +28,22 @@ class MovieIn(BaseModel):
     title: Optional[str] = Field(default=None, max_length=200)
     orientation: Optional[Literal["portrait", "landscape"]] = None
     scenes: Optional[list[SceneIn]] = Field(default=None, max_length=movies.MAX_SCENES)
+
+
+MAX_BATCH_ROWS = 50
+
+
+class BatchRow(BaseModel):
+    title: str = Field(default="", max_length=200)
+    script: str = Field(min_length=1, max_length=1500)
+
+
+class BatchIn(BaseModel):
+    avatar_id: str = Field(max_length=32)
+    tts_voice_id: Optional[str] = Field(default=None, max_length=200)
+    orientation: Literal["portrait", "landscape"] = "portrait"
+    rows: list[BatchRow] = Field(min_length=1, max_length=MAX_BATCH_ROWS)
+    render: bool = False
 
 
 class ImproveIn(BaseModel):
@@ -120,6 +136,36 @@ def render_movie(movie_id: str, db: Session = Depends(get_db), user: User = Depe
     movies.enqueue(movie.id)
     db.refresh(movie)
     return _out(movie)
+
+
+@router.post("/batch", status_code=201)
+def create_batch(payload: BatchIn, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """One single-scene movie per row (HeyGen's Batch Mode). All-or-nothing on credits when rendering."""
+    avatar = db.get(AvatarAsset, payload.avatar_id)
+    if avatar is None or avatar.deleted_at is not None or avatar.user_id != user.id or not avatar.source_file_path:
+        raise HTTPException(status_code=404, detail="Pick one of your avatar looks.")
+    per_movie = movies.cost_estimate([{"script": "x"}])
+    if payload.render and user.credits < per_movie * len(payload.rows):
+        raise HTTPException(
+            status_code=402,
+            detail=f"Not enough credits: {len(payload.rows)} videos need {per_movie * len(payload.rows)}, you have {user.credits}.",
+        )
+    created: list[Movie] = []
+    for index, row in enumerate(payload.rows, start=1):
+        movie = Movie(
+            user_id=user.id, orientation=payload.orientation,
+            title=(row.title.strip() or f"Batch video {index}")[:200],
+            status="rendering" if payload.render else "draft",
+        )
+        movies.save_scenes(movie, [movies.clean_scene(
+            {"avatar_id": avatar.id, "tts_voice_id": payload.tts_voice_id, "script": row.script.strip()})])
+        db.add(movie)
+        created.append(movie)
+    db.commit()
+    if payload.render:
+        for movie in created:
+            movies.enqueue(movie.id)
+    return [_out(m) for m in created]
 
 
 @router.post("/improve-delivery")

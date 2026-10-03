@@ -142,3 +142,40 @@ def test_restart_recovers_stuck_movies_and_avatar_jobs():
         _recover_interrupted_jobs(db)
         assert db.get(Movie, m["id"]).status == "failed"
         assert db.get(AvatarJob, job_id).status == "failed"
+
+
+def test_batch_creates_one_single_scene_movie_per_row_as_drafts():
+    c = _client("batch_draft")
+    avatar_id = _avatar(c)
+    rows = [{"title": "Welcome", "script": "Hi one."}, {"script": "Hi two."}, {"title": "Bye", "script": "Hi three."}]
+    r = c.post("/api/movies/batch", json={"avatar_id": avatar_id, "orientation": "landscape", "rows": rows})
+    assert r.status_code == 201, r.text
+    made = r.json()
+    assert [m["title"] for m in made] == ["Welcome", "Batch video 2", "Bye"]
+    assert all(m["status"] == "draft" and m["orientation"] == "landscape" and len(m["scenes"]) == 1 for m in made)
+    assert made[1]["scenes"][0]["script"] == "Hi two." and made[1]["scenes"][0]["avatar_id"] == avatar_id
+
+
+def test_batch_render_is_all_or_nothing_on_credits_and_checks_the_avatar(monkeypatch):
+    c = _client("batch_credits")  # 20 signup credits: one video costs 17, three cost 51
+    avatar_id = _avatar(c)
+    before = len(c.get("/api/movies").json())
+    rows = [{"script": "One."}, {"script": "Two."}, {"script": "Three."}]
+    r = c.post("/api/movies/batch", json={"avatar_id": avatar_id, "rows": rows, "render": True})
+    assert r.status_code == 402 and "need 51" in r.json()["detail"]
+    assert len(c.get("/api/movies").json()) == before  # nothing was created
+    assert c.post("/api/movies/batch", json={"avatar_id": "nope", "rows": rows}).status_code == 404
+
+    queued = []
+    monkeypatch.setattr(movies, "enqueue", lambda movie_id: queued.append(movie_id))
+    _give_credits("batch_credits")
+    ok = c.post("/api/movies/batch", json={"avatar_id": avatar_id, "rows": rows, "render": True})
+    assert ok.status_code == 201 and [m["status"] for m in ok.json()] == ["rendering"] * 3
+    assert queued == [m["id"] for m in ok.json()]
+
+
+def test_batch_is_limited_to_50_rows():
+    c = _client("batch_limit")
+    avatar_id = _avatar(c)
+    rows = [{"script": "x"}] * 51
+    assert c.post("/api/movies/batch", json={"avatar_id": avatar_id, "rows": rows}).status_code == 422

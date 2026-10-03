@@ -41,7 +41,7 @@ const APPS: AppEntry[] = [
   { name: "Video agent", blurb: "Describe a video and let local AI write and build it.", icon: Sparkles, category: "create", href: "/video-agent" },
   { name: "Video podcast", blurb: "Two avatars in conversation from one script.", icon: MessagesSquare, category: "create" },
   { name: "Slides to video", blurb: "Narrate a PDF or slide deck with your avatar.", icon: FileText, category: "create" },
-  { name: "Batch videos", blurb: "Make many avatar videos from a spreadsheet.", icon: Layers, category: "create" },
+  { name: "Batch videos", blurb: "Make many avatar videos from a spreadsheet.", icon: Layers, category: "create", href: "/batch" },
   { name: "Upscale video", blurb: "Sharpen a finished clip to a higher resolution.", icon: ZoomIn, category: "enhance", href: "/chain" },
   { name: "Speech cleanup", blurb: "Cut long pauses and filler words automatically.", icon: Mic, category: "enhance", href: "/speech-cleanup" },
   { name: "Translate video", blurb: "Re-voice a video in another language with lip sync.", icon: Languages, category: "enhance" },
