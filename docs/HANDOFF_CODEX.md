@@ -2,6 +2,21 @@
 
 Last updated: 2026-10-03 · Branch `master` (local commits only; never push)
 
+## UPDATE (2026-10-03, later): avatar creation, voices and looks rebuilt from a live audit
+
+Audited the signed-in HeyGen account through the Claude in Chrome extension (read-only; nothing created). Built and verified:
+`/avatars/new` (two cards, design form, 4 previews, voice step), `/voices` (record or upload clone, presets vs clones, library
+filters, previews, delete clone), avatar page voice pill + favorite + menu, `/avatars/add-looks` (upload, record now, video
+still), gallery hover menu and heart, and a Manage avatars rail panel. Backend: migrations 0028 (`default_voice_id`) and 0029
+(`is_favorite`), `POST /api/avatars/clone`, `PATCH /api/avatars/{id}`, `POST /api/avatars/looks/from-video`, `/api/voice-library/*`
+(preview, clone, delete). 570 backend tests pass. VibeVoice presets are now labelled `quality: "preset"` so they are not shown as
+clones. The full gap table is in `docs/HEYGEN_PARITY.md` (section "Avatar creation, voices and looks").
+
+Next, in order: (1) make the video agent and scene editor preselect the avatar's `default_voice_id`; (2) Design a look:
+References images, orientation switch; (3) Home setup tracker to match HeyGen's four steps (Create Digital Twin, Polish your
+Voice, Create a Look, Make your first video); (4) review Brand systems against HeyGen's Brand page; (5) re-audit Video agent
+and AI Studio screens. Cannot be built locally: Design a voice, motion-cloning Digital Twin, real-time LiveAvatar.
+
 ## LATEST STATUS (2026-10-03): every app in the library now exists
 
 Backend suite: **560 passed**. `npx tsc --noEmit` clean. Services were restarted and the new pages verified in the browser.
