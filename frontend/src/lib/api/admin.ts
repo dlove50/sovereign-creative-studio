@@ -148,6 +148,14 @@ export const adminApi = {
     }>("/api/speech-cleanup", form),
   slidesToMovie: (form: FormData) =>
     formRequest<{ movie_id: string; scenes: number; warnings: string[]; credits_estimate: number }>("/api/slides/to-movie", form),
+  translateLanguages: () => request<string[]>("/api/translate/languages"),
+  translateVideo: (form: FormData) =>
+    formRequest<{
+      language: string; video_url: string; srt_url: string; vtt_url: string; has_video: boolean;
+      segments: { start: number; end: number; text: string; original: string }[];
+    }>("/api/translate", form),
+  translationToMovie: (input: { title: string; lines: string[]; avatar_id: string; tts_voice_id: string | null; orientation: "portrait" | "landscape" }) =>
+    request<{ movie_id: string; scenes: number; credits_estimate: number }>("/api/translate/to-movie", { method: "POST", body: JSON.stringify(input) }),
   deleteAvatar: (id: string) =>
     request<void>(`/api/avatars/${encodeURIComponent(id)}`, { method: "DELETE" }),
   listVoices: () => request<VoiceAsset[]>("/api/voices"),
