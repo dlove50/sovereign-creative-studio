@@ -198,7 +198,7 @@ export const mediaApi = {
     motion_preset: VideoMotionPreset;
     duration_seconds: number;
     mode?: VideoMode;
-    provider?: "local_ltx" | "local_wan" | "seedance_api";
+    provider?: "local_ltx" | "local_wan" | "local_h3" | "seedance_api";
     quality_preset?: string | null;
     brief_id?: string | null;
   }) =>

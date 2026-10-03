@@ -135,7 +135,9 @@ export function VideoCard({
       ? "Seedance"
       : video.provider === "local_wan"
         ? "Wan 2.1"
-        : "Local LTX";
+        : video.provider === "local_h3"
+          ? "MiniMax H3"
+          : "Local LTX";
   return (
     <div className="overflow-hidden rounded-lg border border-border bg-card">
       <div className="relative aspect-square bg-background/60">

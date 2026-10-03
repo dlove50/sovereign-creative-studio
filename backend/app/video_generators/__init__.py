@@ -16,11 +16,13 @@ from ..config import (
 )
 from .base import VideoGenerator, VideoResult
 from .comfyui import ComfyUIVideoGenerator
+from .minimax_h3 import MiniMaxH3VideoGenerator
 from .mock import MockVideoGenerator
 from .seedance import SeedanceVideoGenerator
 
 __all__ = [
     "ComfyUIVideoGenerator",
+    "MiniMaxH3VideoGenerator",
     "MockVideoGenerator",
     "SeedanceVideoGenerator",
     "VideoGenerator",
@@ -32,6 +34,8 @@ __all__ = [
 def get_video_generator(provider: str = "local_ltx") -> VideoGenerator:
     if provider == "seedance_api":
         return SeedanceVideoGenerator()
+    if provider == "local_h3" and VIDEO_BACKEND == "comfyui":
+        return MiniMaxH3VideoGenerator(COMFYUI_BASE_URL)
     if VIDEO_BACKEND == "comfyui":
         workflow_path = COMFYUI_VIDEO_WORKFLOW_PATH
         model_name = COMFYUI_VIDEO_MODEL_NAME

@@ -135,6 +135,7 @@ const selectClass =
 const PROVIDERS: { id: VideoProvider; label: string; badge: string }[] = [
   { id: "local_ltx", label: "Local LTX", badge: "Default local" },
   { id: "local_wan", label: "Wan 2.1 (local)", badge: "Image → Video" },
+  { id: "local_h3", label: "MiniMax H3 (video + sound)", badge: "Text or Image → Video" },
   { id: "seedance_api", label: "Seedance / C-Dance 2.0", badge: "Premium" },
 ];
 

@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from ..config import (
     BASE_DIR,
+    CREDITS_PER_H3_VIDEO,
     CREDITS_PER_SEEDANCE_VIDEO,
     COMFYUI_BASE_URL,
     CREDITS_PER_VIDEO,
@@ -20,6 +21,11 @@ from ..config import (
     COMFYUI_VIDEO_UPSCALE_WORKFLOW_PATH,
     COMFYUI_WAN_VIDEO_MODEL_NAME,
     COMFYUI_WAN_VIDEO_WORKFLOW_PATH,
+    H3_AUDIO_VAE_NAME,
+    H3_TEXT_ENCODER_NAME,
+    H3_TURBO_LORA_NAME,
+    H3_UNET_NAME,
+    H3_VIDEO_VAE_NAME,
     VIDEO_BACKEND,
 )
 from ..database import get_db
@@ -129,6 +135,7 @@ def list_video_modes():
     ext_ready, ext_note = _video_extension_ready()
     seedance_ready, seedance_note = _seedance_ready()
     wan_ready, wan_note = _wan_ready()
+    h3_ready, h3_note = _h3_ready()
     options = []
     for mode_id, label, description, source_required in _VIDEO_MODES:
         if is_mock:
@@ -180,6 +187,19 @@ def list_video_modes():
                                 None
                                 if mode_id == "image_to_video"
                                 else "Wan 2.1 is only wired for Image -> Video."
+                            )
+                        ),
+                    ),
+                    "local_h3": VideoProviderReadiness(
+                        available=h3_ready and mode_id in {"text_to_video", "image_to_video"},
+                        cost=CREDITS_PER_H3_VIDEO,
+                        note=(
+                            h3_note
+                            if not h3_ready
+                            else (
+                                None
+                                if mode_id in {"text_to_video", "image_to_video"}
+                                else "MiniMax H3 makes video with sound from text or an image."
                             )
                         ),
                     ),
@@ -267,8 +287,48 @@ def _wan_ready() -> tuple[bool, str | None]:
     return True, None
 
 
+_H3_REQUIRED_NODES = (
+    "MiniMaxH3ImageToVideo", "UNETLoader", "CLIPLoader", "VAELoader", "VAEDecodeAudio",
+    "LoraLoaderModelOnly", "BasicGuider", "SamplerCustomAdvanced", "CreateVideo", "SaveVideo",
+)
+
+
+def _h3_ready() -> tuple[bool, str | None]:
+    """MiniMax H3 needs ComfyUI's native H3 nodes plus its model files."""
+    if VIDEO_BACKEND == "mock":
+        return True, None
+    if VIDEO_BACKEND != "comfyui":
+        return False, f"Video backend {VIDEO_BACKEND} is not a real ComfyUI backend."
+    try:
+        with httpx.Client(base_url=COMFYUI_BASE_URL.rstrip("/"), timeout=_COMFY_TIMEOUT_SECONDS) as client:
+            response = client.get("/object_info")
+            response.raise_for_status()
+            object_info = response.json()
+    except Exception as exc:  # noqa: BLE001 - readiness should degrade to unavailable.
+        return False, f"ComfyUI unavailable at {COMFYUI_BASE_URL}: {exc}"
+    missing_nodes = sorted(node for node in _H3_REQUIRED_NODES if node not in object_info)
+    if missing_nodes:
+        return False, "Update ComfyUI: missing nodes " + ", ".join(missing_nodes)
+    wanted = (
+        ("UNETLoader", "unet_name", H3_UNET_NAME, "model"),
+        ("CLIPLoader", "clip_name", H3_TEXT_ENCODER_NAME, "text encoder"),
+        ("VAELoader", "vae_name", H3_VIDEO_VAE_NAME, "video VAE"),
+        ("VAELoader", "vae_name", H3_AUDIO_VAE_NAME, "audio VAE"),
+        ("LoraLoaderModelOnly", "lora_name", H3_TURBO_LORA_NAME, "turbo LoRA"),
+    )
+    still_downloading = [
+        label for loader, field, name, label in wanted
+        if name not in _loader_options(object_info, loader, field)
+    ]
+    if still_downloading:
+        return False, "MiniMax H3 files not in ComfyUI yet: " + ", ".join(still_downloading)
+    return True, None
+
+
 def _provider_cost(provider: str) -> int:
-    return CREDITS_PER_SEEDANCE_VIDEO if provider == "seedance_api" else CREDITS_PER_VIDEO
+    if provider == "seedance_api":
+        return CREDITS_PER_SEEDANCE_VIDEO
+    return CREDITS_PER_H3_VIDEO if provider == "local_h3" else CREDITS_PER_VIDEO
 
 
 def _workflow_path(path_value: str) -> Path:
@@ -554,6 +614,15 @@ def create_video(
                 status_code=409,
                 detail="Seedance is only wired for Text -> Video and Image -> Video in Phase 14A.",
             )
+    if provider == "local_h3":
+        if payload.mode not in {"text_to_video", "image_to_video"}:
+            raise HTTPException(
+                status_code=409,
+                detail="MiniMax H3 is wired for Text -> Video and Image -> Video.",
+            )
+        ready, reason = _h3_ready()
+        if not ready:
+            raise HTTPException(status_code=409, detail=f"MiniMax H3 is not ready: {reason}")
     if provider == "local_wan":
         if payload.mode != "image_to_video":
             raise HTTPException(

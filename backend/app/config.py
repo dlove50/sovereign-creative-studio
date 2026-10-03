@@ -264,6 +264,22 @@ VIDEO_BACKEND = os.getenv("VIDEO_BACKEND", "comfyui")
 # ComfyUI video engine used when VIDEO_BACKEND=comfyui. "ltx" keeps the proven
 # LTX path; "wan" uses the experimental Wan image-to-video workflow.
 COMFYUI_VIDEO_ENGINE = os.getenv("COMFYUI_VIDEO_ENGINE", "ltx")
+
+# --- MiniMax H3 (local_h3 video provider): video + native audio, text/image -> video ----
+# Files live in ComfyUI-Shared/models (see tools/download_minimax_h3.sh). Defaults suit an
+# RTX 5070 Ti 16 GB with PyTorch cu130: int8_convrot weights, NVFP4 text encoder, and the
+# 4-step turbo LoRA so a clip needs 4 sampler steps instead of 20.
+H3_UNET_NAME = os.getenv("H3_UNET_NAME", "minimax_h3_fl2va_pruned_int8_convrot.safetensors")
+H3_TEXT_ENCODER_NAME = os.getenv("H3_TEXT_ENCODER_NAME", "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors")
+H3_VIDEO_VAE_NAME = os.getenv("H3_VIDEO_VAE_NAME", "minimax_h3_video_vae_fp16.safetensors")
+H3_AUDIO_VAE_NAME = os.getenv("H3_AUDIO_VAE_NAME", "minimax_h3_audio_vae_fp32.safetensors")
+H3_TURBO_LORA_NAME = os.getenv("H3_TURBO_LORA_NAME", "minimax_h3_fl2v_turbo_4step_v1.0_768p_comfyui_bf16.safetensors")
+H3_TURBO_STEPS = int(os.getenv("H3_TURBO_STEPS", "4"))
+H3_FULL_STEPS = int(os.getenv("H3_FULL_STEPS", "20"))
+# Long side / short side in pixels (multiples of 32). 832x480 keeps 16 GB workable.
+H3_LONG_SIDE = int(os.getenv("H3_LONG_SIDE", "832"))
+H3_SHORT_SIDE = int(os.getenv("H3_SHORT_SIDE", "480"))
+H3_TIMEOUT_SECONDS = int(os.getenv("H3_TIMEOUT_SECONDS", "3600"))
 COMFYUI_VIDEO_WORKFLOW_PATH = os.getenv(
     "COMFYUI_VIDEO_WORKFLOW_PATH", "workflows/image_to_video.json"
 )
@@ -297,6 +313,7 @@ CREDITS_PER_GENERATION = int(os.getenv("CREDITS_PER_GENERATION", "5"))
 # Flat credit cost for any real video generation (all modes), charged on success.
 CREDITS_PER_VIDEO = int(os.getenv("CREDITS_PER_VIDEO", "10"))
 CREDITS_PER_SEEDANCE_VIDEO = int(os.getenv("CREDITS_PER_SEEDANCE_VIDEO", "30"))
+CREDITS_PER_H3_VIDEO = int(os.getenv("CREDITS_PER_H3_VIDEO", "20"))
 CREDITS_PER_OPENAI_IMAGE = int(os.getenv("CREDITS_PER_OPENAI_IMAGE", "15"))
 CREDITS_PER_OPENAI_IMAGE_EDIT = int(os.getenv("CREDITS_PER_OPENAI_IMAGE_EDIT", "15"))
 CREDITS_PER_TRANSCRIPTION = int(os.getenv("CREDITS_PER_TRANSCRIPTION", "5"))

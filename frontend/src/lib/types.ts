@@ -372,7 +372,7 @@ export type VideoMotionPreset =
   | "subtle_breathing";
 
 export type VideoStatus = "queued" | "running" | "completed" | "failed";
-export type VideoProvider = "local_ltx" | "local_wan" | "seedance_api";
+export type VideoProvider = "local_ltx" | "local_wan" | "local_h3" | "seedance_api";
 
 export type VideoMode =
   | "image_to_video"

@@ -30,7 +30,7 @@ class VideoCreate(BaseModel):
     motion_preset: VideoMotionPreset
     duration_seconds: int = Field(default=5, ge=2, le=30)
     mode: VideoMode = "image_to_video"
-    provider: Literal["local_ltx", "local_wan", "seedance_api"] = "local_ltx"
+    provider: Literal["local_ltx", "local_wan", "local_h3", "seedance_api"] = "local_ltx"
     quality_preset: Optional[VideoQualityPreset] = "standard_local"
     # Optional creative brief whose context is appended to the video prompt.
     brief_id: Optional[str] = None
