@@ -3,7 +3,7 @@ import type { IntegrationProvider } from "../types";
 
 export type CloudOperation = "avatar-video" | "tts" | "sound-effects" | "voice-changer" | "transcribe" | "dubbing" | "isolate";
 export type CloudJob = {
-  id: string; provider: string; operation: CloudOperation; title: string;
+  id: string; provider: string; operation: CloudOperation | "imported-audio"; title: string;
   status: "queued" | "submitting" | "processing" | "completed" | "failed";
   created_at: string; remote_id: string | null; files: string[]; error: string | null;
 };

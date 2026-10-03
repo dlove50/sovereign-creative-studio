@@ -163,10 +163,28 @@ def generate_speech(text: str, out_path: Path, voice_id: str | None = None) -> N
 
 def _free_comfyui_vram() -> None:
     """Ask ComfyUI to drop its models so VibeVoice fits on the same 16 GB GPU.
-    Best effort: ComfyUI may simply not be running."""
+    Refuse while rendering; this check is not a distributed GPU reservation.
+    ComfyUI being offline is fine, but an unknown queue must not be evicted.
+    """
+    base = config.COMFYUI_BASE_URL.rstrip("/")
+    try:
+        response = httpx.get(f"{base}/queue", timeout=5.0)
+    except httpx.ConnectError:
+        return  # No renderer to unload.
+    except httpx.HTTPError as exc:
+        raise RuntimeError("Cannot check the render queue. Retry the voice/AI request once ComfyUI is responsive.") from exc
+    try:
+        response.raise_for_status()
+        queue = response.json()
+        if not isinstance(queue, dict) or not all(isinstance(queue.get(k), list) for k in ("queue_running", "queue_pending")):
+            raise ValueError("Unexpected queue response")
+    except (httpx.HTTPError, ValueError) as exc:
+        raise RuntimeError("Cannot verify that the render GPU is idle. No models were unloaded.") from exc
+    if queue["queue_running"] or queue["queue_pending"]:
+        raise RuntimeError("The render GPU is busy. Wait for current and queued renders to finish before starting this voice/AI request.")
     try:
         httpx.post(
-            f"{config.COMFYUI_BASE_URL}/free",
+            f"{base}/free",
             json={"unload_models": True, "free_memory": True},
             timeout=10.0,
         )
