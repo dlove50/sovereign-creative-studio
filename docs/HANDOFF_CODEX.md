@@ -182,9 +182,20 @@ Backend tests: **528 passing** at the time of writing (run from `backend/`).
   Video Generator page shows H3 quality choices (Fast turbo / Full quality / Keep my subject) when H3 is the provider.
   Schema values added: `h3_turbo`, `h3_full`, `h3_reference` (`schemas_workflows.VideoQualityPreset`).
 - **5 s text -> video**: 47 s, 832x480, 124 frames, audio mean -29 dB. All download files verified (sizes match, 0 retries).
-- Still not wired: ControlNet union (`MiniMaxH3FunControlNetApply`, file downloaded), effect embeddings in the UI
-  (10 files in `models/embeddings`; use `embedding:minimaxh3_<name>` in prompts), multi-reference / video / audio references,
-  first+last-frame mode in the UI, an H3 entry in Model Manager, clips longer than 5 s, `h3_full` not run.
+- **ControlNet (video -> video) is built and GPU-verified.** Mode `video_to_video` + provider `local_h3` (paste a `/storage/videos/...`
+  path into the page's source-URL field). The source clip is prepared by `prepare_control_video` (24 fps, center-cropped to the output
+  size, trimmed) and its Canny edges drive `MiniMaxH3FunControlNetApply` (file `minimax_h3_fun_controlnet_union_pruned_int8_convrot`,
+  strength `H3_CONTROL_STRENGTH`=1.0). Test: a rainy night market became an enchanted snowy village with the same street layout and
+  motion (3 s, ~49 s, audio kept). **Bug fixed:** ComfyUI history lists `LoadVideo`'s preview of the INPUT clip first, so the control
+  clip itself was returned (no audio, no restyle); `h3_result_output` now reads only node "16" (SaveVideo). Pose/depth controls would
+  need extra models (SDPose, RT-DETR, Depth) that were NOT downloaded; only Canny is used.
+- **Effects menu built**: Video Generator shows 10 effect chips for H3 (adds `embedding:minimaxh3_<name>` to the prompt). The
+  embeddings load in ComfyUI (`GET /embeddings` lists them) but their visual effect was not individually tested.
+- **Longer clips / Full quality tested**: 10 s turbo text->video = 109 s, 832x480, 243 frames, audio -23 dB, coherent aerial journey.
+  `h3_full` (20 steps) 2 s = 47 s (turbo ~32 s) with a quieter soundtrack (-41 dB vs -34 dB) and no visible quality gain -> keep turbo
+  as the default. 15 s (the model maximum) was not tried.
+- Still not wired: multi-reference / reference video / reference audio inputs, first+last-frame mode in the UI, an H3 entry in Model
+  Manager, a picker for the control clip (today: paste a path).
 
 ## Real two-scene movie validation (stage 5b follow-up) — DONE, PASSED
 

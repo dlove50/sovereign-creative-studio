@@ -122,6 +122,20 @@ const QUALITY_PRESETS: {
   },
 ];
 
+// MiniMax H3 effect embeddings (files in ComfyUI models/embeddings). Clicking a chip adds its tag to the prompt.
+const H3_EFFECTS: { id: string; label: string }[] = [
+  { id: "minimaxh3_art_is_explosion", label: "Art explosion" },
+  { id: "minimaxh3_blooming_flowers", label: "Blooming flowers" },
+  { id: "minimaxh3_bullet_time", label: "Bullet time" },
+  { id: "minimaxh3_dark_magic", label: "Dark magic" },
+  { id: "minimaxh3_fire_breath", label: "Fire breath" },
+  { id: "minimaxh3_four_seasons", label: "Four seasons" },
+  { id: "minimaxh3_kiss_camera", label: "Kiss the camera" },
+  { id: "minimaxh3_spiral_ascent", label: "Spiral ascent" },
+  { id: "minimaxh3_storm_magic", label: "Storm magic" },
+  { id: "minimaxh3_truman_show", label: "Truman show" },
+];
+
 // MiniMax H3 has its own quality choices (and makes sound with the picture).
 const H3_QUALITY_PRESETS: typeof QUALITY_PRESETS = [
   {
@@ -720,6 +734,31 @@ export function VideosView() {
           <p className="text-xs text-muted-foreground">
             {selectedQuality.label}: {selectedQuality.description}
           </p>
+          {provider === "local_h3" ? (
+            <div>
+              <p className="mb-1.5 text-xs font-medium text-muted-foreground">Effects (click to add to the prompt)</p>
+              <div className="flex flex-wrap gap-1.5">
+                {H3_EFFECTS.map((fx) => {
+                  const tag = `embedding:${fx.id}`;
+                  const on = prompt.includes(tag);
+                  return (
+                    <button
+                      key={fx.id}
+                      type="button"
+                      aria-pressed={on}
+                      onClick={() => setPrompt((cur) => (cur.includes(tag) ? cur.replace(tag, "").replace(/\s{2,}/g, " ").trim() : `${cur.trim()} ${tag}`.trim()))}
+                      className={cn(
+                        "rounded-full border px-2.5 py-1 text-xs transition-colors",
+                        on ? "border-primary bg-primary/15 text-primary" : "border-border text-muted-foreground hover:bg-muted",
+                      )}
+                    >
+                      {fx.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
         </div>
 
         {error ? (
