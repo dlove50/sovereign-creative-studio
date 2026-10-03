@@ -136,6 +136,11 @@ export const adminApi = {
   renderMovie: (id: string) => request<Movie>(`/api/movies/${encodeURIComponent(id)}/render`, { method: "POST" }),
   improveDelivery: (script: string) =>
     request<{ title: string; script: string }>("/api/movies/improve-delivery", { method: "POST", body: JSON.stringify({ script }) }),
+  makeAutoClips: (form: FormData) =>
+    formRequest<{
+      duration: number; method: "ai" | "fallback"; has_video: boolean;
+      clips: { title: string; start: number; end: number; seconds: number; url: string }[];
+    }>("/api/auto-clips", form),
   cleanSpeech: (form: FormData) =>
     formRequest<{
       output_url: string; filename: string; has_video: boolean; original_seconds: number; new_seconds: number;

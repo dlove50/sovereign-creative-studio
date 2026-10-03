@@ -149,7 +149,7 @@ Read this section first; it supersedes the "Next" sections above. Also read
 | `b534c4b` | **MiniMax H3 video provider** `local_h3` (see below) |
 | `580c1d3` | **Speech cleanup** app: `/speech-cleanup`, `POST /api/speech-cleanup`, 7 tests |
 
-Backend tests: **511 + 7 = 518 expected passing** (run from `backend/`).
+Backend tests: **528 passing** at the time of writing (run from `backend/`).
 
 ## MiniMax H3 (owner explicitly asked to download and wire it)
 
@@ -197,6 +197,8 @@ After ANY later backend change: `stop` then `start --hidden` (only when no job i
 
 ## Remaining App-library backlog (listed as "Coming next")
 
-Auto clips, Video podcast (InfiniteTalk `two_speakers` mode), Translate video, Slides to video,
-Interactive video. (**Batch videos is built**: `/batch`, `POST /api/movies/batch`, CSV upload, all-or-nothing credit
+Video podcast (InfiniteTalk `two_speakers` mode), Translate video, Slides to video, Interactive video.
+(**Auto clips is built**: `/auto-clips`, `POST /api/auto-clips`; Whisper CPU transcript -> Qwen picks moments ->
+FFmpeg cuts, with a speech-density fallback; 7 tests with a faked transcript/LLM and real FFmpeg; the real
+Whisper + Qwen path was NOT run end to end on a long video.) (**Batch videos is built**: `/batch`, `POST /api/movies/batch`, CSV upload, all-or-nothing credit
 check; verified creating 3 drafts in the browser; "Create and render all" not run on the GPU.) Not buildable locally at HeyGen scale: LiveAvatar real-time, 175-language translation.

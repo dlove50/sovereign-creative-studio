@@ -47,7 +47,7 @@ const APPS: AppEntry[] = [
   { name: "Translate video", blurb: "Re-voice a video in another language with lip sync.", icon: Languages, category: "enhance" },
   { name: "Transcribe video", blurb: "Get a text transcript and summary of any video.", icon: Type, category: "edit", href: "/video-to-text" },
   { name: "OCR studio", blurb: "Pull text out of images and scanned pages.", icon: ScanText, category: "edit", href: "/ocr-studio" },
-  { name: "Auto clips", blurb: "Find the best moments in a long video and cut shorts.", icon: Scissors, category: "edit" },
+  { name: "Auto clips", blurb: "Find the best moments in a long video and cut shorts.", icon: Scissors, category: "edit", href: "/auto-clips" },
   { name: "Interactive video", blurb: "Videos with choices that branch to different scenes.", icon: MousePointerClick, category: "interactive" },
 ];
 
