@@ -176,21 +176,24 @@ Backend tests: **511 + 7 = 518 expected passing** (run from `backend/`).
   (`MiniMaxH3FunControlNetApply`), effect embeddings in the UI, first+last-frame mode in the UI,
   H3 entry in Model Manager. The files for these are in the download list.
 
-## Real two-scene movie validation (stage 5b follow-up) — IN PROGRESS
+## Real two-scene movie validation (stage 5b follow-up) — DONE, PASSED
 
-Movie `2957e96025ec45ada9e17057bc940f78` ("Validation movie: two scenes", user `UI Test`) was created via
-Create → Scene by scene; autosave, reload, Improve delivery (real Qwen) all verified. Generate was clicked
-at about 22:30; scene 1 completed, scene 2 rendering. **Check** `movies.status` in `backend/sovereign.db`
-(`completed` → verify order, lip-sync, orientation, download; `failed` → read `error_message`).
-Do **not** restart the backend while it renders.
-Note: ComfyUI died at 22:26 (before this test) while another script loaded the 15.6 GB video model; it was
-restarted with `python tools/local_launcher.py start --hidden`.
+Movie `2957e96025ec45ada9e17057bc940f78` ("Validation movie: two scenes", user `UI Test`), created via
+Create → Scene by scene. Verified with real GPU/Qwen/Piper:
+- Title, portrait orientation, two scenes with different looks and voices autosaved and survived a reload.
+- **Improve delivery** (real Qwen 27B) rewrote scene 1 only; scene 2 was untouched.
+- **Generate** (34 credits): both scenes rendered in sequence (~300 s and ~309 s) and were joined.
+  Output `/storage/avatar_videos/movie_2957e960..._c15fa9c4.mp4`: 480x832, 9.64 s video / 9.71 s audio
+  (0.07 s apart), scene 1 (porch look) then scene 2 (beach-house look), mouths moving in both.
+- Limits: per-scene lip-sync was not separately measured with the pop test; landscape orientation and
+  3+ scenes were not rendered; a 15 s movie takes roughly 13 min of GPU time.
+- ComfyUI had died at 22:26 (before this test) while another script loaded the 15.6 GB model; restarted via the launcher.
 
 ## Backend restart needed
 
-Backend code for H3, Speech cleanup and the earlier movie changes only loads after
-`python tools/local_launcher.py stop` then `start` (only when no job is rendering). Then rebuild the frontend
-with `python tools/local_launcher.py clean`.
+Services were restarted after the movie validation, so the backend already runs the H3 and Speech cleanup
+code (`GET /api/videos/modes` shows `local_h3` with a missing-files note until the download finishes).
+After ANY later backend change: `stop` then `start --hidden` (only when no job is rendering), and `clean` for the frontend.
 
 ## Remaining App-library backlog (listed as "Coming next")
 
