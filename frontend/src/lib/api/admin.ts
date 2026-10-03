@@ -84,6 +84,9 @@ import type {
 
 import { API_BASE, downloadZip, formRequest, request, setActiveUserId } from "@/lib/api/core";
 
+export type InteractiveNode = { id: string; title: string; video_url: string; choices: { label: string; next: string }[] };
+export type InteractiveItem = { id: string; title: string; nodes: InteractiveNode[]; start_node_id: string | null; created_at: string; updated_at: string };
+
 export const adminApi = {
   getMe: () => request<User>("/api/me"),
   // --- auth ---
@@ -156,6 +159,15 @@ export const adminApi = {
     }>("/api/translate", form),
   translationToMovie: (input: { title: string; lines: string[]; avatar_id: string; tts_voice_id: string | null; orientation: "portrait" | "landscape" }) =>
     request<{ movie_id: string; scenes: number; credits_estimate: number }>("/api/translate/to-movie", { method: "POST", body: JSON.stringify(input) }),
+  listInteractive: () => request<InteractiveItem[]>("/api/interactive"),
+  getInteractive: (id: string) => request<InteractiveItem>(`/api/interactive/${encodeURIComponent(id)}`),
+  listInteractiveClips: () => request<{ title: string; url: string }[]>("/api/interactive/clips"),
+  createInteractive: (input: { title?: string; nodes?: InteractiveNode[]; start_node_id?: string | null }) =>
+    request<InteractiveItem>("/api/interactive", { method: "POST", body: JSON.stringify(input) }),
+  updateInteractive: (id: string, input: { title?: string; nodes?: InteractiveNode[]; start_node_id?: string | null }) =>
+    request<InteractiveItem>(`/api/interactive/${encodeURIComponent(id)}`, { method: "PUT", body: JSON.stringify(input) }),
+  deleteInteractive: (id: string) =>
+    request<void>(`/api/interactive/${encodeURIComponent(id)}`, { method: "DELETE" }),
   deleteAvatar: (id: string) =>
     request<void>(`/api/avatars/${encodeURIComponent(id)}`, { method: "DELETE" }),
   listVoices: () => request<VoiceAsset[]>("/api/voices"),

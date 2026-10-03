@@ -39,6 +39,7 @@ from .routers import (
     transcriptions,
     users,
     auto_clips as auto_clips_router,
+    interactive as interactive_router,
     slides as slides_router,
     translate as translate_router,
     speech_cleanup as speech_cleanup_router,
@@ -134,6 +135,7 @@ app.include_router(video_agent.router)
 app.include_router(movies_router.router)
 app.include_router(speech_cleanup_router.router)
 app.include_router(slides_router.router)
+app.include_router(interactive_router.router)
 app.include_router(translate_router.router)
 app.include_router(auto_clips_router.router)
 app.include_router(product_scenes.router)

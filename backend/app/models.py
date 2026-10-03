@@ -301,6 +301,22 @@ class Movie(Base):
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
 
+class InteractiveVideo(Base):
+    """A branching video: nodes live in nodes_json as a list of
+    {id, title, video_url, choices: [{label, next}]}; start_node_id is where playback begins."""
+
+    __tablename__ = "interactive_videos"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
+    title: Mapped[str] = mapped_column(String(200), default="Untitled interactive video")
+    nodes_json: Mapped[str] = mapped_column(Text, default="[]")
+    start_node_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=_now, onupdate=_now)
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
 class VoiceAsset(Base):
     """A voice profile: a built-in preset, a local-TTS voice, or an uploaded sample."""
 
