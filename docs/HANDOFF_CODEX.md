@@ -1,6 +1,33 @@
 # Handoff: HeyGen-style rebuild of Sovereign Creative Studio (Claude → Codex)
 
-Last updated: 2026-10-02 · Branch `master` · Backend baseline `fbc1107`
+Last updated: 2026-10-03 · Branch `master` (local commits only; never push)
+
+## LATEST STATUS (2026-10-03): every app in the library now exists
+
+Backend suite: **560 passed**. `npx tsc --noEmit` clean. Services were restarted and the new pages verified in the browser.
+Parity table with honest gaps: `docs/HEYGEN_PARITY.md`. Use `python tools/local_launcher.py {start|stop|status|clean} [--hidden]`.
+
+Built this session (all committed locally):
+- **Slides to video** `/slides` (`routers/slides.py`, `services/slides.py`): PDF (pypdf, added to requirements) or .pptx
+  (zip + XML, no library) becomes a draft movie, one scene per slide, with an optional Qwen rewrite. Verified with a real
+  2-page PDF. Gaps: slide images are not shown; scanned PDFs need OCR; max 30 slides.
+- **Translate video** `/translate` (`routers/translate.py`, `services/translate.py`): Whisper (CPU) transcript, Qwen
+  translation in batches of 20 lines, .srt and .vtt files, and a button that drafts a movie where the avatar says the
+  translation. Verified on a real clip into French (25 s). Gaps: no dubbing and no re-lip-sync of the original; Piper voices are
+  English only, so non-English speech depends on VibeVoice, which has NOT been tested for other languages.
+- **Interactive video** `/interactive`, `/interactive/[id]` (`routers/interactive.py`, `services/interactive.py`, migration
+  **0027**, model `InteractiveVideo`): nodes with a video from the studio and up to 4 choices each, Edit and Preview tabs, Start
+  over. Verified in the browser including a choice jump. Gap: no public share link (local only).
+- **H3**: ControlNet video-to-video, effects chips, 10 s clip, and full-quality results are recorded in the H3 section below.
+- **LiveAvatar (real-time)** is not possible locally (about 55 s of GPU time per 1 s of avatar video).
+
+Suggested next work, in order: (1) dubbing for Translate once a multilingual voice is tested; (2) rasterise slides
+(pypdfium2) and show them beside the avatar; (3) render a landscape and a 3-scene movie, and run the Batch "Create and
+render all" once on the GPU; (4) a final visual pass over every new page at 390 px width; (5) the R9700 Linux offload only when
+the owner says "Let's fix the Linux system".
+
+Known open items: the owner never chose a database cleanup (test users and drafts exist, for example the UI Test account and
+Sovereign Test Brand); the 2 s full-quality H3 clip has very quiet audio (-41 dB); test files from H3 runs are in Downloads.
 
 ## Resume checkpoint — stage 5b completed, 2026-10-02
 

@@ -15,7 +15,7 @@ Legend: **Built** = works and was checked in the real app · **Partial** = works
 | HeyGen | Sovereign | Status |
 |---|---|---|
 | Icon rail: Home, Avatar, Brand, Apps, Projects | Same rail (plus Credits, Admin, profile) | Built |
-| Create fly-out: Home, Video agent, Scene by scene, Single scene, Translate + Recents | Home, Video agent, Scene by scene, Single scene + Recents of finished videos | Partial (no Translate entry) |
+| Create fly-out: Home, Video agent, Scene by scene, Single scene, Translate + Recents | Home, Video agent, Scene by scene, Single scene + Recents of finished videos | Partial (Translate lives in the Apps library, not the fly-out) |
 | Ask Orby assistant | None | Not built |
 | Developers / API page | None (Sovereign has its own local API) | Not built |
 
@@ -48,11 +48,11 @@ Legend: **Built** = works and was checked in the real app · **Partial** = works
 | Video podcast | Partial | Alternating cuts between two avatars, not both in one frame |
 | Upscale video | Built (existing) | Quick Chain / Video Generator upscale |
 | Generate images / Image studio | Built (existing) | |
-| AI video generator (text or image to video) | Partial | LTX and Wan work; **MiniMax H3 is wired but not yet run on the GPU** (download in progress) |
+| AI video generator (text or image to video) | Built | LTX, Wan and MiniMax H3 (text, image, reference, ControlNet video-to-video; 10 effect chips) all run on the GPU |
 | Cinematic shots | Partial | Same engines as above |
-| Translate videos | Not built | Whisper + Qwen + voice + re-lip-sync is possible; target languages limited by installed voices (not 175) |
-| PPT/PDF to video | Not built | Possible: slide text to narration scenes, slide image as background |
-| Interactive video | Not built | Branching player needed |
+| Translate videos | Partial | Built 2026-10-03 at /translate: Whisper transcript, Qwen translation into 21 languages, .srt/.vtt subtitles, and a one-click draft where the avatar says the translation. Verified in French (25 s). Does NOT re-voice the original video or re-lip-sync it; spoken output depends on installed voices (Piper is English only) |
+| PPT/PDF to video | Partial | Built at /slides: PDF or .pptx text becomes one draft scene per slide (optional Qwen rewrite to spoken style), opens in the scene editor. Slide images are NOT shown behind the avatar; scanned slides need OCR |
+| Interactive video | Built | /interactive: link finished videos with up to 4 choices each, preview player with Start over; verified in the browser. Local only, no public share link |
 | LiveAvatar (real-time) | Not possible | Local render is ~55 s per 1 s of video |
 
 ## Things that differ by nature
@@ -64,7 +64,7 @@ Legend: **Built** = works and was checked in the real app · **Partial** = works
 
 ## Highest-value next steps
 
-1. Run MiniMax H3 on the GPU once the download completes (see `docs/HANDOFF_CODEX.md`).
-2. Render a landscape and a 3-scene movie; run the "Create and render all" batch once.
-3. Translate videos (limited languages), then PPT/PDF to video.
+1. Translate: a re-voiced (dubbed) output needs a multilingual TTS; VibeVoice language support is untested here.
+2. Slides to video: render each slide as an image behind or beside the avatar (needs a PDF rasteriser such as pypdfium2).
+3. Render a landscape and a 3-scene movie; run the "Create and render all" batch once.
 4. Optional: a second render machine (the Linux R9700) when the owner says "Let's fix the Linux system".
