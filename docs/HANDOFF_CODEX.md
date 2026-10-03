@@ -197,7 +197,11 @@ After ANY later backend change: `stop` then `start --hidden` (only when no job i
 
 ## Remaining App-library backlog (listed as "Coming next")
 
-Video podcast (InfiniteTalk `two_speakers` mode), Translate video, Slides to video, Interactive video.
+Translate video, Slides to video, Interactive video.
+(**Video podcast is built** as alternating camera cuts, NOT both people in frame: `/podcast` turns a `Name: line` dialogue
+into landscape movie scenes (one avatar + voice per speaker) and opens the draft in the scene editor; frontend-only,
+reuses the validated movie pipeline; verified creating a 4-scene draft; not rendered. A true side-by-side podcast
+would need InfiniteTalk `two_speakers` mode with masks, which was not attempted.)
 (**Speech cleanup is built** — real tests: a 2.5 s inserted pause was cut (17.9 s -> 15.5 s); filler detection via Whisper `base`
 finds only ~3 of 5 spoken fillers in a synthetic test (Whisper tends to drop "um/uh"; a filler-style `initial_prompt` did
 not help); a larger Whisper model may raise recall.)
