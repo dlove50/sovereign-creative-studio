@@ -133,3 +133,66 @@ native; licence excludes US/EU/UK/KR, not Canada) for cinematic B-roll.
 - Clean-up of test data written to the real DB on Aug 6 and Sep 27 (fake avatars, voices,
   jobs, test users): remove only the Sep 27 rows, also the Aug 6 test users, or leave it.
 - Whether to start the R9700 render-offload work ("Let's fix the Linux system").
+
+---
+
+# Update — latest status (Claude Code, 2026-10-02 late evening)
+
+Read this section first; it supersedes the "Next" sections above. Also read
+`docs/HANDOFF_CLAUDE_CODE.md` (Codex's stage 5b notes). Commit locally only, never push.
+
+## Since the earlier handoff
+
+| Commit | What |
+|---|---|
+| `5c3dd80` (Codex) | Stage 5b: movie editor at `/movies/[id]`, `/movies/new`, Projects integration, 5 mocked Playwright tests |
+| `b534c4b` | **MiniMax H3 video provider** `local_h3` (see below) |
+| `580c1d3` | **Speech cleanup** app: `/speech-cleanup`, `POST /api/speech-cleanup`, 7 tests |
+
+Backend tests: **511 + 7 = 518 expected passing** (run from `backend/`).
+
+## MiniMax H3 (owner explicitly asked to download and wire it)
+
+- ComfyUI 0.37.0 already has native H3 nodes (`comfy_extras/nodes_minimax_h3.py`); torch is 2.10+cu130,
+  so the README-recommended `int8_convrot` weights apply. Licence: MiniMax H3 Community License
+  (excludes US/EU/UK/KR, Canada OK, commercial < US$20M) — owner is in Canada.
+- **Download:** `tools/download_minimax_h3.sh` (resumable; re-run to continue). ~70 GB from
+  `Comfy-Org/MiniMax-H3` into `C:\Users\David\ComfyUI-Shared\models\{vae,loras,text_encoders,diffusion_models,model_patches,embeddings}`.
+  Log: `C:\Users\David\ComfyUI-Shared\minimax_h3_download.log` (`ALL DONE` on the last line when finished).
+  Speed ≈ 5 MB/s unauthenticated (≈ 3.5–4 h). If it is not running: `bash tools/download_minimax_h3.sh`.
+  Order: embeddings, audio VAE, video VAE fp16, fl2v turbo 4-step LoRA, NVFP4 Qwen3-VL text encoder,
+  fl2va pruned int8 model, ControlNet union, ref2v LoRA, ref2va pruned int8 model, fl2v 8-step LoRA.
+- **Code:** `backend/app/video_generators/minimax_h3.py` (`build_h3_workflow`, 24 fps, 17k+5 frame grid,
+  turbo 4 steps default, `quality_preset="h3_full"` = 20 steps), settings `H3_*` in `config.py`,
+  readiness `_h3_ready()` in `routers/videos.py` (lists exactly which files ComfyUI still lacks),
+  provider option in `videos-view.tsx`. Cost `CREDITS_PER_H3_VIDEO=20`.
+- **Not yet verified on the GPU** (files were still downloading). Once the log says `ALL DONE`:
+  restart ComfyUI so it lists the new files, confirm `GET /api/videos/modes` shows `local_h3` available,
+  then generate one 2-second text→video and one image→video clip from Video Generator → provider
+  "MiniMax H3". Expect heavy RAM offload (21 GB model on a 16 GB GPU, 31 GB system RAM); if it OOMs,
+  lower `H3_LONG_SIDE/H3_SHORT_SIDE` (832/480) or try `minimax_h3_fl2va_pruned_w6a8` (16 GB) via `H3_UNET_NAME`.
+  Do not run H3 while a movie/avatar render is active (single 16 GB GPU).
+- Not built yet: reference-to-video (`ref2va`, `MiniMaxH3ReferenceToVideo` node), ControlNet union
+  (`MiniMaxH3FunControlNetApply`), effect embeddings in the UI, first+last-frame mode in the UI,
+  H3 entry in Model Manager. The files for these are in the download list.
+
+## Real two-scene movie validation (stage 5b follow-up) — IN PROGRESS
+
+Movie `2957e96025ec45ada9e17057bc940f78` ("Validation movie: two scenes", user `UI Test`) was created via
+Create → Scene by scene; autosave, reload, Improve delivery (real Qwen) all verified. Generate was clicked
+at about 22:30; scene 1 completed, scene 2 rendering. **Check** `movies.status` in `backend/sovereign.db`
+(`completed` → verify order, lip-sync, orientation, download; `failed` → read `error_message`).
+Do **not** restart the backend while it renders.
+Note: ComfyUI died at 22:26 (before this test) while another script loaded the 15.6 GB video model; it was
+restarted with `python tools/local_launcher.py start --hidden`.
+
+## Backend restart needed
+
+Backend code for H3, Speech cleanup and the earlier movie changes only loads after
+`python tools/local_launcher.py stop` then `start` (only when no job is rendering). Then rebuild the frontend
+with `python tools/local_launcher.py clean`.
+
+## Remaining App-library backlog (listed as "Coming next")
+
+Auto clips, Video podcast (InfiniteTalk `two_speakers` mode), Translate video, Slides to video, Batch videos,
+Interactive video. Not buildable locally at HeyGen scale: LiveAvatar real-time, 175-language translation.
