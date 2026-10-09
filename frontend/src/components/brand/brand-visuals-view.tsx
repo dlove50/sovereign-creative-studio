@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { api, assetUrl } from "@/lib/api";
 import type { BrandVisuals } from "@/lib/types";
+import { confirmDialog } from "@/components/ui/confirm-host";
 
 export function BrandVisualsView({ projectId }: { projectId: string }) {
   const [spec, setSpec] = useState<BrandVisuals | null>(null);
@@ -69,7 +70,7 @@ export function BrandVisualsView({ projectId }: { projectId: string }) {
   async function deleteAsset(kind: "logos" | "assets", name: string, ev: React.MouseEvent) {
     ev.stopPropagation();
     if (busy || !spec) return;
-    if (!window.confirm(`Remove "${name}" from this brand? This cannot be undone.`)) return;
+    if (!await confirmDialog(`Remove "${name}" from this brand? This cannot be undone.`)) return;
     setBusy(true); setError(""); setMessage("");
     try {
       await api.deleteBrandAsset(projectId, kind, name);

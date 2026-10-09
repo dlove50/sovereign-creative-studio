@@ -5,14 +5,19 @@ import { Coins, Loader2 } from "lucide-react";
 
 import { api } from "@/lib/api";
 import type { User } from "@/lib/types";
+import { LoadError } from "@/components/ui/load-error";
 
 export function CreditsView() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    api.getMe().then(setUser).catch(() => setUser(null)).finally(() => setLoading(false));
-  }, []);
+  const load = () => {
+    setLoading(true);
+    setError(null);
+    api.getMe().then(setUser).catch((e) => setError(e instanceof Error ? e.message : "The studio didn't answer.")).finally(() => setLoading(false));
+  };
+  useEffect(load, []);
 
   if (loading) {
     return (
@@ -22,6 +27,8 @@ export function CreditsView() {
     );
   }
 
+  if (error) return <LoadError what="your credits" message={error} onRetry={load} />;
+
   return (
     <div className="max-w-lg space-y-5">
       <div className="flex items-center gap-4 rounded-2xl border border-border bg-card p-6">
@@ -29,7 +36,7 @@ export function CreditsView() {
           <Coins className="h-7 w-7" />
         </span>
         <div>
-          <p className="text-3xl font-semibold">{user?.credits ?? 0}</p>
+          <p className="text-3xl font-semibold">{user?.credits ?? "—"}</p>
           <p className="text-sm text-muted-foreground">credits available</p>
         </div>
       </div>

@@ -41,6 +41,7 @@ import { consumeHandoff } from "@/lib/stores/useMediaHandoff";
 import { videoToMedia } from "@/lib/utils/mediaMapping";
 import { validateSourceUrl } from "@/lib/utils/validateSourceUrl";
 import { cn } from "@/lib/utils";
+import { confirmDialog } from "@/components/ui/confirm-host";
 
 const STATUS_VARIANT = {
   queued: "muted",
@@ -301,7 +302,7 @@ export function StoryboardPlanner({ projectId }: { projectId: string }) {
   }
 
   async function deleteStoryboard(storyboard: Storyboard) {
-    if (!window.confirm(`Delete the storyboard "${storyboard.title}" and all of its shots? This cannot be undone.`)) return;
+    if (!await confirmDialog(`Delete the storyboard "${storyboard.title}" and all of its shots? This cannot be undone.`)) return;
     setError(null);
     try {
       await api.deleteStoryboard(projectId, storyboard.id);
@@ -338,7 +339,7 @@ export function StoryboardPlanner({ projectId }: { projectId: string }) {
 
   async function deleteShot(shot: Shot) {
     if (!selectedId) return;
-    if (!window.confirm(`Delete shot ${shot.shot_number}? This cannot be undone.`)) return;
+    if (!await confirmDialog(`Delete shot ${shot.shot_number}? This cannot be undone.`)) return;
     setError(null);
     try {
       await api.deleteShot(selectedId, shot.id);

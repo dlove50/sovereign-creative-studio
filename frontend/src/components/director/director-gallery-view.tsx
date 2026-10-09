@@ -5,6 +5,7 @@ import Link from "next/link";
 import { CircleCheck, Loader2, TriangleAlert } from "lucide-react";
 
 import { PageHeader } from "@/components/page-header";
+import { LoadError } from "@/components/ui/load-error";
 import { directorApi, formatLength, type DirectorProject } from "@/lib/api/director";
 
 import { TemplateCarousel } from "./template-carousel";
@@ -25,10 +26,14 @@ function StatusIcon({ status }: { status: DirectorProject["status"] }) {
 
 export function DirectorGalleryView() {
   const [projects, setProjects] = useState<DirectorProject[] | null>(null);
+  const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     let alive = true;
-    const load = () => directorApi.projects().then((p) => alive && setProjects(p)).catch(() => alive && setProjects([]));
+    // A failed refresh keeps the last list on screen; only a failed FIRST load shows the error state.
+    const load = () => directorApi.projects()
+      .then((p) => { if (alive) { setProjects(p); setFailed(false); } })
+      .catch(() => { if (alive) { setFailed(true); setProjects((current) => current ?? []); } });
     load();
     const id = window.setInterval(load, 8000);
     return () => {
@@ -49,6 +54,8 @@ export function DirectorGalleryView() {
         <h2 id="director-recent" className="mb-3 text-sm font-medium text-foreground/90">Your videos</h2>
         {projects === null ? (
           <div className="h-20 animate-pulse rounded-2xl bg-card/50" />
+        ) : failed && projects.length === 0 ? (
+          <LoadError what="your videos" message="Trying again every few seconds." />
         ) : projects.length === 0 ? (
           <p className="rounded-2xl border border-dashed border-border p-6 text-sm text-muted-foreground">
             Nothing here yet. Choose a format above to make your first video.

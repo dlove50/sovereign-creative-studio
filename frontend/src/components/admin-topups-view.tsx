@@ -9,6 +9,7 @@ import type { FamilyUser, SandboxTopup, TopupPackage } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { confirmDialog } from "@/components/ui/confirm-host";
 
 const selectClass =
   "flex h-10 w-full rounded-md border border-input bg-background/40 px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
@@ -76,7 +77,7 @@ export function AdminTopupsView() {
   }
 
   async function complete(id: string) {
-    if (!window.confirm("Mark this top-up as paid and add its credits to the account?")) return;
+    if (!await confirmDialog("Mark this top-up as paid and add its credits to the account?")) return;
     setBusy(true);
     setError(null);
     try {

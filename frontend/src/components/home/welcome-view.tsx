@@ -12,6 +12,7 @@ import { api, assetUrl } from "@/lib/api";
 import type { AvatarAsset, AvatarJob, VoiceOption } from "@/lib/types";
 import { cleanVoiceLabel, isCloneVoice } from "@/lib/voice-meta";
 import { cn } from "@/lib/utils";
+import { LoadError } from "@/components/ui/load-error";
 
 type Step = {
   id: string;
@@ -35,14 +36,17 @@ const PROMPTS = [
 ];
 
 function useSetupData() {
-  const [data, setData] = useState<{ name: string; avatars: AvatarAsset[]; voices: VoiceOption[]; jobs: AvatarJob[] } | null>(null);
+  const [data, setData] = useState<{ name: string; avatars: AvatarAsset[]; voices: VoiceOption[]; jobs: AvatarJob[]; failed: boolean } | null>(null);
   useEffect(() => {
+    // If any lookup fails we cannot tell what is done, so the checklist must not claim nothing is.
+    let failed = false;
+    const soft = <T,>(request: Promise<T>, fallback: T) => request.catch(() => { failed = true; return fallback; });
     Promise.all([
-      api.authMe().then((u) => u.name).catch(() => ""),
-      api.listAvatars().catch(() => [] as AvatarAsset[]),
-      api.getAudioMergeReadiness().then((r) => r.voices).catch(() => [] as VoiceOption[]),
-      api.listAvatarJobs().catch(() => [] as AvatarJob[]),
-    ]).then(([name, avatars, voices, jobs]) => setData({ name, avatars, voices, jobs }));
+      api.authMe().then((u) => u.name).catch(() => ""), // only the greeting depends on this
+      soft(api.listAvatars(), [] as AvatarAsset[]),
+      soft(api.getAudioMergeReadiness().then((r) => r.voices), [] as VoiceOption[]),
+      soft(api.listAvatarJobs(), [] as AvatarJob[]),
+    ]).then(([name, avatars, voices, jobs]) => setData({ name, avatars, voices, jobs, failed }));
   }, []);
   return data;
 }
@@ -174,15 +178,21 @@ export function WelcomeView() {
       </section>
 
       <section aria-labelledby="setup-heading" className="rounded-3xl border border-border bg-card/40 p-4 sm:p-5">
-        <h2 id="setup-heading" className="mb-4 flex items-center gap-2 text-sm font-medium text-foreground/90">
-          <UserRound className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-          Finish your setup · {doneCount}/{steps.length}
-        </h2>
-        <ol ref={stepList} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {steps.map((step, i) => (
-            <StepCard key={step.id} step={step} index={i} current={i === currentIndex} />
-          ))}
-        </ol>
+        {data?.failed ? (
+          <LoadError what="your setup progress" message="Some of your information did not load." onRetry={() => window.location.reload()} />
+        ) : (
+          <>
+            <h2 id="setup-heading" className="mb-4 flex items-center gap-2 text-sm font-medium text-foreground/90">
+              <UserRound className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+              Finish your setup · {doneCount}/{steps.length}
+            </h2>
+            <ol ref={stepList} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {steps.map((step, i) => (
+                <StepCard key={step.id} step={step} index={i} current={i === currentIndex} />
+              ))}
+            </ol>
+          </>
+        )}
       </section>
 
       <section data-reveal aria-labelledby="director-heading" className="mt-10">

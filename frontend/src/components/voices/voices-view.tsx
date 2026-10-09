@@ -1,6 +1,7 @@
 "use client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { confirmDialog } from "@/components/ui/confirm-host";
+import { LoadError } from "@/components/ui/load-error";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Mic, Pause, Play, Trash2 } from "lucide-react";
@@ -23,7 +24,13 @@ export function VoicesView() {
   const [error, setError] = useState<string | null>(null);
   const audio = useRef<HTMLAudioElement | null>(null);
 
-  const load = () => api.getAudioMergeReadiness().then((r) => r.voices).catch(() => []).then(setVoices);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const load = () => {
+    setLoadError(null);
+    return api.getAudioMergeReadiness()
+      .then((r) => setVoices(r.voices))
+      .catch((e) => { setLoadError(e instanceof Error ? e.message : "The voice service didn't answer."); setVoices([]); });
+  };
   useEffect(() => { void load(); return () => audio.current?.pause(); }, []);
 
   const shown = useMemo(() => {
@@ -90,7 +97,8 @@ export function VoicesView() {
       {error ? <p className="mt-3 rounded-xl bg-destructive/15 px-3 py-2 text-sm text-destructive">{error}</p> : null}
       <ul className="mt-3 divide-y divide-border rounded-2xl border border-border" aria-label="Voices">
         {voices === null ? <li className="space-y-2 p-4"><Skeleton className="h-10 w-full" /><Skeleton className="h-10 w-full" /></li> : null}
-        {voices !== null && shown.length === 0 ? (
+        {loadError ? <li className="p-4"><LoadError what="your voices" message={loadError} onRetry={() => void load()} /></li> : null}
+        {voices !== null && !loadError && shown.length === 0 ? (
           <li className="p-8 text-center text-sm text-muted-foreground">
             {tab === "mine" ? "No cloned voices yet. Use Clone your voice above. The voice app needs to be running." : "No voices match."}
           </li>

@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { assetUrl } from "@/lib/api/core";
 import { directorApi, formatLength, type DirectorProject, type DirectorSeries } from "@/lib/api/director";
 import { cn } from "@/lib/utils";
+import { confirmDialog } from "@/components/ui/confirm-host";
 
 const POLL_MS = 3000;
 const ACTIVE = ["queued", "running"];
@@ -149,9 +150,9 @@ export function DirectorProjectView() {
         </div>
         <div className="flex gap-2">
           {running ? (
-            <Button variant="outline" size="sm" disabled={busy} onClick={() => { if (window.confirm("Stop making this video? Rendering will stop.")) void act(() => directorApi.cancel(project.id)); }}>Cancel</Button>
+            <Button variant="outline" size="sm" disabled={busy} onClick={async () => { if (await confirmDialog("Stop making this video? Rendering will stop.", "Stop video")) void act(() => directorApi.cancel(project.id)); }}>Cancel</Button>
           ) : (
-            <Button variant="ghost" size="sm" disabled={busy} onClick={() => { if (window.confirm("Delete this video? This cannot be undone.")) void act(async () => { await directorApi.remove(project.id); router.push("/director"); }); }}>
+            <Button variant="ghost" size="sm" disabled={busy} onClick={async () => { if (await confirmDialog("Delete this video? This cannot be undone.")) void act(async () => { await directorApi.remove(project.id); router.push("/director"); }); }}>
               <Trash2 className="mr-1.5 h-4 w-4" aria-hidden="true" /> Delete
             </Button>
           )}

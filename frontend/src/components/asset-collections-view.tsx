@@ -28,6 +28,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { confirmDialog } from "@/components/ui/confirm-host";
 
 const READY_ASSET_STATUSES = new Set(["uploaded", "completed"]);
 const CAMPAIGN_TYPES: { value: CampaignType; label: string; hint: string }[] = [
@@ -144,7 +145,7 @@ export function AssetCollectionsView() {
   async function handleDeleteCollection(collectionId: string) {
     if (!projectId) return;
     const name = collections.find((c) => c.id === collectionId)?.name ?? "this collection";
-    if (!window.confirm(`Delete "${name}"? The images stay in your library; only the collection is removed.`)) return;
+    if (!await confirmDialog(`Delete "${name}"? The images stay in your library; only the collection is removed.`)) return;
     setError(null);
     try {
       await api.deleteCollection(projectId, collectionId);

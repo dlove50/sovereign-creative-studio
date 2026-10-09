@@ -36,6 +36,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { confirmDialog } from "@/components/ui/confirm-host";
 
 const selectClass =
   "flex h-10 w-full rounded-md border border-input bg-background/40 px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
@@ -258,7 +259,7 @@ export function StoryboardStudioView() {
   }
 
   async function deleteStoryboard(board: Storyboard) {
-    if (!window.confirm(`Delete the storyboard "${board.title}" and all of its shots? This cannot be undone.`)) return;
+    if (!await confirmDialog(`Delete the storyboard "${board.title}" and all of its shots? This cannot be undone.`)) return;
     setError(null);
     setNotice(null);
     try {
@@ -331,7 +332,7 @@ export function StoryboardStudioView() {
 
   async function deleteShot(shot: Shot) {
     if (!selectedId) return;
-    if (!window.confirm(`Delete shot ${shot.shot_number}? This cannot be undone.`)) return;
+    if (!await confirmDialog(`Delete shot ${shot.shot_number}? This cannot be undone.`)) return;
     setError(null);
     try {
       await api.deleteShot(selectedId, shot.id);

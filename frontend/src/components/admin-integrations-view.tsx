@@ -7,6 +7,7 @@ import { api } from "@/lib/api";
 import type { IntegrationProvider } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { IntegrationDirectory } from "./integration-directory";
+import { confirmDialog } from "@/components/ui/confirm-host";
 
 const LOCAL_DEFAULTS = [
   { name: "Local ComfyUI / Flux", kind: "Images & product scenes", detail: "Default local/private image engine." },
@@ -228,7 +229,7 @@ export function AdminIntegrationsView() {
                 <button
                   type="button"
                   disabled={busy === p.id || !p.configured}
-                  onClick={() => { if (window.confirm("Delete the saved key for this service? You will need to enter it again to use the service.")) run(p.id, () => api.deleteIntegrationKey(p.id)); }}
+                  onClick={async () => { if (await confirmDialog("Delete the saved key for this service? You will need to enter it again to use the service.")) run(p.id, () => api.deleteIntegrationKey(p.id)); }}
                   className="inline-flex items-center gap-1 rounded-md border border-border px-3 py-1.5 text-sm text-destructive hover:bg-muted disabled:opacity-50"
                 >
                   <Trash2 className="h-4 w-4" /> Delete key

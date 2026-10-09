@@ -8,6 +8,7 @@ import { api } from "@/lib/api";
 import type { Backup } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { confirmDialog } from "@/components/ui/confirm-host";
 
 function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -54,7 +55,7 @@ export function AdminBackupsView() {
   }
 
   async function remove(id: string) {
-    if (!window.confirm("Delete this backup? You will not be able to restore from it afterwards.")) return;
+    if (!await confirmDialog("Delete this backup? You will not be able to restore from it afterwards.")) return;
     setBusyId(id);
     setError(null);
     try {

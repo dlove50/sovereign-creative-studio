@@ -322,8 +322,8 @@ export function MovieEditorView({ movieId }: { movieId: string }) {
                 <button
                   type="button"
                   disabled={locked}
-                  onClick={() => {
-                    if (!window.confirm(`Delete scene ${selectedIndex + 1}? Changes save automatically, so this cannot be undone.`)) return;
+                  onClick={async () => {
+                    if (!await confirmDialog(`Delete scene ${selectedIndex + 1}? Changes save automatically, so this cannot be undone.`)) return;
                     change({ scenes: movie.scenes.filter((_, i) => i !== selectedIndex) });
                     setSelected(Math.max(0, selectedIndex - 1));
                   }}

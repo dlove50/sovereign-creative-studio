@@ -6,6 +6,7 @@ import { Loader2, Play, Plus, RotateCcw, Trash2 } from "lucide-react";
 import { api, assetUrl } from "@/lib/api";
 import { TrainingPlayer as Player } from "./training-player";
 import { cn } from "@/lib/utils";
+import { confirmDialog } from "@/components/ui/confirm-host";
 
 type Item = Awaited<ReturnType<typeof api.getInteractive>>;
 type Node = Item["nodes"][number];
@@ -107,7 +108,7 @@ export function InteractiveEditorView({ itemId }: { itemId: string }) {
                   <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
                     <input type="radio" name="start" checked={startId === node.id} onChange={() => edit(() => setStartId(node.id))} /> Start here
                   </label>
-                  <button type="button" aria-label={`Delete clip ${index + 1}`} onClick={() => { if (window.confirm(`Delete clip ${index + 1} and the choices that lead to it?`)) edit(() => {
+                  <button type="button" aria-label={`Delete clip ${index + 1}`} onClick={async () => { if (await confirmDialog(`Delete clip ${index + 1} and the choices that lead to it?`)) edit(() => {
                     setNodes((all) => all.filter((n) => n.id !== node.id).map((n) => ({ ...n, choices: n.choices.filter((c) => c.next !== node.id) })));
                     if (startId === node.id) setStartId(nodes.find((n) => n.id !== node.id)?.id ?? null);
                   }); }} className="flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground hover:bg-raised hover:text-destructive"><Trash2 className="h-4 w-4" /></button>
