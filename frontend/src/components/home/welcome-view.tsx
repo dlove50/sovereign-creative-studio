@@ -51,7 +51,7 @@ function StepCard({ step, index, current }: { step: Step; index: number; current
   const Icon = step.icon;
   const action = (
     <Link href={step.action.href} className={actionClass(current)}>
-      {step.action.label} <ChevronRight className="h-4 w-4" />
+      {step.action.label} <ChevronRight className="h-4 w-4 transition-transform duration-200 motion-safe:group-hover:translate-x-0.5" />
     </Link>
   );
   return (
@@ -113,8 +113,10 @@ function VoiceChip({ voice }: { voice: VoiceOption }) {
 
 function actionClass(current: boolean) {
   return cn(
-    "inline-flex w-full items-center justify-center gap-1 rounded-xl px-3 py-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-    current ? "bg-primary text-primary-foreground hover:bg-primary/90" : "bg-raised text-foreground hover:bg-raised/70",
+    "group inline-flex w-full items-center justify-center gap-1 rounded-xl px-3 py-2 text-sm font-semibold transition duration-200 motion-safe:active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+    current
+      ? "bg-primary text-primary-foreground hover:bg-primary/90 hover:shadow-[0_6px_20px_-6px_hsl(var(--primary)/0.55)]"
+      : "bg-raised text-foreground hover:bg-raised/70",
   );
 }
 
