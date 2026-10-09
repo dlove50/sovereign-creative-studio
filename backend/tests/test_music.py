@@ -23,6 +23,8 @@ def isolated_music_dir(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "MUSIC_DIR", tmp_path / "music")
     music._jobs.clear()
     monkeypatch.setattr(music, "_release_main_engine", lambda: None)  # never touch a real ComfyUI from these tests
+    from app.services import music_compose
+    monkeypatch.setattr(music_compose, "unload_models", lambda: None)  # nor a real Ollama
     yield
 
 

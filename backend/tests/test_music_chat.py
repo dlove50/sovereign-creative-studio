@@ -27,7 +27,7 @@ DRAFT = {
 def seen(monkeypatch):
     calls = []
 
-    def fake(messages, schema, timeout=240.0):
+    def fake(messages, schema, timeout=240.0, **kwargs):
         calls.append(messages)
         return json.dumps(DRAFT)
 
@@ -74,3 +74,33 @@ def test_unusable_model_output_is_a_clean_error(monkeypatch):
     with TestClient(app) as c:
         out = c.post("/api/music/lyrics-chat", json={"messages": [{"role": "user", "content": "a song"}]})
         assert out.status_code == 502 and "unusable" in out.json()["detail"]
+
+
+def _edit_request(c):
+    return c.post("/api/music/lyrics-chat", json={
+        "messages": [{"role": "user", "content": "A reggae song"}, {"role": "assistant", "content": "Draft."}, {"role": "user", "content": "Make the chorus sadder"}],
+        "current": {"title": "Bay Sunrise", "style": "reggae", "lyrics": DRAFT["lyrics"]},
+    })
+
+
+def test_an_unchanged_edit_is_retried_once(monkeypatch):
+    answers = [dict(DRAFT, reply="Made it sadder."), dict(DRAFT, reply="Rewritten.", lyrics=DRAFT["lyrics"].replace("Easy, easy sunrise", "Gone, gone is the sunrise"))]
+    asked = []
+
+    def fake(messages, schema, timeout=240.0, **kwargs):
+        asked.append(messages[0]["content"])
+        return json.dumps(answers[len(asked) - 1])
+
+    monkeypatch.setattr(music_compose, "_ollama_chat", fake)
+    with TestClient(app) as c:
+        out = _edit_request(c)
+        assert out.status_code == 200, out.text
+        assert len(asked) == 2 and "IDENTICAL" in asked[1]
+        assert "Gone, gone" in out.json()["lyrics"] and out.json()["reply"] == "Rewritten."
+
+
+def test_a_model_that_keeps_returning_the_same_words_is_reported_honestly(monkeypatch):
+    monkeypatch.setattr(music_compose, "_ollama_chat", lambda *a, **k: json.dumps(dict(DRAFT, reply="Made it sadder.")))
+    with TestClient(app) as c:
+        body = _edit_request(c).json()
+        assert body["lyrics"] == DRAFT["lyrics"] and "could not change" in body["reply"]

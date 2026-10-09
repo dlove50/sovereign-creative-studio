@@ -26,10 +26,15 @@ SONG_SCHEMA = {
 }
 
 
-def _ollama_chat(messages: list[dict], schema: dict, timeout: float = 240.0) -> str:
+def _ollama_chat(messages: list[dict], schema: dict, timeout: float = 240.0, model: str | None = None,
+                 keep_alive: str | int = 0, num_ctx: int | None = None) -> str:
+    model = model or config.MUSIC_LYRICS_MODEL
+    options: dict = {"temperature": 0.9}
+    if num_ctx:
+        options["num_ctx"] = num_ctx  # a small window keeps an 8B model wholly on the 8 GB card
     payload = {
-        "model": config.MUSIC_LYRICS_MODEL, "messages": messages, "stream": False, "think": False,
-        "format": schema, "keep_alive": 0, "options": {"temperature": 0.9},
+        "model": model, "messages": messages, "stream": False, "think": False,
+        "format": schema, "keep_alive": keep_alive, "options": options,
     }
     req = urllib.request.Request(
         config.OLLAMA_BASE_URL.rstrip("/") + "/api/chat", data=json.dumps(payload).encode("utf-8"),
@@ -38,7 +43,7 @@ def _ollama_chat(messages: list[dict], schema: dict, timeout: float = 240.0) -> 
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             return json.load(resp)["message"]["content"]
     except (urllib.error.URLError, OSError, KeyError, ValueError) as exc:
-        raise MusicError(f"The lyric writer ({config.MUSIC_LYRICS_MODEL}) is not available: {exc}") from exc
+        raise MusicError(f"The lyric writer ({model}) is not available: {exc}") from exc
 
 
 def detect_genre(text: str) -> str | None:
@@ -115,13 +120,25 @@ def chat_lyrics(messages: list[dict], current: dict | None = None, language: str
         "and lyrics (the COMPLETE current lyrics, not only the changed part). "
         "If the user only asks a question or chats, answer in reply and return the current title, style and lyrics unchanged."
         + (f"\n\nThe song so far:\n{have}" if have else "\n\nThere is no song yet: write a first draft from the user's request."))
-    raw = _ollama_chat([{"role": "system", "content": system}, *turns], CHAT_SCHEMA)
-    try:
-        data = json.loads(raw)
-        reply, title = clean_text(data["reply"]), clean_text(data["title"])
-        style, lyrics = clean_text(data["style"]), clean_text(data["lyrics"])
-    except (ValueError, KeyError, TypeError) as exc:
-        raise MusicError("The lyric writer returned something unusable. Try again.") from exc
+    def ask(extra: str = "") -> tuple[str, str, str, str]:
+        raw = _ollama_chat([{"role": "system", "content": system + extra}, *turns], CHAT_SCHEMA, timeout=600.0,
+                           model=config.MUSIC_CHAT_MODEL, keep_alive="10m", num_ctx=8192)
+        try:
+            data = json.loads(raw)
+            return (clean_text(data["reply"]), clean_text(data["title"]), clean_text(data["style"]), clean_text(data["lyrics"]))
+        except (ValueError, KeyError, TypeError) as exc:
+            raise MusicError("The lyric writer returned something unusable. Try again.") from exc
+
+    reply, title, style, lyrics = ask()
+    before = clean_text(current.get("lyrics", ""))
+    wants_change = bool(before) and "?" not in turns[-1]["content"]
+    if wants_change and lyrics == before:
+        # Small models sometimes say they changed the song and hand back the same words. Insist once, then be honest.
+        reply, title, style, lyrics = ask(
+            "\n\nIMPORTANT: the lyrics you returned are IDENTICAL to the current lyrics. Apply the user's latest request to the "
+            "lyrics themselves now (rewrite the lines or add the section asked for) and return the complete rewritten lyrics.")
+        if lyrics == before:
+            reply = "I could not change the lyrics that way. Try naming the section and what to change, for example: rewrite the second chorus to be about loss."
     if len(lyrics.splitlines()) < 2:
         lyrics = clean_text(current.get("lyrics", "")) or lyrics
     if lyrics and not re.search(r"^\s*\[[^\]]+\]", lyrics, re.M):
@@ -132,3 +149,15 @@ def chat_lyrics(messages: list[dict], current: dict | None = None, language: str
         "style": style[:MAX_STYLE_CHARS],
         "lyrics": lyrics[:MAX_LYRICS_CHARS],
     }
+
+
+def unload_models() -> None:
+    """Free the graphics memory held by the lyric and chat models (the chat keeps its model loaded between turns)."""
+    for model in {config.MUSIC_LYRICS_MODEL, config.MUSIC_CHAT_MODEL}:
+        try:
+            req = urllib.request.Request(
+                config.OLLAMA_BASE_URL.rstrip("/") + "/api/generate", data=json.dumps({"model": model, "keep_alive": 0}).encode("utf-8"),
+                headers={"Content-Type": "application/json"})
+            urllib.request.urlopen(req, timeout=15).close()
+        except Exception:  # noqa: BLE001 - purely best effort: not running or already unloaded means nothing to free
+            pass

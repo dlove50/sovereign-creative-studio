@@ -387,6 +387,9 @@ def _run_job(job_id: str, params: dict[str, Any]) -> None:
             if not status["ready"]:
                 raise MusicError(status["detail"])
             _release_main_engine()
+            from .music_compose import unload_models  # local import: music_compose depends on this module
+
+            unload_models()  # the songwriting chat keeps its model loaded; YuE2 needs that graphics memory
             _update_job(job_id, status="running", stage="generating", message="Composing your song...")
             builder = params.get("build_workflow")
             workflow = builder(job_id, params) if builder else build_workflow(
