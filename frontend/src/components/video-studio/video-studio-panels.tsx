@@ -146,6 +146,8 @@ export function VideoCard({
           <iframe
             src={src}
             title={video.prompt}
+            sandbox="allow-scripts"
+            loading="lazy"
             className="h-full w-full border-0"
           />
         ) : video.status === "completed" && src ? (

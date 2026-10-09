@@ -49,10 +49,16 @@ test("create once, edit scenes, persist and open draft from Projects", async ({ 
   await page.getByRole("button", { name: /Scene 2/ }).click();
   await expect(page.getByLabel("Script", { exact: true })).toHaveValue("The second scene.");
   await page.getByLabel("Delete scene").click();
+  // Deleting a scene now asks first (and autosave makes it permanent): cancelling keeps it, confirming removes it.
+  await page.getByRole("alertdialog").getByRole("button", { name: "Cancel" }).click();
+  await expect(page.getByRole("button", { name: /Scene 2/ })).toHaveCount(1);
+  await page.getByLabel("Delete scene").click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Delete" }).click();
   await expect(page.getByRole("button", { name: /Scene 2/ })).toHaveCount(0);
   await page.getByLabel("Back to projects").click();
   await expect(page.getByText("Draft", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: /Two scenes/ }).click();
+  // The project card also has a "Delete Two scenes" button, so name the one that opens the draft.
+  await page.getByRole("button", { name: /^Continue editing/ }).click();
   await expect(page.getByLabel("Video title")).toHaveValue("Two scenes");
 });
 

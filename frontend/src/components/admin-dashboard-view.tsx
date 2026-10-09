@@ -569,7 +569,8 @@ function FamilyUserRow({
     setRole(user.role);
     setStatus(user.status);
     setNotes(user.notes ?? "");
-  }, [user]);
+    // Reset only when opening a different user or entering edit mode: a background refresh replaces `user` and must not wipe a half-typed edit.
+  }, [user.id, editing]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (editing) {
     return (

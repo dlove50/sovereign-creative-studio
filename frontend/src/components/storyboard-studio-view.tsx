@@ -37,6 +37,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { confirmDialog } from "@/components/ui/confirm-host";
+import { safeInterval } from "@/lib/safe-interval";
 
 const selectClass =
   "flex h-10 w-full rounded-md border border-input bg-background/40 px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
@@ -160,7 +161,7 @@ export function StoryboardStudioView() {
       (scene) => scene.status === "queued" || scene.status === "running",
     );
     if (activeScenes.length === 0) return;
-    const poll = window.setInterval(async () => {
+    const poll = safeInterval(async () => {
       const updates = await Promise.all(
         activeScenes.map((scene) => api.getProductScene(scene.id)),
       );
@@ -170,7 +171,7 @@ export function StoryboardStudioView() {
         ),
       );
     }, 2500);
-    return () => window.clearInterval(poll);
+    return poll;
   }, [scenes]);
 
   useEffect(() => {
@@ -178,7 +179,7 @@ export function StoryboardStudioView() {
       (video) => video.status === "queued" || video.status === "running",
     );
     if (activeVideos.length === 0) return;
-    const poll = window.setInterval(async () => {
+    const poll = safeInterval(async () => {
       const updates = await Promise.all(
         activeVideos.map((video) => api.getVideo(video.id)),
       );
@@ -188,7 +189,7 @@ export function StoryboardStudioView() {
         ),
       );
     }, 3000);
-    return () => window.clearInterval(poll);
+    return poll;
   }, [videos]);
 
   async function loadInitial() {

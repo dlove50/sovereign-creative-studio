@@ -10,6 +10,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { safeInterval } from "@/lib/safe-interval";
 
 type PoseSource = "preset" | "reference";
 type PoseMode = Extract<ProductSceneMode, "pose_edit" | "pose_stylized">;
@@ -119,12 +120,12 @@ export function PoseStudioView() {
     }
     const unique = Array.from(new Map(active.map((s) => [s.id, s])).values());
     if (unique.length === 0) return;
-    const poll = window.setInterval(async () => {
+    const poll = safeInterval(async () => {
       const updates = await Promise.all(unique.map((s) => api.getProductScene(s.id)));
       setScenes((cur) => cur.map((s) => updates.find((u) => u.id === s.id) ?? s));
       setLatest((cur) => (cur ? updates.find((u) => u.id === cur.id) ?? cur : cur));
     }, 2500);
-    return () => window.clearInterval(poll);
+    return poll;
   }, [latest, poseScenes]);
 
   function onRefChange(file: File | null) {

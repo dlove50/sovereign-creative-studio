@@ -61,7 +61,8 @@ function loadSavedState(): ChainState {
   if (typeof window === "undefined") return INITIAL;
   try {
     const raw = sessionStorage.getItem(CHAIN_SESSION_KEY);
-    if (raw) return { ...INITIAL, ...JSON.parse(raw) } as ChainState;
+    // A step that was running when the page closed is gone with it: never restore "running", or every control stays disabled.
+    if (raw) return { ...INITIAL, ...JSON.parse(raw), running: null, runningPreview: false } as ChainState;
   } catch { /* quota exceeded or JSON parse error */ }
   return INITIAL;
 }

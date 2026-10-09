@@ -151,7 +151,7 @@ export function VideoAgentView() {
       } catch { /* keep polling through brief hiccups */ }
     }, POLL_MS);
     return () => clearInterval(timer);
-  }, [stage, job]);
+  }, [stage, job?.id]);
 
   const avatar = avatars.find((a) => a.id === avatarId);
   const words = script.split(/\s+/).filter(Boolean).length;

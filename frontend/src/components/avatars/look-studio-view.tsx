@@ -151,15 +151,18 @@ export function LookStudioView() {
     }
   }
 
-  async function create(variants: LookVariant[]) {
-    if (!avatar) { setError("Pick the avatar to restyle first."); return; }
+  /** Resolves true when the looks were started, so a caller (the pack dialog) only closes on success. */
+  async function create(variants: LookVariant[]): Promise<boolean> {
+    if (!avatar) { setError("Pick the avatar to restyle first."); return false; }
     setError(null);
     setBusy(true);
     try {
       await queue.start(avatar, variants, { references: references.map((r) => r.url), orientation });
       router.push(`/avatars/${avatar.group_id || avatar.id}`);
+      return true;
     } catch (e) {
       setError(e instanceof Error ? e.message : "The looks could not be started.");
+      return false;
     } finally {
       setBusy(false);
     }
@@ -342,7 +345,7 @@ export function LookStudioView() {
       </ul>
       {shown.length === 0 ? <p className="py-10 text-center text-sm text-muted-foreground">No templates match. Try another word or filter.</p> : null}
 
-      {modal ? <PackModal template={modal} onClose={() => setModal(null)} onCreate={async (v) => { await create(v); setModal(null); }} /> : null}
+      {modal ? <PackModal template={modal} onClose={() => setModal(null)} onCreate={async (v) => { if (await create(v)) setModal(null); }} /> : null}
     </div>
   );
 }

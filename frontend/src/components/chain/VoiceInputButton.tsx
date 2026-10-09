@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Loader2, Mic, MicOff } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -25,11 +25,24 @@ export function VoiceInputButton({ onTranscript, disabled }: VoiceInputButtonPro
   const [error, setError] = useState<string | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
+  const streamRef = useRef<MediaStream | null>(null);
+  const mounted = useRef(true);
+
+  // Leaving the page while recording must release the microphone (the browser's recording indicator stays on otherwise).
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      if (recorderRef.current && recorderRef.current.state !== "inactive") recorderRef.current.stop();
+      streamRef.current?.getTracks().forEach((t) => t.stop());
+    };
+  }, []);
 
   const startRecording = useCallback(async () => {
     setError(null);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
       const recorder = new MediaRecorder(stream);
       chunksRef.current = [];
 
@@ -39,7 +52,8 @@ export function VoiceInputButton({ onTranscript, disabled }: VoiceInputButtonPro
 
       recorder.onstop = async () => {
         stream.getTracks().forEach((t) => t.stop());
-        const blob = new Blob(chunksRef.current, { type: "audio/webm" });
+        if (!mounted.current) return;
+        const blob = new Blob(chunksRef.current, { type: recorder.mimeType || "audio/webm" });
         if (blob.size === 0) {
           setStatus("idle");
           setError("No audio was captured.");
@@ -48,12 +62,13 @@ export function VoiceInputButton({ onTranscript, disabled }: VoiceInputButtonPro
         setStatus("uploading");
         try {
           const fd = new FormData();
-          fd.append("file", blob, "voice-input.webm");
+          fd.append("file", blob, blob.type.includes("mp4") ? "voice-input.m4a" : "voice-input.webm");
           const res = await fetch("/api/audio/transcribe", {
             method: "POST",
             body: fd,
             credentials: "include",
           });
+          if (!res.ok) throw new Error(res.status === 401 ? "Please sign in to use voice input." : `Transcription failed (${res.status}).`);
           const data = (await res.json()) as { text: string; error: string | null };
           if (data.error) {
             setError(data.error);

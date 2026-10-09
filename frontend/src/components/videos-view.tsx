@@ -43,6 +43,7 @@ import { videoToMedia } from "@/lib/utils/mediaMapping";
 import { validateSourceUrl } from "@/lib/utils/validateSourceUrl";
 import { cn } from "@/lib/utils";
 import { StoryboardPlanner, VideoCard, VideoModeBanner } from "@/components/video-studio/video-studio-panels";
+import { safeInterval } from "@/lib/safe-interval";
 
 const MOTION_PRESETS: { value: VideoMotionPreset; label: string }[] = [
     { value: "slow_zoom", label: "Slow zoom" },
@@ -324,13 +325,13 @@ export function VideosView() {
       (v) => v.status === "queued" || v.status === "running",
     );
     if (active.length === 0) return;
-    const poll = window.setInterval(async () => {
+    const poll = safeInterval(async () => {
       const updates = await Promise.all(active.map((v) => api.getVideo(v.id)));
       setVideos((current) =>
         current.map((v) => updates.find((u) => u.id === v.id) ?? v),
       );
     }, 2500);
-    return () => window.clearInterval(poll);
+    return poll;
   }, [videos]);
 
   async function trashVideo(id: string) {
@@ -349,8 +350,12 @@ export function VideosView() {
         msg.toLowerCase().includes("referenced") &&
         await confirmDialog(`${msg}\n\nMove to trash anyway?`)
       ) {
-        await api.trashAsset({ entity_type: "video", entity_id: id, force_referenced: true });
-        setVideos((cur) => cur.filter((v) => v.id !== id));
+        try {
+          await api.trashAsset({ entity_type: "video", entity_id: id, force_referenced: true });
+          setVideos((cur) => cur.filter((v) => v.id !== id));
+        } catch (retryErr) {
+          setError(retryErr instanceof Error ? retryErr.message : "Could not move video to trash");
+        }
       } else {
         setError(msg);
       }
@@ -598,8 +603,7 @@ export function VideosView() {
           </div>
         </div>
 
-        {videoMode === "image_to_video" ? (
-          <div className="space-y-2">
+        <div className="space-y-2">
           <Label htmlFor="video-project">Project</Label>
           <select
             id="video-project"
@@ -615,26 +619,6 @@ export function VideosView() {
             ))}
           </select>
         </div>
-        ) : null}
-
-        {videoMode !== "image_to_video" ? (
-          <div className="space-y-2">
-            <Label htmlFor="video-project">Project</Label>
-            <select
-              id="video-project"
-              value={projectId}
-              onChange={(e) => setProjectId(e.target.value)}
-              className={selectClass}
-            >
-              {projects.length === 0 ? <option value="">No projects</option> : null}
-              {projects.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        ) : null}
 
         {videoMode === "image_to_video" ? (
         <div className="space-y-2">

@@ -7,10 +7,11 @@ import { ArrowLeft, Check, CircleX, Download, Loader2, Plus, Trash2 } from "luci
 
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { assetUrl } from "@/lib/api/core";
+import { ApiError, assetUrl } from "@/lib/api/core";
 import { directorApi, formatLength, type DirectorProject, type DirectorSeries } from "@/lib/api/director";
 import { cn } from "@/lib/utils";
 import { confirmDialog } from "@/components/ui/confirm-host";
+import { LoadError } from "@/components/ui/load-error";
 
 const POLL_MS = 3000;
 const ACTIVE = ["queued", "running"];
@@ -86,18 +87,39 @@ export function DirectorProjectView() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [failures, setFailures] = useState(0);
+
+  // "Not found" only for a real 404. A dropped request keeps the last video on screen and is retried.
   const load = useCallback(async () => {
     if (!id) return;
     try {
       setProject(await directorApi.project(id));
-    } catch {
-      setMissing(true);
+      setMissing(false);
+      setFailures(0);
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 404) setMissing(true);
+      else setFailures((n) => n + 1);
     }
+  }, [id]);
+
+  // Opening another video (same component, new id) must not show the previous one.
+  useEffect(() => {
+    setProject(null);
+    setSeries(null);
+    setMissing(false);
+    setFailures(0);
+    setDirection("");
   }, [id]);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (failures === 0 || project) return;
+    const t = window.setTimeout(() => void load(), 4000);
+    return () => window.clearTimeout(t);
+  }, [failures, project, load]);
 
   const running = project ? ACTIVE.includes(project.status) : false;
   useEffect(() => {
@@ -120,7 +142,11 @@ export function DirectorProjectView() {
       </div>
     );
   }
-  if (!project) return <div className="h-64 animate-pulse rounded-2xl bg-card/50" />;
+  if (!project) {
+    return failures > 0
+      ? <LoadError what="this video" message="Trying again every few seconds." />
+      : <div className="h-64 animate-pulse rounded-2xl bg-card/50" />;
+  }
 
   const portrait = project.orientation === "portrait";
   const act = async (work: () => Promise<unknown>) => {

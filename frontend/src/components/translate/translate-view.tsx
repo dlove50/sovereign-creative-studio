@@ -114,7 +114,7 @@ export function TranslateView() {
         <span className="text-sm font-semibold">{file ? file.name : "Choose a video or audio file"}</span>
         <span className="text-xs text-muted-foreground">{file ? `${(file.size / 1e6).toFixed(1)} MB · click to change` : "MP4, MOV, WEBM, MKV, MP3, WAV or M4A"}</span>
       </button>
-      <input ref={input} type="file" accept={ACCEPT} className="hidden" onChange={(e) => { setFile(e.target.files?.[0] ?? null); e.target.value = ""; }} />
+      <input ref={input} type="file" accept={ACCEPT} className="hidden" onChange={(e) => { setFile(e.target.files?.[0] ?? null); setResult(null); e.target.value = ""; }} />
 
       <div className="mt-4 flex flex-wrap items-end gap-3">
         <label className="min-w-[220px] flex-1 text-xs font-medium text-muted-foreground">

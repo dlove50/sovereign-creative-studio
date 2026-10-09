@@ -24,6 +24,7 @@ import { consumeHandoff } from "@/lib/stores/useMediaHandoff";
 import { productSceneToMedia } from "@/lib/utils/mediaMapping";
 import type { HandoffAction } from "@/lib/types/media";
 import { cn } from "@/lib/utils";
+import { safeInterval } from "@/lib/safe-interval";
 
 const PRESETS: ProductScenePreset[] = ["studio", "luxury", "outdoor", "social ad"];
 
@@ -225,7 +226,7 @@ export function ProductScenesView() {
     const unique = Array.from(new Map(active.map((scene) => [scene.id, scene])).values());
     if (unique.length === 0) return;
 
-    const poll = window.setInterval(async () => {
+    const poll = safeInterval(async () => {
       const updates = await Promise.all(
         unique.map((scene) => api.getProductScene(scene.id)),
       );
@@ -237,7 +238,7 @@ export function ProductScenesView() {
       );
     }, 2500);
 
-    return () => window.clearInterval(poll);
+    return poll;
   }, [latest, scenes]);
 
   async function handleSubmit(e: React.FormEvent) {

@@ -2,7 +2,7 @@
 import { Skeleton } from "@/components/ui/skeleton";
 import { confirmDialog } from "@/components/ui/confirm-host";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Loader2, Palette, Plus, Trash2, X } from "lucide-react";
 
@@ -47,8 +47,11 @@ export function BrandSystemsView() {
   }
   useEffect(() => { load().catch(() => setEntries([])); }, []);
 
+  const creating = useRef(false);
+
   async function createBrand() {
-    if (!newName.trim()) return;
+    if (!newName.trim() || creating.current) return; // Enter pressed twice must not make two projects
+    creating.current = true;
     setError(null);
     try {
       const project = await api.createProject(newName.trim());
@@ -60,6 +63,8 @@ export function BrandSystemsView() {
       setEditing({ project, kit });
     } catch (e) {
       setError(e instanceof Error ? e.message : "The brand system could not be created.");
+    } finally {
+      creating.current = false;
     }
   }
 

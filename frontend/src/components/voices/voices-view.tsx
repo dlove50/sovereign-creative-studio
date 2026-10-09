@@ -23,6 +23,7 @@ export function VoicesView() {
   const [playing, setPlaying] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const audio = useRef<HTMLAudioElement | null>(null);
+  const previewToken = useRef(0);
 
   const [loadError, setLoadError] = useState<string | null>(null);
   const load = () => {
@@ -43,10 +44,12 @@ export function VoicesView() {
 
   async function play(id: string) {
     audio.current?.pause();
+    const token = ++previewToken.current; // a slower earlier request must not start playing on top of a newer one
     if (playing === id) { setPlaying(null); return; }
     setError(null);
     try {
       const { url } = await api.voicePreview(id);
+      if (token !== previewToken.current) return;
       const el = new Audio(assetUrl(url) ?? undefined);
       el.onended = () => setPlaying(null);
       audio.current = el;

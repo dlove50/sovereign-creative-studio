@@ -16,6 +16,7 @@ import { BriefSelect } from "@/components/brief-select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { safeInterval } from "@/lib/safe-interval";
 
 const STATUS_VARIANT = {
   queued: "muted",
@@ -93,7 +94,7 @@ export function CampaignsView() {
     const copyActive = ["queued", "running"].includes(campaign.copy_job.status);
     if (!sceneActive && !copyActive) return;
 
-    const poll = window.setInterval(async () => {
+    const poll = safeInterval(async () => {
       const [scene, copy] = await Promise.all([
         api.getProductScene(campaign.scene_job.id),
         api.getCopy(campaign.copy_job.id),
@@ -102,7 +103,7 @@ export function CampaignsView() {
         current ? { ...current, scene_job: scene, copy_job: copy } : current,
       );
     }, 2500);
-    return () => window.clearInterval(poll);
+    return poll;
   }, [campaign]);
 
   async function handleLaunch() {
