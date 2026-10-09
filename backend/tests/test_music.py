@@ -329,3 +329,42 @@ def test_the_song_job_frees_the_main_engine_before_it_queues_the_song(monkeypatc
     job = music.create_job(music.normalize_request(title="T", style="calm piano", lyrics=None, instrumental=True, duration=20, seed=1, quality="V0"))
     finished = _wait_job(job["id"])
     assert finished["status"] == "error" and "busy rendering" in finished["error"] and order == []
+
+
+# --- Timeout scaling and engine cancel (2026-10-09) -----------------------------------
+
+def test_job_timeout_scales_with_song_length_and_is_capped():
+    assert music.job_timeout(30) == music.JOB_TIMEOUT          # short songs keep the 25 minute floor
+    assert music.job_timeout(60) == music.JOB_TIMEOUT
+    assert music.job_timeout(210) == 210 * music.JOB_TIMEOUT_PER_SONG_SECOND
+    assert music.job_timeout(210) > 57 * 60                    # the 3:30 song that really took 57 min must fit
+    assert music.job_timeout(10_000) == music.JOB_TIMEOUT_MAX
+
+
+def test_timeout_cancels_the_engine_job_and_says_so(monkeypatch):
+    posts = []
+    monkeypatch.setattr(music, "_comfy_get", lambda path, timeout=5.0: {})
+    monkeypatch.setattr(music, "_comfy_post", lambda path, payload, timeout=30.0: posts.append((path, payload)) or {})
+    with pytest.raises(music.MusicError) as err:
+        music._await_output("p-stuck", time.time() - 120, timeout=60)
+    assert ("/interrupt", {"prompt_id": "p-stuck"}) in posts
+    assert ("/queue", {"delete": ["p-stuck"]}) in posts
+    assert "graphics card was freed" in str(err.value)
+    assert "not ready after 1 minute," in str(err.value)
+
+
+def test_cancel_is_best_effort_when_the_engine_is_gone(monkeypatch):
+    def boom(path, payload, timeout=30.0):
+        raise OSError("engine offline")
+    monkeypatch.setattr(music, "_comfy_post", boom)
+    music._cancel_engine_job("p-gone")  # must not raise
+
+
+def test_limits_expose_honest_time_estimates():
+    client = TestClient(app)
+    res = client.get("/api/music/status")
+    assert res.status_code in (200, 401)
+    if res.status_code == 200:
+        limits = res.json()["limits"]
+        assert limits["typical_minutes_per_song_minute"] == music.TYPICAL_MIN_PER_SONG_MIN
+        assert limits["slow_minutes_per_song_minute"] == music.SLOW_MIN_PER_SONG_MIN

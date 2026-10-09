@@ -110,6 +110,8 @@ def get_status(_user: User = Depends(get_current_user)):
             "min_seconds": music.MIN_SECONDS, "max_seconds": music.MAX_SECONDS,
             "max_lyrics_chars": music.MAX_LYRICS_CHARS, "max_style_chars": music.MAX_STYLE_CHARS,
             "qualities": list(music.QUALITIES),
+            "typical_minutes_per_song_minute": music.TYPICAL_MIN_PER_SONG_MIN,
+            "slow_minutes_per_song_minute": music.SLOW_MIN_PER_SONG_MIN,
         },
     }
 

@@ -15,6 +15,16 @@ import { cn } from "@/lib/utils";
 
 /** The average length of a commercial release: 3 minutes 30 seconds. */
 const RADIO_SECONDS = 210;
+/** The default is 2 minutes: a 3:30 song can take an hour on this laptop, so long songs are an explicit choice. */
+const DEFAULT_SECONDS = 120;
+
+/** Honest time to make a song: typical and slow-case minutes (the server sends measured values). */
+function makeTime(durationSeconds: number, limits?: MusicStatus["limits"]) {
+  const minutes = durationSeconds / 60;
+  const typical = Math.max(1, Math.round(minutes * (limits?.typical_minutes_per_song_minute ?? 6)));
+  const slow = Math.max(typical + 1, Math.round(minutes * (limits?.slow_minutes_per_song_minute ?? 17)));
+  return { typical, slow };
+}
 
 export type PlayTarget = "speakers" | "browser" | "none";
 
@@ -54,15 +64,24 @@ export function CreatePanel({
   const [style, setStyle] = useState("");
   const [lyrics, setLyrics] = useState("");
   const [instrumental, setInstrumental] = useState(false);
-  const [duration, setDuration] = useState(RADIO_SECONDS);
+  const [duration, setDuration] = useState(DEFAULT_SECONDS);
   const [quality, setQuality] = useState("V0");
   const [seed, setSeed] = useState("");
   const [target, setTarget] = useState<PlayTarget>("browser");
   const [busy, setBusy] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
   const [job, setJob] = useState<MusicJob | null>(null);
   const [error, setError] = useState<string | null>(null);
   const lyricsRef = useRef<HTMLTextAreaElement>(null);
   const poll = useRef<number | null>(null);
+
+  // A running clock, so a long render never looks frozen.
+  useEffect(() => {
+    if (!busy) { setElapsed(0); return; }
+    const started = Date.now();
+    const id = window.setInterval(() => setElapsed(Math.round((Date.now() - started) / 1000)), 1000);
+    return () => window.clearInterval(id);
+  }, [busy]);
 
   useEffect(() => () => {
     if (poll.current) window.clearTimeout(poll.current);
@@ -343,7 +362,9 @@ export function CreatePanel({
               </button>
             ))}
           </div>
-          <p className="text-xs text-muted-foreground">Most commercial songs run about 3:30. Longer songs take longer to make (roughly one to two minutes per song minute). The engine may end a little early.</p>
+          <p className="text-xs text-muted-foreground">
+            Most commercial songs run about 3:30. On this computer a {Math.floor(duration / 60)}:{String(duration % 60).padStart(2, "0")} song usually takes about {makeTime(duration, limits).typical} minutes to make, and up to {makeTime(duration, limits).slow} if the graphics card is busy. The engine may end a little early.
+          </p>
         </div>
         <div className="space-y-2">
           <Label>Play when ready</Label>
@@ -410,16 +431,30 @@ export function CreatePanel({
         </p>
       ) : null}
       {error ? (
-        <p role="alert" className="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-          {error}
-        </p>
+        <div role="alert" className="flex flex-wrap items-center gap-3 rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          <p className="min-w-0 flex-1">{error}</p>
+          <Button size="sm" variant="outline" className="text-foreground" onClick={submit} disabled={!canSubmit}>
+            Try again
+          </Button>
+          {duration > 120 ? (
+            <Button size="sm" variant="outline" className="text-foreground" onClick={() => { setDuration(120); setError(null); }}>
+              Switch to 2 min
+            </Button>
+          ) : null}
+        </div>
       ) : null}
 
       <div className="flex flex-wrap items-center gap-4">
         <Button size="lg" onClick={submit} disabled={!canSubmit}>
           {busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : mode === "describe" ? <Sparkles className="h-4 w-4" aria-hidden="true" /> : <Wand2 className="h-4 w-4" aria-hidden="true" />}
-          {busy ? "Creating…" : "Create song"}
+          {busy ? `${(job?.message ?? "Creating").replace(/\.+$/, "")}… ${Math.floor(elapsed / 60)}:${String(elapsed % 60).padStart(2, "0")}` : "Create song"}
         </Button>
+        {busy ? (
+          <p className="max-w-[60ch] text-sm text-muted-foreground">
+            This song usually takes about {makeTime(duration, limits).typical} minutes, and up to {makeTime(duration, limits).slow} if the graphics card is busy.
+            You can leave this page: the finished song is saved to your Library.
+          </p>
+        ) : null}
       </div>
 
       {job ? (

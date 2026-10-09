@@ -29,7 +29,13 @@ MAX_SECONDS = 300
 MAX_LYRICS_CHARS = 3000
 MAX_STYLE_CHARS = 500
 ENGINE_BOOT_TIMEOUT = 180
-JOB_TIMEOUT = 1500
+JOB_TIMEOUT = 1500  # the floor: no song is given less than this (director.py also waits this long for a soundtrack)
+# How long songs really take on this laptop: a 60 s song took 5 min 46 s on a free card (about 6 min per song
+# minute); a 3:18 song took 57 min when the card was under-used (about 17 min per song minute).
+TYPICAL_MIN_PER_SONG_MIN = 6
+SLOW_MIN_PER_SONG_MIN = 17
+JOB_TIMEOUT_PER_SONG_SECOND = 20  # seconds of patience per second of song, above the slow case
+JOB_TIMEOUT_MAX = 7200
 
 _jobs: dict[str, dict[str, Any]] = {}
 _jobs_lock = threading.Lock()
@@ -400,7 +406,7 @@ def _run_job(job_id: str, params: dict[str, Any]) -> None:
             except urllib.error.HTTPError as exc:
                 detail = exc.read().decode("utf-8", "replace")[:300]
                 raise MusicError(f"The engine rejected the request: {detail}") from exc
-            output = _await_output(prompt_id, started)
+            output = _await_output(prompt_id, started, job_timeout(float(params.get("duration") or MAX_SECONDS)))
             _update_job(job_id, stage="saving", message="Saving the song...")
             query = urllib.parse.urlencode(output)
             url = config.MUSIC_COMFYUI_URL.rstrip("/") + "/view?" + query
@@ -431,8 +437,22 @@ def _run_job(job_id: str, params: dict[str, Any]) -> None:
             cleanup()
 
 
-def _await_output(prompt_id: str, started: float) -> dict[str, str]:
-    while time.time() - started < JOB_TIMEOUT:
+def job_timeout(duration: float) -> float:
+    """Seconds to wait for the engine: scales with the song length, never below ``JOB_TIMEOUT``."""
+    return float(min(JOB_TIMEOUT_MAX, max(JOB_TIMEOUT, duration * JOB_TIMEOUT_PER_SONG_SECOND)))
+
+
+def _cancel_engine_job(prompt_id: str) -> None:
+    """Stop a job the app has given up on, so it does not keep the graphics card busy or block the next song."""
+    for path, payload in (("/queue", {"delete": [prompt_id]}), ("/interrupt", {"prompt_id": prompt_id})):
+        try:
+            _comfy_post(path, payload, timeout=10.0)  # an empty reply is normal for /queue
+        except Exception:  # noqa: BLE001 - best effort; the message below still tells the truth
+            pass
+
+
+def _await_output(prompt_id: str, started: float, timeout: float = JOB_TIMEOUT) -> dict[str, str]:
+    while time.time() - started < timeout:
         history = _comfy_get(f"/history/{prompt_id}")
         entry = history.get(prompt_id)
         if entry:
@@ -446,4 +466,9 @@ def _await_output(prompt_id: str, started: float) -> dict[str, str]:
             f = files[0]
             return {"filename": f["filename"], "subfolder": f.get("subfolder", ""), "type": f.get("type", "output")}
         time.sleep(1.5)
-    raise MusicError("Generation took too long and was stopped.")
+    _cancel_engine_job(prompt_id)
+    minutes = max(1, round(timeout / 60))
+    raise MusicError(
+        f"The song was still not ready after {minutes} minute{'s' if minutes != 1 else ''}, so it was stopped and the graphics card "
+        "was freed. Try a shorter song, close other programs that use the graphics card, then press Create song again."
+    )

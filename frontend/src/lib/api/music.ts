@@ -29,6 +29,8 @@ export type MusicStatus = {
     max_lyrics_chars: number;
     max_style_chars: number;
     qualities: string[];
+    typical_minutes_per_song_minute?: number;
+    slow_minutes_per_song_minute?: number;
   };
 };
 
