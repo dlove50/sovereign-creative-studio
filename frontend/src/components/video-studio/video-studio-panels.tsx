@@ -301,6 +301,7 @@ export function StoryboardPlanner({ projectId }: { projectId: string }) {
   }
 
   async function deleteStoryboard(storyboard: Storyboard) {
+    if (!window.confirm(`Delete the storyboard "${storyboard.title}" and all of its shots? This cannot be undone.`)) return;
     setError(null);
     try {
       await api.deleteStoryboard(projectId, storyboard.id);
@@ -337,6 +338,7 @@ export function StoryboardPlanner({ projectId }: { projectId: string }) {
 
   async function deleteShot(shot: Shot) {
     if (!selectedId) return;
+    if (!window.confirm(`Delete shot ${shot.shot_number}? This cannot be undone.`)) return;
     setError(null);
     try {
       await api.deleteShot(selectedId, shot.id);

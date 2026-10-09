@@ -107,10 +107,10 @@ export function InteractiveEditorView({ itemId }: { itemId: string }) {
                   <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
                     <input type="radio" name="start" checked={startId === node.id} onChange={() => edit(() => setStartId(node.id))} /> Start here
                   </label>
-                  <button type="button" aria-label={`Delete clip ${index + 1}`} onClick={() => edit(() => {
+                  <button type="button" aria-label={`Delete clip ${index + 1}`} onClick={() => { if (window.confirm(`Delete clip ${index + 1} and the choices that lead to it?`)) edit(() => {
                     setNodes((all) => all.filter((n) => n.id !== node.id).map((n) => ({ ...n, choices: n.choices.filter((c) => c.next !== node.id) })));
                     if (startId === node.id) setStartId(nodes.find((n) => n.id !== node.id)?.id ?? null);
-                  })} className="flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground hover:bg-raised hover:text-destructive"><Trash2 className="h-4 w-4" /></button>
+                  }); }} className="flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground hover:bg-raised hover:text-destructive"><Trash2 className="h-4 w-4" /></button>
                 </div>
                 <label className="mt-4 block text-sm font-medium">Step instructions<textarea maxLength={2000} value={node.body||""} onChange={e=>patchNode(node.id,{body:e.target.value})} className="mt-2 w-full rounded-lg border border-border bg-background p-3 text-foreground"/></label>
                 <label className="mt-4 block text-sm font-medium">Knowledge-check question (optional)<textarea maxLength={1000} value={node.question||""} onChange={e=>patchNode(node.id,{question:e.target.value,choices:node.choices.map(c=>({...c,is_correct:e.target.value.trim()?(c.is_correct??false):null}))})} className="mt-2 w-full rounded-lg border border-border bg-background p-3 text-foreground" placeholder="What should the learner do next?"/></label>

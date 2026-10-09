@@ -149,9 +149,9 @@ export function DirectorProjectView() {
         </div>
         <div className="flex gap-2">
           {running ? (
-            <Button variant="outline" size="sm" disabled={busy} onClick={() => void act(() => directorApi.cancel(project.id))}>Cancel</Button>
+            <Button variant="outline" size="sm" disabled={busy} onClick={() => { if (window.confirm("Stop making this video? Rendering will stop.")) void act(() => directorApi.cancel(project.id)); }}>Cancel</Button>
           ) : (
-            <Button variant="ghost" size="sm" disabled={busy} onClick={() => void act(async () => { await directorApi.remove(project.id); router.push("/director"); })}>
+            <Button variant="ghost" size="sm" disabled={busy} onClick={() => { if (window.confirm("Delete this video? This cannot be undone.")) void act(async () => { await directorApi.remove(project.id); router.push("/director"); }); }}>
               <Trash2 className="mr-1.5 h-4 w-4" aria-hidden="true" /> Delete
             </Button>
           )}

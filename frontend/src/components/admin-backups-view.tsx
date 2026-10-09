@@ -54,6 +54,7 @@ export function AdminBackupsView() {
   }
 
   async function remove(id: string) {
+    if (!window.confirm("Delete this backup? You will not be able to restore from it afterwards.")) return;
     setBusyId(id);
     setError(null);
     try {

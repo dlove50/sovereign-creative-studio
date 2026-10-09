@@ -258,6 +258,7 @@ export function StoryboardStudioView() {
   }
 
   async function deleteStoryboard(board: Storyboard) {
+    if (!window.confirm(`Delete the storyboard "${board.title}" and all of its shots? This cannot be undone.`)) return;
     setError(null);
     setNotice(null);
     try {
@@ -330,8 +331,14 @@ export function StoryboardStudioView() {
 
   async function deleteShot(shot: Shot) {
     if (!selectedId) return;
-    await api.deleteShot(selectedId, shot.id);
-    setShots((current) => current.filter((item) => item.id !== shot.id));
+    if (!window.confirm(`Delete shot ${shot.shot_number}? This cannot be undone.`)) return;
+    setError(null);
+    try {
+      await api.deleteShot(selectedId, shot.id);
+      setShots((current) => current.filter((item) => item.id !== shot.id));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not delete the shot.");
+    }
   }
 
   function shotPrompt(shot: Shot) {

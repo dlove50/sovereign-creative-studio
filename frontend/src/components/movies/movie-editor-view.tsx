@@ -322,7 +322,11 @@ export function MovieEditorView({ movieId }: { movieId: string }) {
                 <button
                   type="button"
                   disabled={locked}
-                  onClick={() => { change({ scenes: movie.scenes.filter((_, i) => i !== selectedIndex) }); setSelected(Math.max(0, selectedIndex - 1)); }}
+                  onClick={() => {
+                    if (!window.confirm(`Delete scene ${selectedIndex + 1}? Changes save automatically, so this cannot be undone.`)) return;
+                    change({ scenes: movie.scenes.filter((_, i) => i !== selectedIndex) });
+                    setSelected(Math.max(0, selectedIndex - 1));
+                  }}
                   aria-label="Delete scene"
                   className="rounded-full p-1.5 text-muted-foreground hover:bg-raised hover:text-destructive"
                 >

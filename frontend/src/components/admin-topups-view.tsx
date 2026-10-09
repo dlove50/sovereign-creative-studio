@@ -76,6 +76,7 @@ export function AdminTopupsView() {
   }
 
   async function complete(id: string) {
+    if (!window.confirm("Mark this top-up as paid and add its credits to the account?")) return;
     setBusy(true);
     setError(null);
     try {

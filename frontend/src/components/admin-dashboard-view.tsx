@@ -49,6 +49,7 @@ export function AdminDashboardView() {
   }, []);
 
   async function resetSafeDefaults() {
+    if (!window.confirm("Reset the image model to flux-kontext and switch video generation to the built-in test (mock) engine? Real video generation stays off until you turn it back on.")) return;
     setResetting(true);
     setError(null);
     try {
@@ -123,6 +124,7 @@ export function AdminDashboardView() {
     note: string;
     direction: "add" | "remove";
   }) {
+    if (input.direction === "remove" && !window.confirm("Remove these credits from the account?")) return;
     setSavingCredit(input.direction);
     setError(null);
     try {
@@ -140,6 +142,7 @@ export function AdminDashboardView() {
   }
 
   async function refundTransaction(id: string) {
+    if (!window.confirm("Refund this credit transaction? The credits go back to the account.")) return;
     setSavingCredit(id);
     setError(null);
     try {

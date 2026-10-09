@@ -143,6 +143,8 @@ export function AssetCollectionsView() {
 
   async function handleDeleteCollection(collectionId: string) {
     if (!projectId) return;
+    const name = collections.find((c) => c.id === collectionId)?.name ?? "this collection";
+    if (!window.confirm(`Delete "${name}"? The images stay in your library; only the collection is removed.`)) return;
     setError(null);
     try {
       await api.deleteCollection(projectId, collectionId);
