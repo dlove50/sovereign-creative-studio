@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { LayoutGrid, List, Search, UserPlus } from "lucide-react";
 
 import { api, assetUrl } from "@/lib/api";
+import { useStaggerIn } from "@/components/motion/use-motion";
 import type { AvatarAsset } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { AvatarMenu, FavoriteButton } from "./avatar-actions";
@@ -89,6 +90,9 @@ export function AvatarGalleryView() {
     return groupAvatars(avatars ?? []).filter((g) => (!q || g.base.name.toLowerCase().includes(q)) && (category !== "Look Packs" || g.looks.length >= 2));
   }, [avatars, query, category]);
 
+  const grid = useRef<HTMLUListElement>(null);
+  useStaggerIn(grid, groups.length);
+
   return (
     <div className="mx-auto max-w-[1120px]">
       <div className="flex flex-wrap items-end justify-between gap-4 border-b border-border">
@@ -139,7 +143,7 @@ export function AvatarGalleryView() {
               <p className="mt-1 text-sm text-muted-foreground">Use New avatar to upload a photo, or pick one from Public avatars.</p>
             </div>
           ) : (
-            <ul className={cn("mt-6 grid gap-x-5 gap-y-7", list ? "grid-cols-1 md:grid-cols-2" : "sm:grid-cols-2")}>
+            <ul ref={grid} className={cn("mt-6 grid gap-x-5 gap-y-7", list ? "grid-cols-1 md:grid-cols-2" : "sm:grid-cols-2")}>
               {groups.map((g) => (
                 <li key={g.base.id}><GroupCard group={g} list={list} onChanged={() => void refresh()} /></li>
               ))}

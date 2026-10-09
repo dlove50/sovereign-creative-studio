@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   ChevronRight, Clapperboard, FileText, Film, ImageIcon, Languages, Layers, MessagesSquare, Mic,
@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 
 import { api } from "@/lib/api";
+import { useSpotlight, useStaggerIn } from "@/components/motion/use-motion";
 import { ADMIN_NAV, CREATOR_NAV } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
 
@@ -73,9 +74,9 @@ function AppRow({ app }: { app: AppEntry }) {
       </span>
     </>
   );
-  const shell = "flex items-center gap-4 rounded-full border border-border bg-card/60 px-4 py-3";
+  const shell = "spotlight flex items-center gap-4 rounded-full border border-border bg-card/60 px-4 py-3";
   return app.href ? (
-    <Link href={app.href} className={cn(shell, "transition-colors hover:border-primary/60 hover:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring")}>
+    <Link href={app.href} data-spotlight className={cn(shell, "transition-colors hover:border-primary/60 hover:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring")}>
       {body}
     </Link>
   ) : (
@@ -98,6 +99,10 @@ export function AppsLibraryView() {
   }, [tab, query]);
 
   const studios = [...CREATOR_NAV.filter((n) => n.href !== "/"), ...(isAdmin ? ADMIN_NAV : [])];
+
+  const list = useRef<HTMLUListElement>(null);
+  useStaggerIn(list, shown.length);
+  useSpotlight(list);
 
   return (
     <div className="mx-auto max-w-[1040px]">
@@ -153,7 +158,7 @@ export function AppsLibraryView() {
       {shown.length === 0 ? (
         <p className="py-10 text-center text-sm text-muted-foreground">No apps match “{query}”. Try another word.</p>
       ) : (
-        <ul className="mt-5 grid gap-3 md:grid-cols-2">
+        <ul ref={list} className="mt-5 grid gap-3 md:grid-cols-2">
           {shown.map((app) => (
             <li key={app.name}><AppRow app={app} /></li>
           ))}

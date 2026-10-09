@@ -84,3 +84,18 @@ body {
   box-shadow: 0 0 0 3px hsl(var(--primary) / 0.35);
 }
 .seek-bar:disabled::-webkit-slider-thumb { opacity: 0.35; }
+
+/* Smooth scrolling (Lenis). These rules are the ones its documentation asks for. */
+html.lenis, html.lenis body { height: auto; }
+.lenis.lenis-smooth { scroll-behavior: auto !important; }
+.lenis.lenis-smooth [data-lenis-prevent] { overscroll-behavior: contain; }
+.lenis.lenis-stopped { overflow: hidden; }
+.lenis.lenis-smooth iframe { pointer-events: none; }
+
+/* A soft light follows the pointer across cards marked data-spotlight (see useSpotlight). Hover devices only. */
+.spotlight { --mx: -999px; --my: -999px; }
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .spotlight:hover {
+    background-image: radial-gradient(240px circle at var(--mx) var(--my), hsl(var(--primary) / 0.16), transparent 70%);
+  }
+}

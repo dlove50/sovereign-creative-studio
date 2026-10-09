@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowDownWideNarrow, Download, Filter, Folder, FolderPlus, Loader2, Search, Trash2, Video, X } from "lucide-react";
 
 import { CompletedVideoEditing } from "@/components/media/completed-video-editing";
 import { api, assetUrl } from "@/lib/api";
+import { useStaggerIn } from "@/components/motion/use-motion";
 import type { AvatarJob, Movie, Project, VideoGeneration } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -104,6 +105,9 @@ export function ProjectsLibraryView() {
       sort === "name" ? a.title.localeCompare(b.title) : (sort === "newest" ? -1 : 1) * a.createdAt.localeCompare(b.createdAt),
     );
   }, [items, kind, q, sort]);
+
+  const grid = useRef<HTMLUListElement>(null);
+  useStaggerIn(grid, videos.length);
 
   async function trashItem(item: Item) {
     if (item.kind === "cinematic") return;
@@ -213,7 +217,7 @@ export function ProjectsLibraryView() {
           <Link href="/video-agent" className="mt-2 inline-block text-sm text-primary hover:underline">Make your first video with the Video agent</Link>
         </div>
       ) : (
-        <ul className="grid grid-cols-2 gap-x-4 gap-y-6 md:grid-cols-3">
+        <ul ref={grid} className="grid grid-cols-2 gap-x-4 gap-y-6 md:grid-cols-3">
           {videos.map((item) => (
             <li key={item.id} className="group relative">
               <VideoCard item={item} onOpen={() => item.kind === "movie" ? router.push(`/movies/${item.id.slice(2)}`) : setOpen(item)} />

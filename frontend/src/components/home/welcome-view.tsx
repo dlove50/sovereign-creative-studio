@@ -4,6 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Check, ChevronRight, Clapperboard, Mic, Music2, Pause, Play, Shirt, UserRound, Video } from "lucide-react";
 import { TemplateCarousel } from "@/components/director/template-carousel";
+import { BlurWords } from "@/components/motion/blur-words";
+import { DotGrid } from "@/components/motion/dot-grid";
+import { useScrollReveal, useSpotlight, useStaggerIn } from "@/components/motion/use-motion";
 
 import { api, assetUrl } from "@/lib/api";
 import type { AvatarAsset, AvatarJob, VoiceOption } from "@/lib/types";
@@ -53,8 +56,9 @@ function StepCard({ step, index, current }: { step: Step; index: number; current
   );
   return (
     <li
+      data-spotlight
       className={cn(
-        "flex flex-col rounded-2xl border bg-card/80 p-4",
+        "spotlight flex flex-col rounded-2xl border bg-card/80 p-4",
         current ? "border-primary shadow-[0_0_0_1px_hsl(var(--primary)),0_0_32px_hsl(var(--primary)/0.18)]" : "border-border",
       )}
     >
@@ -143,13 +147,27 @@ export function WelcomeView() {
   const doneCount = steps.filter((s) => s.done).length;
   const currentIndex = steps.findIndex((s) => !s.done);
 
+  const page = useRef<HTMLDivElement>(null);
+  const stepList = useRef<HTMLOListElement>(null);
+  useStaggerIn(stepList, data ? steps.length : 0);
+  useScrollReveal(page);
+  useSpotlight(page);
+
   return (
-    <div className="mx-auto max-w-[1000px]">
+    <div ref={page} className="mx-auto max-w-[1000px]">
       <section className="relative isolate pb-10 pt-6 text-center">
         <div className="welcome-glow pointer-events-none absolute inset-x-0 -top-16 -z-10 h-72" aria-hidden="true" />
+        <div className="pointer-events-none absolute inset-x-0 -top-6 bottom-0 -z-10 opacity-80 [mask-image:radial-gradient(ellipse_at_center,black_20%,transparent_72%)]" aria-hidden="true">
+          <DotGrid />
+        </div>
         <h1 className="text-4xl font-extrabold tracking-[-0.03em] sm:text-5xl">
-          Welcome{data?.name ? "," : ""}{" "}
-          <span className="bg-gradient-to-r from-sky-300 to-primary bg-clip-text text-transparent">{data?.name ?? ""}</span>
+          <BlurWords text="Welcome" />
+          {data?.name ? (
+            <>
+              ,{" "}
+              <BlurWords text={data.name} delay={0.25} className="bg-gradient-to-r from-sky-300 to-primary bg-clip-text text-transparent" />
+            </>
+          ) : null}
         </h1>
       </section>
 
@@ -158,14 +176,14 @@ export function WelcomeView() {
           <UserRound className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
           Finish your setup · {doneCount}/{steps.length}
         </h2>
-        <ol className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <ol ref={stepList} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {steps.map((step, i) => (
             <StepCard key={step.id} step={step} index={i} current={i === currentIndex} />
           ))}
         </ol>
       </section>
 
-      <section aria-labelledby="director-heading" className="mt-10">
+      <section data-reveal aria-labelledby="director-heading" className="mt-10">
         <div className="mb-4 flex items-center justify-between">
           <h2 id="director-heading" className="flex items-center gap-2 text-sm font-medium text-foreground/90">
             <Clapperboard className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
@@ -176,7 +194,7 @@ export function WelcomeView() {
         <TemplateCarousel />
       </section>
 
-      <section aria-labelledby="prompts-heading" className="mt-10">
+      <section data-reveal aria-labelledby="prompts-heading" className="mt-10">
         <h2 id="prompts-heading" className="mb-4 flex items-center gap-2 text-sm font-medium text-foreground/90">
           <Clapperboard className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
           Video prompts
@@ -202,7 +220,7 @@ export function WelcomeView() {
         </ul>
       </section>
 
-      <section aria-labelledby="music-heading" className="mt-10">
+      <section data-reveal aria-labelledby="music-heading" className="mt-10">
         <h2 id="music-heading" className="mb-4 flex items-center gap-2 text-sm font-medium text-foreground/90">
           <Music2 className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
           Music
