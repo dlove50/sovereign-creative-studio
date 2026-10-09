@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { AudioLines, Cpu, Disc3, Library, Wand2 } from "lucide-react";
 
@@ -61,6 +61,17 @@ export function MusicLabView() {
     const id = window.setInterval(refreshStatus, 15000);
     return () => window.clearInterval(id);
   }, [refreshStatus, refreshSongs]);
+
+  // Warm up: opening Music Lab means a song is likely, so start the sleeping engine now (once) instead of at Create.
+  // It is not started when Sovereign launches, because an idle music engine would compete with images and video for the 8 GB card.
+  const warmedUp = useRef(false);
+  useEffect(() => {
+    if (!status || warmedUp.current || status.engine.online) return;
+    warmedUp.current = true;
+    void musicApi.startEngine().catch(() => undefined);
+    const timers = [4000, 10000, 16000, 22000, 30000].map((ms) => window.setTimeout(refreshStatus, ms));
+    return () => timers.forEach((t) => window.clearTimeout(t));
+  }, [status, refreshStatus]);
 
   // When Jarvis (or another tab) starts a song on the speakers, show the display.
   const speakersActive = player.source === "speakers";

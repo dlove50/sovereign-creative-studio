@@ -405,7 +405,7 @@ export function CreatePanel({
       {!ready ? (
         <p role="status" className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
           {engineOffline
-            ? "The music engine is not running. Starting a song will launch it automatically, or start it from the Engine tab."
+            ? "The music engine is waking up. It starts by itself when you open Music Lab or press Create song; the first song takes a few extra seconds."
             : status?.engine.detail ?? "Checking the music engine…"}
         </p>
       ) : null}
