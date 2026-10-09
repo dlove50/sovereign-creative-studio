@@ -14,6 +14,7 @@ Machine: Lenovo Legion laptop, RTX 4070 (8 GB), driver 577.02 (CUDA 12.9). Insta
 | Developer API page | `/developers`, `GET /api/developers/endpoints` | 249 endpoints listed with curl examples |
 | Scanned PDFs, slides and page photos read with OCR | `services/ocr.py` (RapidOCR on the CPU, models inside the package, about 14 MB); `/slides` Start from a document accepts scans and pictures; Slides to video reads picture-only slides into the narration | Rotated, noisy 2-page scan read almost word for word in 5 s; scanned deck became 2 scenes with the page picture kept |
 | Spanish and French voices for translated speech | `backend/storage/models/piper/`; Translate page matches the voice to the target language | Read back by Whisper word for word; English clip translated to Spanish and French in the live app |
+| Delete controls on every kind of work | Gallery and image cards (hover trash button), Projects page cards, the video editor header, Brand systems | Images and videos go to the recoverable trash (admin can restore); a video draft is removed with its scenes; a brand system is deleted only when empty (otherwise the page says what is still attached). Tested in the live app with throwaway items; 4 new tests |
 | Wan 2.1 1.3B text-to-video | Video generator, `workflows/text_to_video_wan13.json` | 4 s clip in 37 s; preset "Wan Natural Speed" (16 fps, 65 frames, about 77 s, 7 GB) |
 
 ## Honest limits on this hardware
