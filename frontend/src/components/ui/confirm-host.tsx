@@ -10,7 +10,7 @@ let show: ((ask: Ask) => void) | null = null;
  * An in-page replacement for window.confirm. Resolves true on Confirm, false on Cancel, Escape or a click outside.
  * Falls back to the browser prompt if the host is not mounted (it is mounted once in the root layout).
  */
-export function confirmDialog(message: string, confirmLabel = "Delete"): Promise<boolean> {
+export function confirmDialog(message: string, confirmLabel = /^delete/i.test(message) ? "Delete" : "Continue"): Promise<boolean> {
   if (!show) return Promise.resolve(window.confirm(message));
   return new Promise((resolve) => show?.({ message, confirmLabel, resolve }));
 }
@@ -48,7 +48,7 @@ export function ConfirmHost() {
           <button type="button" onClick={() => close(false)} className="rounded-xl px-4 py-2 text-sm font-medium text-muted-foreground transition duration-200 hover:bg-raised hover:text-foreground motion-safe:active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
             Cancel
           </button>
-          <button ref={confirmButton} type="button" onClick={() => close(true)} className="rounded-xl bg-destructive px-4 py-2 text-sm font-semibold text-destructive-foreground transition duration-200 hover:bg-destructive/90 motion-safe:active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <button ref={confirmButton} type="button" onClick={() => close(true)} className={`rounded-xl px-4 py-2 text-sm font-semibold transition duration-200 ${ask.confirmLabel === "Delete" ? "bg-destructive text-destructive-foreground hover:bg-destructive/90" : "bg-primary text-primary-foreground hover:bg-primary/90"} motion-safe:active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring`}>
             {ask.confirmLabel}
           </button>
         </div>

@@ -1,4 +1,5 @@
 "use client";
+import { confirmDialog } from "@/components/ui/confirm-host";
 
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
@@ -334,7 +335,7 @@ export function VideosView() {
 
   async function trashVideo(id: string) {
     if (
-      !window.confirm(
+      !await confirmDialog(
         "Move this video to trash? This will remove it from the gallery but keep a recoverable copy.",
       )
     )
@@ -346,7 +347,7 @@ export function VideosView() {
       const msg = err instanceof Error ? err.message : "Could not move video to trash";
       if (
         msg.toLowerCase().includes("referenced") &&
-        window.confirm(`${msg}\n\nMove to trash anyway?`)
+        await confirmDialog(`${msg}\n\nMove to trash anyway?`)
       ) {
         await api.trashAsset({ entity_type: "video", entity_id: id, force_referenced: true });
         setVideos((cur) => cur.filter((v) => v.id !== id));

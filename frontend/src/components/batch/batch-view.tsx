@@ -1,4 +1,5 @@
 "use client";
+import { confirmDialog } from "@/components/ui/confirm-host";
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -72,7 +73,7 @@ export function BatchView() {
 
   async function create(render: boolean) {
     if (!avatarId || ready.length === 0 || overLimit) return;
-    if (render && !window.confirm(`Render ${videoCount} videos now? This uses ${totalCredits} credits and takes about ${estMinutes} minutes of GPU time.`)) return;
+    if (render && !await confirmDialog(`Render ${videoCount} videos now? This uses ${totalCredits} credits and takes about ${estMinutes} minutes of GPU time.`)) return;
     setBusy(render ? "render" : "draft");
     setError(null);
     try {

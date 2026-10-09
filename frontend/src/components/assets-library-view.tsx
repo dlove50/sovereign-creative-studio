@@ -1,4 +1,5 @@
 "use client";
+import { confirmDialog } from "@/components/ui/confirm-host";
 
 import { useEffect, useMemo, useState } from "react";
 import type React from "react";
@@ -111,7 +112,7 @@ export function AssetsLibraryView() {
     const entityType = map[item.source_entity_type];
     if (!entityType) return;
     if (
-      !window.confirm(
+      !await confirmDialog(
         "Move this asset to trash? This will remove it from the gallery but keep a recoverable copy.",
       )
     )
@@ -134,7 +135,7 @@ export function AssetsLibraryView() {
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Could not move asset to trash";
       const needsForce = /original|referenced/i.test(msg);
-      if (needsForce && window.confirm(`${msg}\n\nMove to trash anyway?`)) {
+      if (needsForce && await confirmDialog(`${msg}\n\nMove to trash anyway?`)) {
         await api.trashAsset({
           entity_type: entityType,
           entity_id: item.source_entity_id,

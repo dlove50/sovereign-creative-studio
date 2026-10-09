@@ -1,4 +1,5 @@
 "use client";
+import { confirmDialog } from "@/components/ui/confirm-host";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -52,7 +53,7 @@ export function AdminJobsView() {
 
   async function markStale(action: "cancelled" | "failed") {
     if (
-      !window.confirm(
+      !await confirmDialog(
         `Mark ${stale.length} stale job(s) older than ${staleThreshold}m as ${action}? ` +
           "This only updates job status (no files deleted). Uncharged jobs stay uncharged.",
       )
@@ -74,7 +75,7 @@ export function AdminJobsView() {
   async function dismissJob(job: AdminJobMonitorItem) {
     if (!["base_generation", "product_scene", "video"].includes(job.feature)) return;
     if (
-      !window.confirm(
+      !await confirmDialog(
         "Dismiss this job from the monitor? It is archived (hidden) — no files are deleted.",
       )
     )

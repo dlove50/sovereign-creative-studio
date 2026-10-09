@@ -10,7 +10,7 @@ import remarkGfm from "remark-gfm";
 
 import { cn } from "@/lib/utils";
 
-const API = "http://127.0.0.1:8010";
+const API = "/api/ocr";
 const HISTORY_KEY = "sovereign-ocr-history-v1";
 
 type Status = "checking" | "online" | "offline";
@@ -69,8 +69,9 @@ export function OcrStudioView() {
   const checkStatus = useCallback(async () => {
     setStatus("checking");
     try {
-      const response = await fetch(`${API}/v1/models`, { signal: AbortSignal.timeout(5000) });
-      setStatus(response.ok ? "online" : "offline");
+      const response = await fetch(`${API}/status`, { signal: AbortSignal.timeout(5000), credentials: "include" });
+      const info = response.ok ? await response.json() : null;
+      setStatus(info?.available ? "online" : "offline");
     } catch { setStatus("offline"); }
   }, []);
 
@@ -128,28 +129,20 @@ export function OcrStudioView() {
 
   async function runOcr() {
     if (!pages.length || running) return;
-    if (status !== "online") { setError("Baidu Unlimited-OCR is offline. Start the Docker container, then retry."); return; }
+    if (status !== "online") { setError("The local OCR engine is not available. Check that you are signed in and the backend is running, then retry."); return; }
     setRunning(true); setResults([]); setError(""); setProgress(0);
     const completed: PageResult[] = [];
     try {
       for (let i = 0; i < pages.length; i++) {
         const page = pages[i];
         setProgress(i);
-        const response = await fetch(`${API}/v1/chat/completions`, {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            model: "baidu/Unlimited-OCR", temperature: 0, max_tokens: 8192,
-            messages: [{ role: "user", content: [
-              { type: "text", text: "<image>document parsing." },
-              { type: "image_url", image_url: { url: page.dataUrl } },
-            ]}],
-            skip_special_tokens: false,
-            vllm_xargs: { ngram_size: 35, window_size: 128 },
-          }),
+        const response = await fetch(`${API}/read`, {
+          method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
+          body: JSON.stringify({ image: page.dataUrl }),
         });
         if (!response.ok) throw new Error(`OCR failed on ${page.name}: ${await response.text()}`);
         const payload = await response.json();
-        const raw = payload.choices?.[0]?.message?.content || "";
+        const raw: string = payload.text || "";
         completed.push({ name: page.name, raw, clean: cleanOutput(raw) });
         setResults([...completed]); setProgress(i + 1);
       }
@@ -171,12 +164,12 @@ export function OcrStudioView() {
           <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.22em] text-primary">
             <ScanText className="h-4 w-4" /> Local document intelligence
           </div>
-          <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">Unlimited OCR</h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">Turn scans, screenshots, and PDFs into clean Markdown with Baidu’s original full BF16 model. Your files stay on this computer.</p>
+          <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">OCR Studio</h1>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">Turn scans, screenshots, and PDFs into clean Markdown with the local RapidOCR engine (CPU, no download). Your files stay on this computer.</p>
         </div>
         <button onClick={checkStatus} className={cn("flex w-fit items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium", status === "online" ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300" : status === "offline" ? "border-red-500/30 bg-red-500/10 text-red-300" : "border-border bg-muted text-muted-foreground") }>
           {status === "checking" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <span className={cn("h-2 w-2 rounded-full", status === "online" ? "bg-emerald-400" : "bg-red-400")} />}
-          {status === "online" ? "Baidu model online" : status === "offline" ? "Model offline · retry" : "Checking model"}
+          {status === "online" ? "Local OCR ready" : status === "offline" ? "OCR unavailable · retry" : "Checking OCR"}
         </button>
       </header>
 
@@ -224,7 +217,7 @@ export function OcrStudioView() {
         <aside className="space-y-5">
           <section className="rounded-2xl border border-border bg-card/70 p-4">
             <div className="mb-4 flex items-center gap-2"><Server className="h-4 w-4 text-primary" /><h2 className="text-sm font-semibold">Private & local</h2></div>
-            <div className="space-y-3 text-xs leading-5 text-muted-foreground"><p>Files go directly from this browser to Baidu Unlimited-OCR on your RTX 5070 Ti.</p><p>No cloud upload. No credits. No third-party OCR service.</p></div>
+            <div className="space-y-3 text-xs leading-5 text-muted-foreground"><p>Pages go from this browser to the OCR engine running on this computer.</p><p>No cloud upload. No credits. No third-party OCR service.</p></div>
           </section>
           <section className="rounded-2xl border border-border bg-card/70 p-4">
             <div className="mb-4 flex items-center justify-between"><div className="flex items-center gap-2"><History className="h-4 w-4 text-primary" /><h2 className="text-sm font-semibold">Recent results</h2></div>{history.length ? <button onClick={() => { setHistory([]); localStorage.removeItem(HISTORY_KEY); }} className="text-[11px] text-muted-foreground hover:text-foreground">Clear</button> : null}</div>
