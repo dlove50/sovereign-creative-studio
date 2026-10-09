@@ -2,11 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Images, Loader2 } from "lucide-react";
+import { Images } from "lucide-react";
 
 import { api } from "@/lib/api";
 import type { Generation } from "@/lib/types";
 import { buttonVariants } from "@/components/ui/button";
+import { SkeletonGrid } from "@/components/ui/skeleton";
 import { GenerationCard } from "@/components/generation-card";
 import { useStaggerIn } from "@/components/motion/use-motion";
 
@@ -20,11 +21,7 @@ export function GalleryView() {
   }, []);
 
   if (generations === null) {
-    return (
-      <div className="flex h-64 items-center justify-center text-muted-foreground">
-        <Loader2 className="h-6 w-6 animate-spin" />
-      </div>
-    );
+    return <SkeletonGrid count={8} />;
   }
 
   if (generations.length === 0) {

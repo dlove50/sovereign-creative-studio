@@ -8,6 +8,7 @@ import { ArrowDownWideNarrow, Download, Filter, Folder, FolderPlus, Loader2, Sea
 import { CompletedVideoEditing } from "@/components/media/completed-video-editing";
 import { api, assetUrl } from "@/lib/api";
 import { useStaggerIn } from "@/components/motion/use-motion";
+import { SkeletonGrid } from "@/components/ui/skeleton";
 import type { AvatarJob, Movie, Project, VideoGeneration } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -210,7 +211,7 @@ export function ProjectsLibraryView() {
 
       <h2 className="mb-4 mt-10 text-base font-semibold">Videos</h2>
       {items === null ? (
-        <p className="py-10 text-center text-sm text-muted-foreground">Loading your videos…</p>
+        <SkeletonGrid count={6} aspect="aspect-video" className="grid grid-cols-2 gap-x-4 gap-y-6 md:grid-cols-3" />
       ) : videos.length === 0 ? (
         <div className="py-12 text-center">
           <p className="font-semibold">{q || kind !== "all" ? "No videos match." : "No videos yet."}</p>
