@@ -78,3 +78,57 @@ def compose_song(idea: str, genre: str | None = None, duration: float = 60.0, la
         "style": style[:MAX_STYLE_CHARS],
         "lyrics": lyrics[:MAX_LYRICS_CHARS],
     }
+
+
+CHAT_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "reply": {"type": "string"}, "title": {"type": "string"}, "style": {"type": "string"}, "lyrics": {"type": "string"},
+    },
+    "required": ["reply", "title", "style", "lyrics"],
+}
+MAX_CHAT_TURNS = 12  # older turns are dropped so the small lyric model stays inside its context
+
+
+def chat_lyrics(messages: list[dict], current: dict | None = None, language: str = "English") -> dict[str, str]:
+    """One turn of a songwriting conversation.
+
+    ``messages`` is the chat so far (role user/assistant). ``current`` is the song being worked on
+    ({"title", "style", "lyrics"}), so a request such as "make the second verse sadder" edits it instead of
+    starting over. Returns {"reply", "title", "style", "lyrics"}; the lyrics are always the complete current version.
+    """
+    turns = [
+        {"role": m["role"], "content": clean_text(m["content"])}
+        for m in messages if m.get("role") in ("user", "assistant") and clean_text(m.get("content", ""))
+    ][-MAX_CHAT_TURNS:]
+    if not turns or turns[-1]["role"] != "user":
+        raise MusicError("Tell me what you want the song to be.")
+    current = current or {}
+    have = "\n".join(f"{k}: {clean_text(current.get(k, ''))}" for k in ("title", "style", "lyrics") if clean_text(current.get(k, "")))
+    system = (
+        "You are a friendly professional songwriter working with the user on ONE song, in a chat. "
+        "Write ORIGINAL lyrics only; never copy or paraphrase an existing song. Put section tags on their own line, "
+        "such as [intro], [verse], [chorus], [bridge], [outro]. Keep lines singable and of similar length. "
+        f"Write in {language} unless the user asks for another language. "
+        "On every turn return JSON with: reply (one or two short, warm sentences saying what you did or asking one question), "
+        "title, style (a short comma-separated tag list for genre, mood, tempo, instruments and vocal type, no artist names) "
+        "and lyrics (the COMPLETE current lyrics, not only the changed part). "
+        "If the user only asks a question or chats, answer in reply and return the current title, style and lyrics unchanged."
+        + (f"\n\nThe song so far:\n{have}" if have else "\n\nThere is no song yet: write a first draft from the user's request."))
+    raw = _ollama_chat([{"role": "system", "content": system}, *turns], CHAT_SCHEMA)
+    try:
+        data = json.loads(raw)
+        reply, title = clean_text(data["reply"]), clean_text(data["title"])
+        style, lyrics = clean_text(data["style"]), clean_text(data["lyrics"])
+    except (ValueError, KeyError, TypeError) as exc:
+        raise MusicError("The lyric writer returned something unusable. Try again.") from exc
+    if len(lyrics.splitlines()) < 2:
+        lyrics = clean_text(current.get("lyrics", "")) or lyrics
+    if lyrics and not re.search(r"^\s*\[[^\]]+\]", lyrics, re.M):
+        lyrics = "[verse]\n" + lyrics
+    return {
+        "reply": reply[:600] or "Here is the latest version.",
+        "title": title[:80] or clean_text(current.get("title", ""))[:80],
+        "style": style[:MAX_STYLE_CHARS],
+        "lyrics": lyrics[:MAX_LYRICS_CHARS],
+    }

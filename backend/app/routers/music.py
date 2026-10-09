@@ -9,6 +9,7 @@ GET    /api/music/songs/{id}         one song
 GET    /api/music/songs/{id}/audio   the MP3 (range requests supported)
 GET    /api/music/songs/{id}/viz     real waveform/spectrum data for the display
 POST   /api/music/create             describe a song in one line; lyrics are written automatically
+POST   /api/music/lyrics-chat        one turn of a songwriting chat (returns the full current lyrics)
 POST   /api/music/cover              re-make a library song in a new style (a job)
 POST   /api/music/play/{id}          play a song through the speakers
 POST   /api/music/pause              pause the speakers
@@ -25,7 +26,7 @@ from pydantic import BaseModel, Field
 
 from ..deps import get_current_user
 from ..models import User
-from ..services import music, music_cover, music_playback
+from ..services import music, music_compose, music_cover, music_playback
 
 router = APIRouter(prefix="/api/music", tags=["music"])
 
@@ -57,6 +58,22 @@ class CoverIn(BaseModel):
     lyrics: str | None = Field(default=None, max_length=music.MAX_LYRICS_CHARS)
     title: str | None = Field(default=None, max_length=80)
     auto_play: bool = False
+
+
+class ChatTurn(BaseModel):
+    role: str = Field(pattern="^(user|assistant)$")
+    content: str = Field(min_length=1, max_length=3000)
+
+
+class CurrentSong(BaseModel):
+    title: str = Field(default="", max_length=80)
+    style: str = Field(default="", max_length=music.MAX_STYLE_CHARS)
+    lyrics: str = Field(default="", max_length=music.MAX_LYRICS_CHARS)
+
+
+class LyricsChatIn(BaseModel):
+    messages: list[ChatTurn] = Field(min_length=1, max_length=40)
+    current: CurrentSong | None = None
 
 
 class SongPatch(BaseModel):
@@ -127,6 +144,15 @@ def create_from_idea(body: CreateIn, _user: User = Depends(get_current_user)):
     except music.MusicError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     return music.create_job(params)
+
+
+@router.post("/lyrics-chat")
+def lyrics_chat(payload: LyricsChatIn, user: User = Depends(get_current_user)):
+    try:
+        return music_compose.chat_lyrics(
+            [turn.model_dump() for turn in payload.messages], payload.current.model_dump() if payload.current else None)
+    except music.MusicError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
 
 
 @router.post("/cover", status_code=202)

@@ -150,6 +150,7 @@ export const musicApi = {
   startEngine: () => post<{ started: boolean; detail: string }>("/api/music/engine/start"),
   generate: (input: CustomSongInput) => post<MusicJob>("/api/music/generate", input),
   createFromIdea: (input: IdeaSongInput) => post<MusicJob>("/api/music/create", input),
+  lyricsChat: (input: LyricsChatInput) => post<LyricsChatOutput>("/api/music/lyrics-chat", input),
   job: (id: string) => request<MusicJob>(`/api/music/jobs/${id}`),
   songs: () => request<Song[]>("/api/music/songs"),
   patchSong: (id: string, body: { title?: string; favorite?: boolean }) =>
@@ -186,3 +187,9 @@ export function formatDuration(seconds: number): string {
   const s = Math.floor(seconds);
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 }
+
+export type LyricsChatInput = {
+  messages: { role: "user" | "assistant"; content: string }[];
+  current?: { title: string; style: string; lyrics: string };
+};
+export type LyricsChatOutput = { reply: string; title: string; style: string; lyrics: string };

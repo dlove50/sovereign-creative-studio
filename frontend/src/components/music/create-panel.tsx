@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { musicApi, type MusicJob, type MusicStatus, type Song } from "@/lib/api/music";
+import { LyricChat } from "./lyric-chat";
 import { cn } from "@/lib/utils";
 
 /** The average length of a commercial release: 3 minutes 30 seconds. */
@@ -35,7 +36,8 @@ const STEPS: { stage: MusicJob["stage"][]; label: string }[] = [
   { stage: ["saving", "done"], label: "Saving song" },
 ];
 
-type Mode = "describe" | "custom";
+type Mode = "chat" | "describe" | "custom";
+const MODE_LABELS: Record<Mode, string> = { chat: "Talk it through", describe: "Describe it", custom: "Custom" };
 
 export function CreatePanel({
   status,
@@ -45,7 +47,7 @@ export function CreatePanel({
   onSongReady: (song: Song, target: PlayTarget) => void;
 }) {
   const limits = status?.limits;
-  const [mode, setMode] = useState<Mode>("describe");
+  const [mode, setMode] = useState<Mode>("chat");
   const [idea, setIdea] = useState("");
   const [genre, setGenre] = useState<string | null>(null);
   const [title, setTitle] = useState("");
@@ -158,13 +160,13 @@ export function CreatePanel({
   // An offline engine is fine: creating a song launches it.
   const canSubmit = hasInput && !busy && (ready || engineOffline);
   const stepIndex = job ? Math.max(0, STEPS.findIndex((s) => s.stage.includes(job.stage))) : -1;
-  const skipsLyrics = mode === "custom";
+  const skipsLyrics = mode !== "describe";
 
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="inline-flex rounded-lg border border-border bg-background/40 p-0.5" role="tablist" aria-label="Creation mode">
-          {(["describe", "custom"] as const).map((m) => (
+          {(["chat", "describe", "custom"] as const).map((m) => (
             <button
               key={m}
               type="button"
@@ -176,7 +178,7 @@ export function CreatePanel({
                 mode === m ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground",
               )}
             >
-              {m === "describe" ? "Describe it" : "Custom"}
+              {MODE_LABELS[m]}
             </button>
           ))}
         </div>
@@ -189,7 +191,12 @@ export function CreatePanel({
         </div>
       </div>
 
-      {mode === "describe" ? (
+      {mode === "chat" ? (
+        <LyricChat
+          song={{ title, style, lyrics }}
+          onSong={(next) => { setTitle(next.title); setStyle(next.style); setLyrics(next.lyrics); }}
+        />
+      ) : mode === "describe" ? (
         <div className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="music-idea">What is the song about?</Label>
