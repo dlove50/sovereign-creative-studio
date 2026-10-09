@@ -213,6 +213,7 @@ export function CreatePanel({
       {mode === "chat" ? (
         <LyricChat
           song={{ title, style, lyrics }}
+          duration={duration}
           onSong={(next) => { setTitle(next.title); setStyle(next.style); setLyrics(next.lyrics); }}
         />
       ) : mode === "describe" ? (

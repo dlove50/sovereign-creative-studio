@@ -22,7 +22,7 @@ const STARTERS = [
  * as you ask ("make the chorus sadder", "add a bridge about the sea"). Every reply updates the song in the form, so
  * the Create song button below always makes the latest version.
  */
-export function LyricChat({ song, onSong }: { song: DraftSong; onSong: (song: DraftSong) => void }) {
+export function LyricChat({ song, duration, onSong }: { song: DraftSong; duration: number; onSong: (song: DraftSong) => void }) {
   const [turns, setTurns] = useState<Turn[]>([]);
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
@@ -42,7 +42,7 @@ export function LyricChat({ song, onSong }: { song: DraftSong; onSong: (song: Dr
     setError(null);
     setBusy(true);
     try {
-      const out = await musicApi.lyricsChat({ messages: next, current: song.lyrics ? song : undefined });
+      const out = await musicApi.lyricsChat({ messages: next, current: song.lyrics ? song : undefined, duration });
       setTurns([...next, { role: "assistant", content: out.reply }]);
       onSong({ title: out.title, style: out.style, lyrics: out.lyrics });
     } catch (e) {

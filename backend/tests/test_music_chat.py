@@ -104,3 +104,35 @@ def test_a_model_that_keeps_returning_the_same_words_is_reported_honestly(monkey
     with TestClient(app) as c:
         body = _edit_request(c).json()
         assert body["lyrics"] == DRAFT["lyrics"] and "could not change" in body["reply"]
+
+
+def test_line_budget_follows_song_length():
+    assert music_compose.lyric_line_budget(60) == 8
+    assert music_compose.lyric_line_budget(120) == 15
+    assert music_compose.lyric_line_budget(210) == 26
+    assert music_compose.lyric_line_budget(30) == 6 and music_compose.lyric_line_budget(900) == 32
+    assert music_compose.count_lines("[verse]\nOne\n\nTwo\n[chorus]\nThree") == 3
+
+
+def test_the_chat_prompt_carries_the_song_length(seen):
+    with TestClient(app) as c:
+        out = c.post("/api/music/lyrics-chat", json={"messages": [{"role": "user", "content": "A reggae song"}], "duration": 120})
+        assert out.status_code == 200, out.text
+        assert "about 15 sung lines" in seen[0][0]["content"] and "2 minutes long" in seen[0][0]["content"]
+
+
+def test_lyrics_far_over_budget_are_cut_once(monkeypatch):
+    long_lyrics = "[verse]\n" + "\n".join(f"A long line number {i} of the song" for i in range(30))
+    short_lyrics = "[verse]\n" + "\n".join(f"A short line number {i}" for i in range(12))
+    answers = [dict(DRAFT, lyrics=long_lyrics), dict(DRAFT, lyrics=short_lyrics, reply="Trimmed it.")]
+    asked = []
+
+    def fake(messages, schema, timeout=240.0, **kwargs):
+        asked.append(messages[0]["content"])
+        return json.dumps(answers[len(asked) - 1])
+
+    monkeypatch.setattr(music_compose, "_ollama_chat", fake)
+    with TestClient(app) as c:
+        body = c.post("/api/music/lyrics-chat", json={"messages": [{"role": "user", "content": "A reggae song"}], "duration": 120}).json()
+        assert len(asked) == 2 and "at most 18" in asked[1]
+        assert music_compose.count_lines(body["lyrics"]) == 12 and body["reply"] == "Trimmed it."

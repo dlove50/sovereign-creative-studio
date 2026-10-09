@@ -74,6 +74,7 @@ class CurrentSong(BaseModel):
 class LyricsChatIn(BaseModel):
     messages: list[ChatTurn] = Field(min_length=1, max_length=40)
     current: CurrentSong | None = None
+    duration: float = Field(default=120.0, ge=music.MIN_SECONDS, le=music.MAX_SECONDS)
 
 
 class SongPatch(BaseModel):
@@ -152,7 +153,8 @@ def create_from_idea(body: CreateIn, _user: User = Depends(get_current_user)):
 def lyrics_chat(payload: LyricsChatIn, user: User = Depends(get_current_user)):
     try:
         return music_compose.chat_lyrics(
-            [turn.model_dump() for turn in payload.messages], payload.current.model_dump() if payload.current else None)
+            [turn.model_dump() for turn in payload.messages], payload.current.model_dump() if payload.current else None,
+            duration=payload.duration)
     except music.MusicError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 

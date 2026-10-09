@@ -46,6 +46,20 @@ def _ollama_chat(messages: list[dict], schema: dict, timeout: float = 240.0, mod
         raise MusicError(f"The lyric writer ({model}) is not available: {exc}") from exc
 
 
+def lyric_line_budget(duration: float) -> int:
+    """How many sung lines fit a song of this length: about one per 8 seconds.
+
+    Measured on this laptop, composing time grows faster than lyric length (a 60 s song with 4 lines took 4 min, with
+    9 lines 15 min; a 3:18 song with 28 lines took 57 min), so the writer is held to a budget instead of padding.
+    """
+    return max(6, min(32, round(float(duration) / 8)))
+
+
+def count_lines(lyrics: str) -> int:
+    """Sung lines only: blank lines and [section] tags do not count."""
+    return sum(1 for line in lyrics.splitlines() if line.strip() and not line.strip().startswith("["))
+
+
 def detect_genre(text: str) -> str | None:
     lowered = text.lower()
     return next((g for g in GENRE_HINTS if g in lowered), None)
@@ -57,12 +71,12 @@ def compose_song(idea: str, genre: str | None = None, duration: float = 60.0, la
     if not idea:
         raise MusicError("Tell me what the song should be about.")
     genre = clean_text(genre) or detect_genre(idea) or "pop"
-    lines = max(8, min(64, int(duration // 4)))
+    lines = lyric_line_budget(duration)
     system = (
         "You are a professional songwriter. Write ORIGINAL song lyrics from the user's idea. "
         "Never copy or paraphrase the lyrics of any existing song. Put section tags on their own line, "
         "such as [verse], [chorus], [bridge], [outro]. Keep lines singable and of similar length. "
-        f"Write about {lines} lines in {language}. The style field is a short comma-separated tag list "
+        f"Write about {lines} lines in total (never more than {lines + 3}), in {language}; repeat the chorus at most once. The style field is a short comma-separated tag list "
         "describing genre, mood, tempo, instruments and vocal type, with no artist names. "
         "Reply only with JSON containing title, style and lyrics.")
     user = f"Idea: {idea}\nGenre: {genre}"
@@ -95,7 +109,7 @@ CHAT_SCHEMA = {
 MAX_CHAT_TURNS = 12  # older turns are dropped so the small lyric model stays inside its context
 
 
-def chat_lyrics(messages: list[dict], current: dict | None = None, language: str = "English") -> dict[str, str]:
+def chat_lyrics(messages: list[dict], current: dict | None = None, language: str = "English", duration: float = 120.0) -> dict[str, str]:
     """One turn of a songwriting conversation.
 
     ``messages`` is the chat so far (role user/assistant). ``current`` is the song being worked on
@@ -109,12 +123,16 @@ def chat_lyrics(messages: list[dict], current: dict | None = None, language: str
     if not turns or turns[-1]["role"] != "user":
         raise MusicError("Tell me what you want the song to be.")
     current = current or {}
+    budget = lyric_line_budget(duration)
     have = "\n".join(f"{k}: {clean_text(current.get(k, ''))}" for k in ("title", "style", "lyrics") if clean_text(current.get(k, "")))
     system = (
         "You are a friendly professional songwriter working with the user on ONE song, in a chat. "
         "Write ORIGINAL lyrics only; never copy or paraphrase an existing song. Put section tags on their own line, "
         "such as [intro], [verse], [chorus], [bridge], [outro]. Keep lines singable and of similar length. "
         f"Write in {language} unless the user asks for another language. "
+        f"The song is about {round(duration / 60, 1):g} minutes long, so the lyrics must total about {budget} sung lines "
+        f"(never more than {budget + 3}), not counting section tags; keep sections short and repeat the chorus at most once, "
+        "because longer lyrics take hours to compose on this computer. "
         "On every turn return JSON with: reply (one or two short, warm sentences saying what you did or asking one question), "
         "title, style (a short comma-separated tag list for genre, mood, tempo, instruments and vocal type, no artist names) "
         "and lyrics (the COMPLETE current lyrics, not only the changed part). "
@@ -139,6 +157,14 @@ def chat_lyrics(messages: list[dict], current: dict | None = None, language: str
             "lyrics themselves now (rewrite the lines or add the section asked for) and return the complete rewritten lyrics.")
         if lyrics == before:
             reply = "I could not change the lyrics that way. Try naming the section and what to change, for example: rewrite the second chorus to be about loss."
+    if count_lines(lyrics) > budget + 3:
+        # Too long for the chosen song length: ask once for a trimmed version rather than hand over hours of compose time.
+        reply, title, style, lyrics = ask(
+            f"\n\nIMPORTANT: your lyrics have {count_lines(lyrics)} sung lines but this song may have at most {budget + 3}. "
+            f"Keep the user's latest request, cut the lyrics down to about {budget} lines (shorter sections, no repeated verses, "
+            "the chorus at most twice) and return the complete trimmed lyrics.")
+        if count_lines(lyrics) > budget + 3:
+            reply = (reply + f" Note: these lyrics are longer than a {round(duration / 60, 1):g}-minute song needs and may take a long time to compose.")[:600]
     if len(lyrics.splitlines()) < 2:
         lyrics = clean_text(current.get("lyrics", "")) or lyrics
     if lyrics and not re.search(r"^\s*\[[^\]]+\]", lyrics, re.M):

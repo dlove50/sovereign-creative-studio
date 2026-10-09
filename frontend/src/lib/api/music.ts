@@ -193,5 +193,6 @@ export function formatDuration(seconds: number): string {
 export type LyricsChatInput = {
   messages: { role: "user" | "assistant"; content: string }[];
   current?: { title: string; style: string; lyrics: string };
+  duration?: number;
 };
 export type LyricsChatOutput = { reply: string; title: string; style: string; lyrics: string };
