@@ -6,6 +6,7 @@ setup_required (never charged, never faked). Local-first: no cloud provider is
 required for this foundation.
 """
 import uuid
+import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
@@ -18,7 +19,7 @@ from sqlalchemy.orm import Session
 from .. import config
 from ..database import get_db
 from ..deps import ADMIN_ROLE, get_current_user
-from ..models import AvatarAsset, AvatarJob, User, VoiceAsset
+from ..models import AvatarAsset, AvatarJob, User, VoiceAsset, Generation, ProductSceneGeneration
 from ..schemas import (
     AvatarAssetOut,
     AvatarCloneOut,
@@ -36,6 +37,7 @@ from ..services import avatar_presets
 from ..services import avatar_jobs, voice as voice_provider
 from ..services import trash
 from ..services.transcription import resolve_storage_url
+from ..services.source_validation import validate_source_media_url
 
 router = APIRouter(prefix="/api", tags=["avatars"])
 
@@ -122,6 +124,52 @@ def _create_avatar(db, user, *, avatar_type, allowed, kind, name, file, source_u
 
 
 # --- avatars -----------------------------------------------------------------
+class AvatarFromImageIn(BaseModel):
+    source_url: str = Field(min_length=1, max_length=512)
+    name: str = Field(min_length=1, max_length=160)
+
+
+@router.post("/avatars/from-image", response_model=AvatarAssetOut, status_code=201)
+def avatar_from_image(payload: AvatarFromImageIn, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """Copy an owned completed image into a durable photo-avatar asset."""
+    source = validate_source_media_url(payload.source_url, allowed_exts=_IMAGE_EXTS)
+    owned = db.scalar(select(Generation.id).where(
+        Generation.user_id == user.id, Generation.file_url == source,
+        Generation.media_type == "image", Generation.status == "completed", Generation.deleted_at.is_(None)))
+    if not owned:
+        owned = db.scalar(select(ProductSceneGeneration.id).where(
+            ProductSceneGeneration.user_id == user.id, ProductSceneGeneration.result_url == source,
+            ProductSceneGeneration.status == "completed", ProductSceneGeneration.deleted_at.is_(None)))
+    if not owned:
+        owned = db.scalar(select(AvatarAsset.id).where(
+            AvatarAsset.user_id == user.id, AvatarAsset.source_file_path == source,
+            AvatarAsset.avatar_type == "photo_avatar", AvatarAsset.status == "ready", AvatarAsset.deleted_at.is_(None)))
+    if not owned:
+        raise HTTPException(status_code=404, detail="Owned completed image not found")
+    validate_source_media_url(source, allowed_exts=_IMAGE_EXTS, require_exists=True)
+    path = (config.STORAGE_DIR / source.removeprefix("/storage/")).resolve()
+    if not payload.name.strip():
+        raise HTTPException(status_code=422, detail="Avatar name cannot be blank")
+    if path.stat().st_size > config.AVATAR_MAX_UPLOAD_MB * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="Source image exceeds avatar upload limit")
+    with path.open("rb") as file:
+        header = file.read(16)
+    valid = ((path.suffix.lower() == ".png" and header.startswith(b"\x89PNG\r\n\x1a\n"))
+             or (path.suffix.lower() in {".jpg", ".jpeg"} and header.startswith(b"\xff\xd8\xff"))
+             or (path.suffix.lower() == ".webp" and header.startswith(b"RIFF") and header[8:12] == b"WEBP"))
+    if not valid:
+        raise HTTPException(status_code=400, detail="Source is not a supported image file")
+    destination = config.STORAGE_DIR / "avatars" / "uploads" / f"{uuid.uuid4().hex}{path.suffix.lower()}"
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        shutil.copyfile(path, destination)
+        return _create_avatar(db, user, avatar_type="photo_avatar", allowed=_IMAGE_EXTS, kind="image",
+                              name=payload.name, file=None, source_url=f"/storage/avatars/uploads/{destination.name}")
+    except Exception:
+        destination.unlink(missing_ok=True)
+        raise
+
+
 @router.get("/avatars", response_model=list[AvatarAssetOut])
 def list_avatars(scope: str | None = None, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     stmt = select(AvatarAsset).where(AvatarAsset.deleted_at.is_(None))

@@ -33,7 +33,22 @@
     "**/*.ts",
     "**/*.tsx",
     ".next/types/**/*.ts",
-    ".next-dev/types/**/*.ts"
+    ".next-dev/types/**/*.ts",
+    ".next-cloud-dev/types/**/*.ts",
+    ".next-release/types/**/*.ts",
+    ".next-release-recovery/types/**/*.ts",
+    ".next-video-repair/types/**/*.ts",
+    ".next-video-live/types/**/*.ts",
+    ".next-model-live/types/**/*.ts",
+    ".next-provider-labels/types/**/*.ts",
+    ".next-cinematic-planner/types/**/*.ts",
+    ".next-cinematic-persistence/types/**/*.ts",
+    ".next-cinematic-fixed/types/**/*.ts",
+    ".next-cinematic-production/types/**/*.ts",
+    ".next-training/types/**/*.ts",
+    ".next-heygen-parity/types/**/*.ts",
+    ".next-brand-import/types/**/*.ts",
+    ".next-music-test/types/**/*.ts"
   ],
   "exclude": [
     "node_modules"

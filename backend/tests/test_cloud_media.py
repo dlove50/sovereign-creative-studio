@@ -199,6 +199,35 @@ def test_recovery_preserves_remote_jobs_and_does_not_resubmit(client, provider):
     assert not provider[0]
 
 
+def test_heygen_download_failure_survives_reload_and_refresh_does_not_regenerate(client, provider):
+    requests, responses = provider
+    body = payload("avatar-video")
+    responses.append((200, {"data": {"video_id": "accepted123"}}, ""))
+    client.post("/api/cloud/jobs", json=body)
+    complete = (200, {"data": {"status": "completed", "video_url": "https://files.heygen.ai/result.mp4"}}, "")
+    responses.extend([complete, (503, {"error": "test-secret-do-not-expose"}, "")])
+    assert client.post(f"/api/cloud/jobs/{body['request_id']}/refresh").status_code == 502
+    cloud.recover()
+    reloaded = client.get(f"/api/cloud/jobs/{body['request_id']}").json()
+    assert reloaded["status"] == "processing" and reloaded["remote_id"] == "accepted123"
+    assert "HTTP 503" in reloaded["error"] and "test-secret" not in reloaded["error"]
+    responses.extend([complete, (200, b"video", "video/mp4")])
+    done = client.post(f"/api/cloud/jobs/{body['request_id']}/refresh").json()
+    assert done["status"] == "completed" and done["error"] is None
+    assert len([r for r in requests if r.method == "POST"]) == 1
+
+
+def test_malformed_heygen_status_keeps_remote_job_retryable(client, provider):
+    _, responses = provider
+    body = payload("avatar-video")
+    responses.extend([(200, {"data": {"video_id": "accepted123"}}, ""), (200, {"data": None}, "")])
+    client.post("/api/cloud/jobs", json=body)
+    assert client.post(f"/api/cloud/jobs/{body['request_id']}/refresh").status_code == 502
+    job = cloud.read(body["request_id"])
+    assert job["status"] == "processing" and job["remote_id"] == "accepted123"
+    assert "unexpected job response" in job["error"]
+
+
 def test_secrets_and_cloud_sources_not_served_as_public_storage(client, monkeypatch):
     monkeypatch.setattr(config, "SECRETS_DIR", config.STORAGE_DIR / "secrets")
     config.SECRETS_DIR.mkdir(parents=True, exist_ok=True)

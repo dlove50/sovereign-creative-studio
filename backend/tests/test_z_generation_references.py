@@ -79,3 +79,54 @@ def test_reference_urls_are_validated_and_reach_the_generator(monkeypatch):
                 break
             time.sleep(0.1)
     assert seen["reference_image_urls"] == ["/storage/image-edit-sources/b.png"]
+
+
+def test_reference_upload_refuses_faces_and_accepts_clothes_or_unchecked(monkeypatch):
+    from app.services import face_check
+
+    png = b"\x89PNG\r\n\x1a\n" + b"0" * 32
+    with TestClient(app) as client:
+        user = _user(client, "Face check user")
+        headers = {HEADER: user["id"]}
+        monkeypatch.setattr(face_check, "image_has_face", lambda path: True)
+        refused = client.post("/api/generations/reference-upload", files={"file": ("me.png", png)}, headers=headers)
+        assert refused.status_code == 422 and "shows a face" in refused.json()["detail"]
+
+        monkeypatch.setattr(face_check, "image_has_face", lambda path: False)
+        ok = client.post("/api/generations/reference-upload", files={"file": ("jacket.png", png)}, headers=headers)
+        assert ok.status_code == 201 and ok.json()["checked"] is True
+
+        monkeypatch.setattr(face_check, "image_has_face", lambda path: None)  # vision model unreachable
+        unchecked = client.post("/api/generations/reference-upload", files={"file": ("room.png", png)}, headers=headers)
+        assert unchecked.status_code == 201 and unchecked.json()["checked"] is False
+
+        bad = client.post("/api/generations/reference-upload", files={"file": ("x.txt", b"hi")}, headers=headers)
+        assert bad.status_code == 400
+
+
+def test_face_check_reads_yes_no_and_survives_an_offline_model(monkeypatch, tmp_path):
+    from app.services import face_check
+
+    img = tmp_path / "a.png"
+    img.write_bytes(b"png")
+    monkeypatch.setattr(face_check, "_free_comfyui_vram", lambda: None)
+
+    class _Resp:
+        def __init__(self, text):
+            self._t = text
+
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {"message": {"content": self._t}}
+
+    for answer, expected in [("YES", True), ("No.", False), ("Maybe", None)]:
+        monkeypatch.setattr(face_check.httpx, "post", lambda *a, _t=answer, **k: _Resp(_t))
+        assert face_check.image_has_face(img) is expected
+
+    def offline(*a, **k):
+        raise face_check.httpx.ConnectError("down")
+
+    monkeypatch.setattr(face_check.httpx, "post", offline)
+    assert face_check.image_has_face(img) is None

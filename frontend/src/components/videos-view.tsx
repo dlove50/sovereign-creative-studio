@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   AlertTriangle,
   Clock,
@@ -29,7 +30,6 @@ import type {
 } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { ActiveConfigBadge } from "@/components/active-config-badge";
 import { BriefSelect } from "@/components/brief-select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -37,7 +37,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { MediaActions } from "@/components/media/MediaActions";
 import { MediaDetailsDrawer } from "@/components/media/MediaDetailsDrawer";
 import { useMediaHandoffRouter } from "@/components/media/useMediaHandoffRouter";
-import { consumeHandoff } from "@/lib/stores/useMediaHandoff";
+import { consumeHandoff, peekHandoff } from "@/lib/stores/useMediaHandoff";
 import { videoToMedia } from "@/lib/utils/mediaMapping";
 import { validateSourceUrl } from "@/lib/utils/validateSourceUrl";
 import { cn } from "@/lib/utils";
@@ -68,7 +68,7 @@ const VIDEO_PRESETS: {
     label: "Quick",
     motion: "slow_zoom",
     duration: 3,
-    description: "Fast short LTX clip (low cost)",
+    description: "Short clip with gentle motion",
   },
   {
     label: "Short Social",
@@ -113,6 +113,12 @@ const QUALITY_PRESETS: {
     label: "Best Local Quality",
     description: "640x384, more steps, slower.",
     bestFor: "Short prompts where detail matters.",
+  },
+  {
+    value: "wan_smooth",
+    label: "Wan Natural Speed",
+    description: "512x320 at 16 frames per second (Wan text-to-video).",
+    bestFor: "Realistic motion speed; a 4 s clip takes about 80 seconds.",
   },
   {
     value: "image_to_video_best",
@@ -169,13 +175,15 @@ const selectClass =
   "flex h-10 w-full rounded-md border border-input bg-background/40 px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
 const PROVIDERS: { id: VideoProvider; label: string; badge: string }[] = [
-  { id: "local_ltx", label: "Local LTX", badge: "Default local" },
+  { id: "local_ltx", label: "Local LTX", badge: "Extend / upscale" },
   { id: "local_wan", label: "Wan 2.1 (local)", badge: "Image → Video" },
-  { id: "local_h3", label: "MiniMax H3 (video + sound)", badge: "Text or Image → Video" },
+  { id: "local_h3", label: "MiniMax H3 (video + sound)", badge: "Default generation" },
   { id: "seedance_api", label: "Seedance / C-Dance 2.0", badge: "Premium" },
 ];
 
 export function VideosView() {
+  const searchParams = useSearchParams();
+  const handoffQuery = searchParams.toString();
   const [projects, setProjects] = useState<Project[]>([]);
   const [scenes, setScenes] = useState<ProductSceneGeneration[]>([]);
   const [videos, setVideos] = useState<VideoGeneration[]>([]);
@@ -190,11 +198,13 @@ export function VideosView() {
   const [motionPreset, setMotionPreset] = useState<VideoMotionPreset>("slow_zoom");
   const [duration, setDuration] = useState(3);
   const [qualityPreset, setQualityPreset] =
-    useState<VideoQualityPreset>("standard_local");
+    useState<VideoQualityPreset>("h3_turbo");
   const [briefId, setBriefId] = useState("");
   const [videoModes, setVideoModes] = useState<VideoModeOption[]>([]);
   const [videoMode, setVideoMode] = useState<VideoMode>("image_to_video");
-  const [provider, setProvider] = useState<VideoProvider>("local_ltx");
+  const [providerChoices, setProviderChoices] = useState<Partial<Record<VideoMode, VideoProvider>>>({});
+  const provider = providerChoices[videoMode] ??
+    (videoMode === "video_extension" || videoMode === "video_upscale" ? "local_ltx" : "local_h3");
 
   const [loading, setLoading] = useState(true);
   const [refreshingStatus, setRefreshingStatus] = useState(false);
@@ -212,21 +222,31 @@ export function VideosView() {
       "video_upscale",
       "video_extension",
     ];
-    const pending = consumeHandoff();
-    const sp = new URLSearchParams(window.location.search);
+    const waiting = peekHandoff();
+    const pending = waiting?.targetRoute === "/videos" ? consumeHandoff() : null;
+    const sp = new URLSearchParams(handoffQuery);
     const requested = (pending?.targetMode ?? sp.get("mode")) as string | null;
     const src = pending?.sourceUrl ?? sp.get("source");
+    const plannedPrompt = sp.get("prompt");
+    if (plannedPrompt) setPrompt(plannedPrompt.slice(0, 8000));
+    const plannedDuration = Number(sp.get("duration"));
+    if ([3, 5, 8, 10].includes(plannedDuration)) setDuration(plannedDuration);
     if (requested && (valid as string[]).includes(requested)) {
       setVideoMode(requested as VideoMode);
-    }
-    if (src) {
+      setSceneId("");
       const accept = requested === "image_to_video" ? (["image"] as const) : (["video"] as const);
-      if (validateSourceUrl(src, [...accept]).ok) {
+      if (requested !== "text_to_video" && src && validateSourceUrl(src, [...accept]).ok) {
         setSourceUrl(src);
         setAutoAttachedFrom(pending?.originLabel ?? "from a previous step");
+        setError(null);
+      } else {
+        // Never leave the previous valid clip attached to an incompatible handoff.
+        setSourceUrl("");
+        setAutoAttachedFrom(null);
+        if (src && requested !== "text_to_video") setError("This source is not compatible with the selected video mode. Choose a matching image or video.");
       }
     }
-  }, []);
+  }, [handoffQuery]);
 
   const projectScenes = useMemo(
     () =>
@@ -246,7 +266,7 @@ export function VideosView() {
       ? selectedProviderReadiness?.note ??
         (provider === "seedance_api"
           ? "Seedance provider is not configured. Admin setup required."
-          : "Wan 2.1 is not available for this mode.")
+          : provider === "local_h3" ? "MiniMax H3 is not ready for this mode." : "Wan 2.1 is not available for this mode.")
       : null;
   const presets = provider === "local_h3" ? H3_QUALITY_PRESETS : QUALITY_PRESETS;
   const selectedQuality = presets.find((item) => item.value === qualityPreset) ?? presets[provider === "local_h3" ? 0 : 1];
@@ -269,7 +289,7 @@ export function VideosView() {
         setProjects(projectList);
         setScenes(sceneList);
         setVideos(videoList);
-        setProjectId(projectList[0]?.id ?? "");
+        setProjectId((current) => current || projectList[0]?.id || "");
       } catch (err) {
         setError(err instanceof Error ? err.message : "Could not load videos");
       } finally {
@@ -388,7 +408,7 @@ export function VideosView() {
         refreshing={refreshingStatus}
         onRefresh={refreshStatus}
       />
-      <ActiveConfigBadge fields={["video_backend"]} />
+      <p className="text-sm text-muted-foreground">Selected provider: {PROVIDERS.find((item) => item.id === provider)?.label}</p>
       <details className="rounded-lg border border-border bg-card p-4">
         <summary className="cursor-pointer text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary">
           Free online video tools
@@ -494,7 +514,7 @@ export function VideosView() {
                 <button
                   key={item.id}
                   type="button"
-                  onClick={() => available && setProvider(item.id)}
+                  onClick={() => available && setProviderChoices((choices) => ({ ...choices, [videoMode]: item.id }))}
                   disabled={!available}
                   className={cn(
                     "rounded-md border px-3 py-2 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50",
@@ -563,7 +583,7 @@ export function VideosView() {
                 <span className="flex items-center justify-between gap-2 text-sm font-medium">
                   {mode.name}
                   <Badge variant={mode.available ? "outline" : "muted"}>
-                    {mode.available ? mode.backend : "Not wired yet"}
+                    {provider === "local_ltx" ? (mode.available ? mode.backend : "Unavailable") : (mode.providers?.[provider]?.available ? PROVIDERS.find((item) => item.id === provider)?.label : "Unavailable for this provider")}
                   </Badge>
                 </span>
                 <span className="mt-1 block text-xs">{mode.description}</span>

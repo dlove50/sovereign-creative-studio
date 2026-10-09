@@ -14,13 +14,13 @@ from ..services import cloud_media as cloud
 from ..services.integrations import list_providers
 
 router = APIRouter(prefix="/api/cloud", tags=["cloud-media"], dependencies=[Depends(require_admin)])
-UPLOAD_OPERATIONS = {"voice-changer", "transcribe", "dubbing", "isolate", "align"}
+UPLOAD_OPERATIONS = {"voice-changer", "transcribe", "dubbing", "isolate", "align", "voice-clone", "sts"}
 AUDIO_SUFFIXES = {".mp3", ".wav", ".m4a", ".flac", ".ogg", ".aac", ".webm"}
 
 
 class CloudRequest(BaseModel):
     request_id: UUID
-    operation: Literal["avatar-video", "tts", "sound-effects", "voice-changer", "transcribe", "dubbing", "isolate", "music", "align"]
+    operation: Literal["avatar-video", "tts", "sound-effects", "voice-changer", "transcribe", "dubbing", "isolate", "music", "align", "voice-clone", "sts"]
     accept_charges: Literal[True]
     title: str = Field(default="", max_length=120)
     text: str = Field(default="", max_length=5000)
@@ -91,7 +91,7 @@ async def submit_upload(background: BackgroundTasks, payload: str = Form(...), f
     if parsed.operation not in UPLOAD_OPERATIONS:
         raise HTTPException(400, "This operation uses text rather than an upload.")
     suffix = Path(file.filename or "").suffix.lower()
-    allowed = AUDIO_SUFFIXES | ({".mp4", ".mov", ".mkv"} if parsed.operation in {"dubbing", "transcribe"} else set())
+    allowed = AUDIO_SUFFIXES | ({".mp4", ".mov", ".mkv"} if parsed.operation in {"dubbing", "transcribe", "sts"} else set())
     if suffix not in allowed:
         raise HTTPException(400, "Choose a supported audio file (or video for transcription/dubbing).")
     try:

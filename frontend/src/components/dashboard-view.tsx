@@ -84,7 +84,7 @@ export function DashboardView() {
         ) : (
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
             {generations.slice(0, 4).map((g) => (
-              <GenerationCard key={g.id} generation={g} />
+              <GenerationCard key={g.id} generation={g} onDeleted={(id) => setGenerations((all) => all.filter((x) => x.id !== id))} />
             ))}
           </div>
         )}

@@ -73,11 +73,9 @@ export function QuickChainView() {
       .listImagePresets()
       .then((p) => {
         setPresets(p);
-        const kreaReady = p.quality_presets.some((qp) => qp.id === "flux1_krea" && qp.ready);
-        if (!kreaReady) {
-          const firstReady = p.quality_presets.find((qp) => qp.id !== "local_fast" && qp.ready);
-          if (firstReady) setQualityPreset(firstReady.id);
-        }
+        const configuredDefault = p.quality_presets.find((qp) => qp.is_default && qp.ready);
+        const firstReady = configuredDefault ?? p.quality_presets.find((qp) => qp.ready);
+        if (firstReady) setQualityPreset(firstReady.id);
       })
       .catch(() => {});
     api.getAudioMergeReadiness().then(setAudioReadiness).catch(() => {});

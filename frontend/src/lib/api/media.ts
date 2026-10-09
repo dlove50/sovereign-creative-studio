@@ -102,6 +102,11 @@ export const mediaApi = {
       method: "POST",
       body: JSON.stringify(input),
     }),
+  uploadReferenceImage: (file: File) => {
+    const body = new FormData();
+    body.append("file", file);
+    return formRequest<{ source_image_url: string; filename: string; checked: boolean }>("/api/generations/reference-upload", body);
+  },
   uploadGenerationSource: (file: File, projectId?: string | null) => {
     const body = new FormData();
     if (projectId) body.append("project_id", projectId);

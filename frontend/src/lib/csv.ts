@@ -26,7 +26,7 @@ export function parseCsv(text: string): string[][] {
   return rows;
 }
 
-export type BatchRowDraft = { title: string; script: string };
+export type BatchRowDraft = { title: string; script: string; avatar_id?: string; tts_voice_id?: string };
 
 /** Header optional. Columns named title/script are used; otherwise 2 columns = title, script; 1 column = script. */
 export function batchRowsFromCsv(text: string): BatchRowDraft[] {
@@ -37,8 +37,13 @@ export function batchRowsFromCsv(text: string): BatchRowDraft[] {
   const hasHeader = scriptAt >= 0;
   const titleAt = hasHeader ? header.indexOf("title") : rows[0].length > 1 ? 0 : -1;
   const scriptCol = hasHeader ? scriptAt : rows[0].length > 1 ? 1 : 0;
+  const avatarAt = hasHeader ? header.indexOf("avatar_id") : -1;
+  const voiceAt = hasHeader ? header.indexOf("tts_voice_id") : -1;
   return rows
     .slice(hasHeader ? 1 : 0)
-    .map((r) => ({ title: titleAt >= 0 ? (r[titleAt] ?? "").trim() : "", script: (r[scriptCol] ?? "").trim() }))
+    .map((r) => ({ title: titleAt >= 0 ? (r[titleAt] ?? "").trim() : "", script: (r[scriptCol] ?? "").trim(),
+      ...(avatarAt >= 0 && r[avatarAt]?.trim() ? { avatar_id: r[avatarAt].trim() } : {}),
+      ...(voiceAt >= 0 && r[voiceAt]?.trim() ? { tts_voice_id: r[voiceAt].trim() } : {}),
+    }))
     .filter((r) => r.script);
 }

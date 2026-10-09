@@ -17,10 +17,18 @@
       "video": ["2", 0]
     }
   },
+  "17": {
+    "class_type": "ImageFromBatch",
+    "inputs": {
+      "image": ["3", 0],
+      "batch_index": -1,
+      "length": 1
+    }
+  },
   "14": {
     "class_type": "ImageScale",
     "inputs": {
-      "image": ["3", 0],
+      "image": ["17", 0],
       "upscale_method": "lanczos",
       "width": 768,
       "height": 512,
@@ -54,7 +62,7 @@
     "inputs": {
       "positive": ["5", 0],
       "negative": ["6", 0],
-      "frame_rate": ["3", 2]
+      "frame_rate": 24
     }
   },
   "15": {
@@ -125,7 +133,7 @@
     "class_type": "CreateVideo",
     "inputs": {
       "images": ["11", 0],
-      "fps": ["3", 2],
+      "fps": 24,
       "bit_depth": ["3", 3]
     }
   },

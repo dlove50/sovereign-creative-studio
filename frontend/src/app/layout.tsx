@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 
+import { AssistantPanel } from "@/components/assistant/assistant-panel";
 import { AppRail } from "@/components/shell/app-rail";
 import { Topbar } from "@/components/topbar";
 
@@ -27,6 +28,7 @@ export default function RootLayout({
             <main className="flex-1 px-6 py-8 md:px-10">{children}</main>
           </div>
         </div>
+        <AssistantPanel />
       </body>
     </html>
   );

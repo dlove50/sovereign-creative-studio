@@ -1,7 +1,8 @@
 """Translate videos: local Whisper transcript, local Qwen translation, subtitles out.
 
 Languages are whatever Qwen translates well; spoken output is limited by the installed voices
-(Piper here is English only), so the page offers subtitles plus a script for the avatar tools.
+(Piper has English, Spanish and French here; the page picks the matching voice), so the page offers
+subtitles plus a script for the avatar tools.
 """
 from __future__ import annotations
 

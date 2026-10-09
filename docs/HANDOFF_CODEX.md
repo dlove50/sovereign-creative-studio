@@ -275,3 +275,36 @@ FFmpeg cuts, with a speech-density fallback; 7 tests with a faked transcript/LLM
 real Whisper (CPU) + real Qwen 27B on a 41 s test video gave 2 clips in ~30 s (AI titles, played in the page); clips came out
 8-10 s when ~15 s was requested because they snap to sentence ends and the min is 8 s.) (**Batch videos is built**: `/batch`, `POST /api/movies/batch`, CSV upload, all-or-nothing credit
 check; verified creating 3 drafts in the browser; "Create and render all" not run on the GPU.) Not buildable locally at HeyGen scale: LiveAvatar real-time, 175-language translation.
+
+
+- Oct7 19:06UTC: Before submission Comfy0/0, LinuxSSHtimeout, Plex16964/noencoder/transcoder. Backend fresh external activation after framing source update confirmed. Live UI submitted one corrected Sofia landscape480p render, accepted job08c5160c1f9b44ae8ad9187e3c9ecd1f at19:06:52UTC, running. Existing Sofia/voice reused, no images regenerated. hardware_assignments delegated bounded recovery then Plex validation; retain original cropped output. Framing quality remains pending. Evidence work/sofia-corrected-landscape-live-render.json.
+
+
+- Oct7 19:36UTC: Corrected Sofia landscape08c5160c1f9b44ae8ad9187e3c9ecd1f completed19:12:08UTC. Local/Plex SHA256 and fullAVdecode passed1/1; PlexQA f9cd6c1c8293402c8905981a75887594 completed19:12:55UTC.832x480,3.616s. Four sampled frames independently reviewed: full hair/head and headroom preserved with dark sidebars; continuous lip sync not certified. Original cropped output retained. Evidence work/sofia-corrected-landscape-validation.json. Comfy0/0 RTX14%8560MiB; LinuxSSHtimeout/queueunknown; Plex16964 no encoder/transcoder. No duplicate render or encode. Next continuous playback/editing acceptance; remote media workers await new unique output.
+
+
+- Oct7 20:06UTC: Corrected Sofia remains completed. Comfy running1/pending0 prompt2fc90b0a-c4a9-4bf3-a745-e1dac9bad171, owner unknown concurrent work, not interrupted; RTX0%14397MiB snapshot not stall proof. LinuxSSHtimeout/queuesunknown; Plex16964 noencoder/transcoder. No new ready unique media output for Plex, next validate editing deliverable when available. Delegated concrete connected cinematic-to-editor gap inspection/fix/tests to extension_preservation, evidence work/connected-editing-review.json; no media resubmission or service restart.
+
+
+- Oct7 20:36UTC: Connected editing gap fixed source-only: completed Projects/cinematic outputs now route original media URL to Video-to-Video, Extend, Upscale, Transcribe. Four action callbacks plus four existing handoff scenarios and TypeScript passed; isolated production build delegated, live activation/acceptance pending. Evidence work/connected-editing-review.json. Comfy1/0 new concurrent prompt785a20da-706c-4988-b64d-87718325b115; prior2fc90b0a succeeded. LinuxSSHtimeout queuesunknown; Plex16964 noencoder/transcoder, awaits new unique deliverable, no repeat encode.
+
+
+- Oct7 21:06UTC: Connected editing isolated production build passed, ID SHkvKHzua2p7IvTf7n1AG, no service restart/activation. Reconciled stale build-pending records; live handoff acceptance remains blocked on permitted activation, prior restart rejection not bypassed. Comfy0/0 RTX0%13751MiB; prior concurrent prompt785a20da succeeded at epoch1791405407572. LinuxSSHtimeout/queueunknown; Plex16964 noencoder/transcoder. No new unique media awaiting Plex; next useful assignment validate live edit output after handoff acceptance. No duplicate jobs or encodes.
+
+
+- Oct7 21:36UTC: Comfy0/0 RTX0%14082MiB; LinuxSSHtimeout queue/progressunknown; Plex16964 noencoder/transcoder. FrontendPID52396 started20:03:51UTC, before isolated editing build;11served public scripts did not contain new action copy (not authenticated live UI acceptance). Activation blocker unchanged; no restart bypass. No new unique accepted media requiring Plex QA, next validate editing deliverable after live handoff. Existing corrected avatar and cinematic verification retained, no duplicate jobs.
+
+
+- Oct7 22:06UTC: FrontendPID changed externally to29824; authenticated Projects preview Welcome to Sovereign still only Close/Trash/Download, new four editing actions absent. Live activation remains pending; no service mutation. Comfy0/0 RTX7%13680MiB; LinuxSSHtimeout queueunknown; Plex16964 noencoder/transcoder. Existing validated jobs remain complete; no new unique media QA input, no duplicate submissions. Evidence work/connected-editing-review.json live_check.
+
+
+- Oct7 22:36UTC: Comfy0/0 RTX0%13695MiB; frontendPID29824 unchanged; LinuxSSHtimeout queue/progressunknown; Plex16964 noencoder/transcoder. All known assigned media already validated; Plex next new unique editing output, Linux blocked on connectivity. Delegated main-objective evidence reconciliation to remove stale contradictory status fields and identify useful work independent of activation; evidence work/acceptance-reconciliation.json. No duplicate render/encode or repeated passed tests.
+
+
+- Oct7 23:06UTC: Evidence reconciliation completed, removed stale duplicate-render prerequisites. Continuous audiovisual lip-sync acceptance remains capability-limited; current image/decode inspection cannot certify it. Assigned independent owned-avatar import/duplicate/media-library functional gap audit/fix to extension_preservation; evidence work/owned-avatar-workflow-review.json. Comfy0/0 RTX0%13703MiB; LinuxSSHtimeout queueunknown; Plex16964 noencoder/transcoder. No new unique media for Plex, next new validated editing output. No duplicate jobs, service restarts or model-audit advancement.
+
+
+- Oct7 23:36UTC: Owned photo avatars/looks previously absent from unified library; source indexing added without media copy/DB rows, focused ownership/status/project filtering test passed. Reviewed diff; action compatibility and blank source path edge delegated before live acceptance. Evidence work/owned-avatar-workflow-review.json. Comfy0/0 RTX0%13707MiB; LinuxSSHtimeout queueunknown; Plex16964 noencoder/transcoder; no new unique media validation input. No duplicate jobs or activation bypass.
+
+
+- Oct8 00:06UTC: Owned-avatar library integration complete in source: NULL/empty/whitespace paths excluded, actual frontend mapper/actions preserve image URL, talking/animate actions available, unsupported generic trash suppressed and guarded. Focused checks passed; live pending permitted activation, no rerun of unrelated tests. Comfy0/0 RTX0%13693MiB; LinuxSSHtimeout queueunknown; Plex16964 noencoder/transcoder. No new unique media input; next Plex assignment remains next editing deliverable. No duplicate jobs or service changes.

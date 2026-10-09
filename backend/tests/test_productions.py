@@ -50,6 +50,7 @@ def _video(client, project_id):
         json={
             "project_id": project_id,
             "mode": "text_to_video",
+            "provider": "local_ltx",  # these tests are about productions, not which model is the default
             "prompt": "slow luxury product reveal",
             "motion_preset": "slow_zoom",
             "duration_seconds": 5,

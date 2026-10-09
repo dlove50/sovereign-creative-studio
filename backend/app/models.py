@@ -38,6 +38,31 @@ class User(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=_now, onupdate=_now)
 
 
+class CinematicPlan(Base):
+    """Reviewed cinematic drafts, independent of presenter movie scenes."""
+    __tablename__ = "cinematic_plans"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
+    prompt: Mapped[str] = mapped_column(Text)
+    seconds: Mapped[int] = mapped_column(Integer)
+    plan: Mapped[dict] = mapped_column(JSON)
+    revision: Mapped[int] = mapped_column(Integer, default=1)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=_now, onupdate=_now)
+
+
+class CinematicProduction(Base):
+    __tablename__ = "cinematic_productions"
+    plan_id: Mapped[str] = mapped_column(ForeignKey("cinematic_plans.id"), primary_key=True)
+    revision: Mapped[int] = mapped_column(Integer, primary_key=True)
+    attachments: Mapped[dict] = mapped_column(JSON, default=dict)
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    status: Mapped[str] = mapped_column(String(24), default="draft")
+    result_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
 class Project(Base):
     __tablename__ = "projects"
 
@@ -53,6 +78,7 @@ class Project(Base):
     negative_keywords: Mapped[str | None] = mapped_column(Text, nullable=True)
     product_positioning: Mapped[str | None] = mapped_column(Text, nullable=True)
     campaign_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    brand_spec_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=_now, onupdate=_now)
 

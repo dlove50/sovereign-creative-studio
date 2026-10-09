@@ -4,6 +4,8 @@ title Start Sovereign Creative Studio
 
 set "APP_ROOT=C:\Users\David\Documents\Codex\sovereign-creative-studio"
 set "PY=%APP_ROOT%\backend\.venv\Scripts\python.exe"
+set "NEXT_DIST_DIR=.next-cinematic-fixed"
+set "BACKEND_ORIGIN=http://127.0.0.1:8002"
 
 echo.
 echo Starting Sovereign Creative Studio...

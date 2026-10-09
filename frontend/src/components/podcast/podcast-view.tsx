@@ -78,6 +78,7 @@ export function PodcastView() {
   const sameName = one.name.trim().toLowerCase() === two.name.trim().toLowerCase();
 
   async function create() {
+    if (busy || parsed.overflow > 0 || !parsed.scenes.length || missingAvatar || sameName) return;
     setBusy(true);
     setError(null);
     try {
@@ -116,12 +117,12 @@ export function PodcastView() {
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-card px-4 py-3">
         <span className="text-sm">
           <strong>{parsed.scenes.length}</strong> scenes · {parsed.scenes.length * CREDITS_PER_SCENE} credits · about {estMinutes} min to render
-          {parsed.scenes.length >= MAX_SCENES ? <span className="ml-2 text-amber-500">Capped at {MAX_SCENES} scenes.</span> : null}
+          {parsed.overflow > 0 ? <span role="alert" className="ml-2 text-destructive">This script needs {parsed.scenes.length + parsed.overflow} scenes. Shorten it or split it into separate drafts of up to {MAX_SCENES} scenes.</span> : null}
         </span>
         <button
           type="button"
           onClick={create}
-          disabled={busy || parsed.scenes.length === 0 || missingAvatar || sameName}
+          disabled={busy || parsed.overflow > 0 || parsed.scenes.length === 0 || missingAvatar || sameName}
           className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
         >
           {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}

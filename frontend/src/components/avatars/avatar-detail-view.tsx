@@ -159,7 +159,7 @@ export function AvatarDetailView({ avatarId }: { avatarId: string }) {
             <li key={look.id}>
               <button type="button" onClick={() => setOpen(look)} className="group relative block aspect-[4/3] w-full overflow-hidden rounded-2xl border border-border text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                 {src ? <img src={src} alt="" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]" /> : <span className="flex h-full items-center justify-center bg-raised"><Video className="h-6 w-6 text-muted-foreground" /></span>}
-                <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-3 pb-2.5 pt-8 text-xs font-medium text-white">{caption}</span>
+                <span className="absolute inset-x-0 bottom-0 bg-black/90 px-3 py-2.5 text-sm font-semibold text-white">{caption}</span>
               </button>
             </li>
           );

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { GitBranch, Plus, Trash2 } from "lucide-react";
 
+import trainingExample from "@/lib/training-example.json";
 import { api } from "@/lib/api";
 
 type Item = Awaited<ReturnType<typeof api.listInteractive>>[number];
@@ -27,6 +28,8 @@ export function InteractiveListView() {
     }
   }
 
+  async function startTraining(){try{const made=await api.createInteractive(trainingExample);router.push(`/interactive/${made.id}`);}catch(e){setError(e instanceof Error?e.message:"Could not create training example.");}}
+
   async function remove(id: string) {
     if (!window.confirm("Delete this interactive video?")) return;
     await api.deleteInteractive(id);
@@ -44,6 +47,7 @@ export function InteractiveListView() {
           <Plus className="h-4 w-4" /> New interactive video
         </button>
       </div>
+      <div className="mt-4 text-center"><button type="button" onClick={startTraining} className="rounded-lg border border-border px-4 py-2 font-medium">Start training example</button><p className="mt-2 text-sm text-muted-foreground">Creates an editable text-only practice scenario. No video render or charge.</p></div>
       {error ? <p className="mt-4 rounded-xl bg-destructive/15 px-3 py-2 text-sm text-destructive">{error}</p> : null}
       {items && items.length === 0 ? <p className="py-14 text-center text-sm text-muted-foreground">Nothing here yet. Make a video with choices to get started.</p> : null}
       <ul className="mt-6 space-y-2">

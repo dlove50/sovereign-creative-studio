@@ -38,11 +38,11 @@ const MEDIA_OPTIONS: { value: MediaType; label: string; icon: typeof ImageIcon }
 const ACTIVE_STATUSES = new Set(["queued", "running", "pending"]);
 
 const IMAGE_PROVIDERS: { id: ImageProvider; label: string; badge: string }[] = [
-  { id: "local_comfyui", label: "Local ComfyUI / Flux", badge: "Default local" },
+  { id: "local_comfyui", label: "Local ComfyUI", badge: "Default local" },
   { id: "openai_image_api", label: "OpenAI Image API", badge: "Premium" },
 ];
 
-// Display order for the Model/Preset selector; flux1_krea is the recommended default.
+// Display order only; the backend supplies the configured default model.
 const PRESET_DISPLAY_ORDER = [
   "flux1_krea",
   "krea2_turbo_fp8",
@@ -84,6 +84,8 @@ export function PromptForm() {
       mode = pending.targetMode;
     } else if (typeof window !== "undefined") {
       const sp = new URLSearchParams(window.location.search);
+      const plannedPrompt = sp.get("prompt");
+      if (plannedPrompt) setPrompt(plannedPrompt.slice(0, 4000));
       if (sp.get("source")) {
         src = sp.get("source");
         mode = sp.get("mode");
@@ -105,13 +107,10 @@ export function PromptForm() {
       .listImagePresets()
       .then((p) => {
         setPresets(p);
-        // Keep flux1_krea if it is ready (the recommended default).
-        // Otherwise fall to the first ready non-fallback preset.
-        const kreaReady = p.quality_presets.some((qp) => qp.id === "flux1_krea" && qp.ready);
-        if (!kreaReady) {
-          const firstReady = p.quality_presets.find((qp) => qp.id !== "local_fast" && qp.ready);
-          if (firstReady) setQualityPreset(firstReady.id);
-        }
+        // Follow the server configuration so UI and API choose the same model.
+        const configuredDefault = p.quality_presets.find((qp) => qp.is_default && qp.ready);
+        const firstReady = configuredDefault ?? p.quality_presets.find((qp) => qp.ready);
+        if (firstReady) setQualityPreset(firstReady.id);
       })
       .catch(() => setPresets(null));
   }, []);
@@ -499,7 +498,7 @@ export function PromptForm() {
         <div className="rounded-lg border border-border bg-card p-6">
           <h3 className="mb-4 text-sm font-semibold">Latest result</h3>
           {result ? (
-            <GenerationCard generation={result} />
+            <GenerationCard generation={result} onDeleted={() => setResult(null)} />
           ) : (
             <div className="flex h-64 flex-col items-center justify-center gap-2 rounded-md border border-dashed border-border text-center text-sm text-muted-foreground">
               <Wand2 className="h-6 w-6" />

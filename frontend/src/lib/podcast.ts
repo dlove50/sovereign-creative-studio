@@ -6,8 +6,8 @@ export type PodcastScene = { avatar_id: string; tts_voice_id: string | null; scr
 export const MAX_SCENES = 30;
 const MAX_SCENE_CHARS = 1500;
 
-/** One scene per run of lines by the same speaker. Lines with no known speaker go to `fallback`. */
-export function dialogueToScenes(text: string, speakers: [Speaker, Speaker]): { scenes: PodcastScene[]; ignored: number } {
+/** Group speaker turns, splitting long dialogue without dropping its tail. */
+export function dialogueToScenes(text: string, speakers: [Speaker, Speaker]): { scenes: PodcastScene[]; ignored: number; overflow: number } {
   const names = speakers.map((s) => s.name.trim().toLowerCase());
   const scenes: PodcastScene[] = [];
   let lastSpeaker = -1;
@@ -24,13 +24,22 @@ export function dialogueToScenes(text: string, speakers: [Speaker, Speaker]): { 
       who = lastSpeaker;
       words = line;
     }
-    const last = scenes[scenes.length - 1];
-    if (who === lastSpeaker && last && (last.script + " " + words).length <= MAX_SCENE_CHARS) {
-      last.script += " " + words;
-    } else {
-      scenes.push({ avatar_id: speakers[who].avatarId, tts_voice_id: speakers[who].voiceId || null, script: words.slice(0, MAX_SCENE_CHARS) });
+    while (words) {
+      const last = scenes[scenes.length - 1];
+      if (who === lastSpeaker && last && (last.script + " " + words).length <= MAX_SCENE_CHARS) {
+        last.script += " " + words;
+        break;
+      }
+      let end = Math.min(words.length, MAX_SCENE_CHARS);
+      if (words.length > end) {
+        const boundary = words.lastIndexOf(" ", end);
+        if (boundary > 0) end = boundary;
+      }
+      scenes.push({ avatar_id: speakers[who].avatarId, tts_voice_id: speakers[who].voiceId || null, script: words.slice(0, end) });
+      words = words.slice(end).trimStart();
+      lastSpeaker = who;
     }
     lastSpeaker = who;
   }
-  return { scenes: scenes.slice(0, MAX_SCENES), ignored };
+  return { scenes: scenes.slice(0, MAX_SCENES), ignored, overflow: Math.max(0, scenes.length - MAX_SCENES) };
 }

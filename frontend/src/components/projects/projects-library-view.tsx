@@ -5,14 +5,15 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowDownWideNarrow, Download, Filter, Folder, FolderPlus, Loader2, Search, Trash2, Video, X } from "lucide-react";
 
+import { CompletedVideoEditing } from "@/components/media/completed-video-editing";
 import { api, assetUrl } from "@/lib/api";
 import type { AvatarJob, Movie, Project, VideoGeneration } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-type Kind = "avatar" | "clip" | "movie";
+type Kind = "avatar" | "clip" | "movie" | "cinematic";
 type Item = { id: string; kind: Kind; title: string; url: string | null; status: string; createdAt: string };
 type Sort = "newest" | "oldest" | "name";
-const KIND_LABEL: Record<Kind, string> = { avatar: "Avatar video", clip: "Video clip", movie: "Scene-by-scene video" };
+const KIND_LABEL: Record<Kind, string> = { cinematic: "Cinematic video", avatar: "Avatar video", clip: "Video clip", movie: "Scene-by-scene video" };
 
 function timeAgo(iso: string) {
   const ms = Date.now() - new Date(iso + (iso.endsWith("Z") ? "" : "Z")).getTime();
@@ -74,8 +75,9 @@ export function ProjectsLibraryView() {
 
   useEffect(() => {
     api.listProjects().then(setProjects).catch(() => setProjects([]));
-    Promise.all([api.listAvatarJobs().catch(() => [] as AvatarJob[]), api.listVideos().catch(() => [] as VideoGeneration[]), api.listMovies().catch(() => { setError("Scene-by-scene videos could not be loaded. Reload to try again."); return [] as Movie[]; })]).then(([jobs, clips, movies]) => {
+    Promise.all([api.listAvatarJobs().catch(() => [] as AvatarJob[]), api.listVideos().catch(() => [] as VideoGeneration[]), api.listMovies().catch(() => { setError("Scene-by-scene videos could not be loaded. Reload to try again."); return [] as Movie[]; }), api.listCinematicOutputs().catch(() => { setError("Cinematic videos could not be loaded. Reload to try again."); return []; })]).then(([jobs, clips, movies, cinematic]) => {
       setItems([
+        ...cinematic.map((v): Item => ({ id: `c-${v.id}`, kind: "cinematic", title: `${v.title} - Revision ${v.revision}`, url: v.result_url, status: v.status, createdAt: v.created_at })),
         ...movies.map((m): Item => ({ id: `m-${m.id}`, kind: "movie", title: m.title, url: m.output_video_path, status: m.status, createdAt: m.updated_at })),
         ...jobs.filter((j) => j.status !== "setup_required").map((j): Item => ({
           id: `a-${j.id}`, kind: "avatar", title: j.script_text?.trim() || "Talking avatar", url: j.output_video_path, status: j.status, createdAt: j.created_at,
@@ -103,17 +105,27 @@ export function ProjectsLibraryView() {
     );
   }, [items, kind, q, sort]);
 
-  async function trashOpen() {
-    if (!open || !window.confirm(`Move “${open.title.slice(0, 60)}” to the trash? An admin can restore it.`)) return;
-    const [prefix, rawId] = [open.id.slice(0, 2), open.id.slice(2)];
+  async function trashItem(item: Item) {
+    if (item.kind === "cinematic") return;
+    const label = item.title.slice(0, 60);
+    const ok = item.kind === "movie"
+      ? window.confirm(`Delete “${label}”? Its scenes are removed with it.`)
+      : window.confirm(`Move “${label}” to the trash? An admin can restore it.`);
+    if (!ok) return;
+    const [prefix, rawId] = [item.id.slice(0, 2), item.id.slice(2)];
     try {
-      if (prefix === "a-") await api.trashAvatarJob(rawId);
+      if (item.kind === "movie") await api.deleteMovie(rawId);
+      else if (prefix === "a-") await api.trashAvatarJob(rawId);
       else await api.trashVideo(rawId);
-      setItems((all) => (all ?? []).filter((i) => i.id !== open.id));
-      setOpen(null);
+      setItems((all) => (all ?? []).filter((i) => i.id !== item.id));
+      setOpen((current) => (current?.id === item.id ? null : current));
     } catch (e) {
-      setError(e instanceof Error ? e.message : "The video could not be moved to the trash.");
+      setError(e instanceof Error ? e.message : "It could not be deleted.");
     }
+  }
+
+  async function trashOpen() {
+    if (open) await trashItem(open);
   }
 
   async function createFolder() {
@@ -151,6 +163,7 @@ export function ProjectsLibraryView() {
             <option value="avatar">Avatar videos</option>
             <option value="movie">Scene-by-scene videos</option>
             <option value="clip">Video clips</option>
+            <option value="cinematic">Cinematic videos</option>
           </select>
         </label>
       </div>
@@ -202,7 +215,14 @@ export function ProjectsLibraryView() {
       ) : (
         <ul className="grid grid-cols-2 gap-x-4 gap-y-6 md:grid-cols-3">
           {videos.map((item) => (
-            <li key={item.id}><VideoCard item={item} onOpen={() => item.kind === "movie" ? router.push(`/movies/${item.id.slice(2)}`) : setOpen(item)} /></li>
+            <li key={item.id} className="group relative">
+              <VideoCard item={item} onOpen={() => item.kind === "movie" ? router.push(`/movies/${item.id.slice(2)}`) : setOpen(item)} />
+              {item.kind !== "cinematic" && !(item.status === "queued" || item.status === "running" || item.status === "rendering") ? (
+                <button type="button" onClick={() => trashItem(item)} aria-label={`Delete ${item.title.slice(0, 60)}`} className="absolute right-2 top-2 rounded-full bg-black/70 p-1.5 text-white opacity-0 transition hover:bg-destructive focus-visible:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100">
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              ) : null}
+            </li>
           ))}
         </ul>
       )}
@@ -215,8 +235,9 @@ export function ProjectsLibraryView() {
               <button type="button" onClick={() => setOpen(null)} aria-label="Close" className="rounded-full p-1 text-muted-foreground hover:bg-raised"><X className="h-4 w-4" /></button>
             </div>
             <video controls autoPlay src={assetUrl(open.url) ?? undefined} className="max-h-[70vh] w-full bg-black" />
+            <div className="px-5 py-3"><CompletedVideoEditing id={open.id} url={open.url} title={open.title} origin="Projects" /></div>
             <div className="flex justify-between gap-3 px-5 py-3">
-              <button type="button" onClick={trashOpen} className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm text-destructive hover:bg-raised">
+              <button hidden={open.kind === "cinematic"} type="button" onClick={trashOpen} className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm text-destructive hover:bg-raised">
                 <Trash2 className="h-4 w-4" /> Move to trash
               </button>
               <a href={assetUrl(open.url) ?? "#"} download className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground">

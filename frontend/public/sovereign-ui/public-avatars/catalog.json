@@ -1,0 +1,1562 @@
+{
+  "nadia": {
+    "id": "nadia",
+    "name": "Nadia",
+    "category": "Professional",
+    "cover": "/sovereign-ui/public-avatars/nadia.webp",
+    "source": "/storage/39115d45a84440739453a94888dfc23a.png",
+    "looks": [
+      {
+        "label": "Studio",
+        "cover": "/sovereign-ui/public-avatars/nadia-studio.webp"
+      },
+      {
+        "label": "Boardroom",
+        "cover": "/sovereign-ui/public-avatars/nadia-boardroom.webp"
+      },
+      {
+        "label": "Podcast",
+        "cover": "/sovereign-ui/public-avatars/nadia-suite-podcast.webp"
+      },
+      {
+        "label": "Executive",
+        "cover": "/sovereign-ui/public-avatars/nadia-suite-executive.webp"
+      },
+      {
+        "label": "Creative loft",
+        "cover": "/sovereign-ui/public-avatars/nadia-suite-creative-loft.webp"
+      },
+      {
+        "label": "Presentation",
+        "cover": "/sovereign-ui/public-avatars/nadia-suite-presentation.webp"
+      },
+      {
+        "label": "Home office",
+        "cover": "/sovereign-ui/public-avatars/nadia-suite-home-office.webp"
+      },
+      {
+        "label": "Fitness",
+        "cover": "/sovereign-ui/public-avatars/nadia-suite-fitness.webp"
+      },
+      {
+        "label": "Automotive",
+        "cover": "/sovereign-ui/public-avatars/nadia-suite-automotive.webp"
+      },
+      {
+        "label": "Construction",
+        "cover": "/sovereign-ui/public-avatars/nadia-suite-construction.webp"
+      },
+      {
+        "label": "Real estate",
+        "cover": "/sovereign-ui/public-avatars/nadia-suite-real-estate.webp"
+      },
+      {
+        "label": "Medical",
+        "cover": "/sovereign-ui/public-avatars/nadia-suite-medical.webp"
+      },
+      {
+        "label": "Kitchen",
+        "cover": "/sovereign-ui/public-avatars/nadia-suite-kitchen.webp"
+      },
+      {
+        "label": "Garden",
+        "cover": "/sovereign-ui/public-avatars/nadia-suite-garden.webp"
+      }
+    ]
+  },
+  "tomas": {
+    "id": "tomas",
+    "name": "Tomas",
+    "category": "Professional",
+    "cover": "/sovereign-ui/public-avatars/tomas.webp",
+    "source": "/storage/aca9089690f644479bb393ec67ba65bc.png",
+    "looks": [
+      {
+        "label": "Office",
+        "cover": "/sovereign-ui/public-avatars/tomas-office.webp"
+      },
+      {
+        "label": "Casual friday",
+        "cover": "/sovereign-ui/public-avatars/tomas-casual-friday.webp"
+      },
+      {
+        "label": "Podcast",
+        "cover": "/sovereign-ui/public-avatars/tomas-suite-podcast.webp"
+      },
+      {
+        "label": "Executive",
+        "cover": "/sovereign-ui/public-avatars/tomas-suite-executive.webp"
+      },
+      {
+        "label": "Creative loft",
+        "cover": "/sovereign-ui/public-avatars/tomas-suite-creative-loft.webp"
+      },
+      {
+        "label": "Presentation",
+        "cover": "/sovereign-ui/public-avatars/tomas-suite-presentation.webp"
+      },
+      {
+        "label": "Home office",
+        "cover": "/sovereign-ui/public-avatars/tomas-suite-home-office.webp"
+      },
+      {
+        "label": "Fitness",
+        "cover": "/sovereign-ui/public-avatars/tomas-suite-fitness.webp"
+      },
+      {
+        "label": "Automotive",
+        "cover": "/sovereign-ui/public-avatars/tomas-suite-automotive.webp"
+      },
+      {
+        "label": "Construction",
+        "cover": "/sovereign-ui/public-avatars/tomas-suite-construction.webp"
+      },
+      {
+        "label": "Real estate",
+        "cover": "/sovereign-ui/public-avatars/tomas-suite-real-estate.webp"
+      },
+      {
+        "label": "Medical",
+        "cover": "/sovereign-ui/public-avatars/tomas-suite-medical.webp"
+      },
+      {
+        "label": "Kitchen",
+        "cover": "/sovereign-ui/public-avatars/tomas-suite-kitchen.webp"
+      },
+      {
+        "label": "Garden",
+        "cover": "/sovereign-ui/public-avatars/tomas-suite-garden.webp"
+      }
+    ]
+  },
+  "imani": {
+    "id": "imani",
+    "name": "Imani",
+    "category": "Professional",
+    "cover": "/sovereign-ui/public-avatars/imani.webp",
+    "source": "/storage/2496e2ef83ef46078e33343e2e4ee92e.png",
+    "looks": [
+      {
+        "label": "Lobby",
+        "cover": "/sovereign-ui/public-avatars/imani-lobby.webp"
+      },
+      {
+        "label": "Presenter",
+        "cover": "/sovereign-ui/public-avatars/imani-presenter.webp"
+      },
+      {
+        "label": "Podcast",
+        "cover": "/sovereign-ui/public-avatars/imani-suite-podcast.webp"
+      },
+      {
+        "label": "Executive",
+        "cover": "/sovereign-ui/public-avatars/imani-suite-executive.webp"
+      },
+      {
+        "label": "Creative loft",
+        "cover": "/sovereign-ui/public-avatars/imani-suite-creative-loft.webp"
+      },
+      {
+        "label": "Presentation",
+        "cover": "/sovereign-ui/public-avatars/imani-suite-presentation.webp"
+      },
+      {
+        "label": "Home office",
+        "cover": "/sovereign-ui/public-avatars/imani-suite-home-office.webp"
+      },
+      {
+        "label": "Fitness",
+        "cover": "/sovereign-ui/public-avatars/imani-suite-fitness.webp"
+      },
+      {
+        "label": "Automotive",
+        "cover": "/sovereign-ui/public-avatars/imani-suite-automotive.webp"
+      },
+      {
+        "label": "Construction",
+        "cover": "/sovereign-ui/public-avatars/imani-suite-construction.webp"
+      },
+      {
+        "label": "Real estate",
+        "cover": "/sovereign-ui/public-avatars/imani-suite-real-estate.webp"
+      },
+      {
+        "label": "Medical",
+        "cover": "/sovereign-ui/public-avatars/imani-suite-medical.webp"
+      },
+      {
+        "label": "Kitchen",
+        "cover": "/sovereign-ui/public-avatars/imani-suite-kitchen.webp"
+      },
+      {
+        "label": "Garden",
+        "cover": "/sovereign-ui/public-avatars/imani-suite-garden.webp"
+      }
+    ]
+  },
+  "kenji": {
+    "id": "kenji",
+    "name": "Kenji",
+    "category": "Professional",
+    "cover": "/sovereign-ui/public-avatars/kenji.webp",
+    "source": "/storage/44377e21e1a342e1a762a6acc1e01d69.png",
+    "looks": [
+      {
+        "label": "Studio",
+        "cover": "/sovereign-ui/public-avatars/kenji-studio.webp"
+      },
+      {
+        "label": "Lecture hall",
+        "cover": "/sovereign-ui/public-avatars/kenji-lecture-hall.webp"
+      },
+      {
+        "label": "Podcast",
+        "cover": "/sovereign-ui/public-avatars/kenji-suite-podcast.webp"
+      },
+      {
+        "label": "Executive",
+        "cover": "/sovereign-ui/public-avatars/kenji-suite-executive.webp"
+      },
+      {
+        "label": "Creative loft",
+        "cover": "/sovereign-ui/public-avatars/kenji-suite-creative-loft.webp"
+      },
+      {
+        "label": "Presentation",
+        "cover": "/sovereign-ui/public-avatars/kenji-suite-presentation.webp"
+      },
+      {
+        "label": "Home office",
+        "cover": "/sovereign-ui/public-avatars/kenji-suite-home-office.webp"
+      },
+      {
+        "label": "Fitness",
+        "cover": "/sovereign-ui/public-avatars/kenji-suite-fitness.webp"
+      },
+      {
+        "label": "Automotive",
+        "cover": "/sovereign-ui/public-avatars/kenji-suite-automotive.webp"
+      },
+      {
+        "label": "Construction",
+        "cover": "/sovereign-ui/public-avatars/kenji-suite-construction.webp"
+      },
+      {
+        "label": "Real estate",
+        "cover": "/sovereign-ui/public-avatars/kenji-suite-real-estate.webp"
+      },
+      {
+        "label": "Medical",
+        "cover": "/sovereign-ui/public-avatars/kenji-suite-medical.webp"
+      },
+      {
+        "label": "Kitchen",
+        "cover": "/sovereign-ui/public-avatars/kenji-suite-kitchen.webp"
+      },
+      {
+        "label": "Garden",
+        "cover": "/sovereign-ui/public-avatars/kenji-suite-garden.webp"
+      }
+    ]
+  },
+  "priya": {
+    "id": "priya",
+    "name": "Priya",
+    "category": "Professional",
+    "cover": "/sovereign-ui/public-avatars/priya.webp",
+    "source": "/storage/662e67fc4f864943a6742b6e43423ca8.png",
+    "looks": [
+      {
+        "label": "Studio",
+        "cover": "/sovereign-ui/public-avatars/priya-studio.webp"
+      },
+      {
+        "label": "Conference",
+        "cover": "/sovereign-ui/public-avatars/priya-conference.webp"
+      },
+      {
+        "label": "Podcast",
+        "cover": "/sovereign-ui/public-avatars/priya-suite-podcast.webp"
+      },
+      {
+        "label": "Executive",
+        "cover": "/sovereign-ui/public-avatars/priya-suite-executive.webp"
+      },
+      {
+        "label": "Creative loft",
+        "cover": "/sovereign-ui/public-avatars/priya-suite-creative-loft.webp"
+      },
+      {
+        "label": "Presentation",
+        "cover": "/sovereign-ui/public-avatars/priya-suite-presentation.webp"
+      },
+      {
+        "label": "Home office",
+        "cover": "/sovereign-ui/public-avatars/priya-suite-home-office.webp"
+      },
+      {
+        "label": "Fitness",
+        "cover": "/sovereign-ui/public-avatars/priya-suite-fitness.webp"
+      },
+      {
+        "label": "Automotive",
+        "cover": "/sovereign-ui/public-avatars/priya-suite-automotive.webp"
+      },
+      {
+        "label": "Construction",
+        "cover": "/sovereign-ui/public-avatars/priya-suite-construction.webp"
+      },
+      {
+        "label": "Real estate",
+        "cover": "/sovereign-ui/public-avatars/priya-suite-real-estate.webp"
+      },
+      {
+        "label": "Medical",
+        "cover": "/sovereign-ui/public-avatars/priya-suite-medical.webp"
+      },
+      {
+        "label": "Kitchen",
+        "cover": "/sovereign-ui/public-avatars/priya-suite-kitchen.webp"
+      },
+      {
+        "label": "Garden",
+        "cover": "/sovereign-ui/public-avatars/priya-suite-garden.webp"
+      }
+    ]
+  },
+  "marcus": {
+    "id": "marcus",
+    "name": "Marcus",
+    "category": "Professional",
+    "cover": "/sovereign-ui/public-avatars/marcus.webp",
+    "source": "/storage/6cf32f499e034994b66777969c2c63ed.png",
+    "looks": [
+      {
+        "label": "Studio",
+        "cover": "/sovereign-ui/public-avatars/marcus-studio.webp"
+      },
+      {
+        "label": "Rooftop",
+        "cover": "/sovereign-ui/public-avatars/marcus-rooftop.webp"
+      },
+      {
+        "label": "Podcast",
+        "cover": "/sovereign-ui/public-avatars/marcus-suite-podcast.webp"
+      },
+      {
+        "label": "Executive",
+        "cover": "/sovereign-ui/public-avatars/marcus-suite-executive.webp"
+      },
+      {
+        "label": "Creative loft",
+        "cover": "/sovereign-ui/public-avatars/marcus-suite-creative-loft.webp"
+      },
+      {
+        "label": "Presentation",
+        "cover": "/sovereign-ui/public-avatars/marcus-suite-presentation.webp"
+      },
+      {
+        "label": "Home office",
+        "cover": "/sovereign-ui/public-avatars/marcus-suite-home-office.webp"
+      },
+      {
+        "label": "Fitness",
+        "cover": "/sovereign-ui/public-avatars/marcus-suite-fitness.webp"
+      },
+      {
+        "label": "Automotive",
+        "cover": "/sovereign-ui/public-avatars/marcus-suite-automotive.webp"
+      },
+      {
+        "label": "Construction",
+        "cover": "/sovereign-ui/public-avatars/marcus-suite-construction.webp"
+      },
+      {
+        "label": "Real estate",
+        "cover": "/sovereign-ui/public-avatars/marcus-suite-real-estate.webp"
+      },
+      {
+        "label": "Medical",
+        "cover": "/sovereign-ui/public-avatars/marcus-suite-medical.webp"
+      },
+      {
+        "label": "Kitchen",
+        "cover": "/sovereign-ui/public-avatars/marcus-suite-kitchen.webp"
+      },
+      {
+        "label": "Garden",
+        "cover": "/sovereign-ui/public-avatars/marcus-suite-garden.webp"
+      }
+    ]
+  },
+  "sofia": {
+    "id": "sofia",
+    "name": "Sofia",
+    "category": "Lifestyle",
+    "cover": "/sovereign-ui/public-avatars/sofia.webp",
+    "source": "/storage/7d25a0490af54c968d352a2c8c52336d.png",
+    "looks": [
+      {
+        "label": "Cafe",
+        "cover": "/sovereign-ui/public-avatars/sofia-cafe.webp"
+      },
+      {
+        "label": "Garden",
+        "cover": "/sovereign-ui/public-avatars/sofia-garden.webp"
+      },
+      {
+        "label": "Podcast",
+        "cover": "/sovereign-ui/public-avatars/sofia-suite-podcast.webp"
+      },
+      {
+        "label": "Executive",
+        "cover": "/sovereign-ui/public-avatars/sofia-suite-executive.webp"
+      },
+      {
+        "label": "Creative loft",
+        "cover": "/sovereign-ui/public-avatars/sofia-suite-creative-loft.webp"
+      },
+      {
+        "label": "Presentation",
+        "cover": "/sovereign-ui/public-avatars/sofia-suite-presentation.webp"
+      },
+      {
+        "label": "Home office",
+        "cover": "/sovereign-ui/public-avatars/sofia-suite-home-office.webp"
+      },
+      {
+        "label": "Fitness",
+        "cover": "/sovereign-ui/public-avatars/sofia-suite-fitness.webp"
+      },
+      {
+        "label": "Automotive",
+        "cover": "/sovereign-ui/public-avatars/sofia-suite-automotive.webp"
+      },
+      {
+        "label": "Construction",
+        "cover": "/sovereign-ui/public-avatars/sofia-suite-construction.webp"
+      },
+      {
+        "label": "Real estate",
+        "cover": "/sovereign-ui/public-avatars/sofia-suite-real-estate.webp"
+      },
+      {
+        "label": "Medical",
+        "cover": "/sovereign-ui/public-avatars/sofia-suite-medical.webp"
+      },
+      {
+        "label": "Kitchen",
+        "cover": "/sovereign-ui/public-avatars/sofia-suite-kitchen.webp"
+      },
+      {
+        "label": "Library",
+        "cover": "/sovereign-ui/public-avatars/sofia-suite-library.webp"
+      }
+    ]
+  },
+  "jonas": {
+    "id": "jonas",
+    "name": "Jonas",
+    "category": "Lifestyle",
+    "cover": "/sovereign-ui/public-avatars/jonas.webp",
+    "source": "/storage/83adcbc218854954b0c2531f622569f3.png",
+    "looks": [
+      {
+        "label": "Outdoors",
+        "cover": "/sovereign-ui/public-avatars/jonas-outdoors.webp"
+      },
+      {
+        "label": "Workshop",
+        "cover": "/sovereign-ui/public-avatars/jonas-workshop.webp"
+      },
+      {
+        "label": "Podcast",
+        "cover": "/sovereign-ui/public-avatars/jonas-suite-podcast.webp"
+      },
+      {
+        "label": "Executive",
+        "cover": "/sovereign-ui/public-avatars/jonas-suite-executive.webp"
+      },
+      {
+        "label": "Creative loft",
+        "cover": "/sovereign-ui/public-avatars/jonas-suite-creative-loft.webp"
+      },
+      {
+        "label": "Presentation",
+        "cover": "/sovereign-ui/public-avatars/jonas-suite-presentation.webp"
+      },
+      {
+        "label": "Home office",
+        "cover": "/sovereign-ui/public-avatars/jonas-suite-home-office.webp"
+      },
+      {
+        "label": "Fitness",
+        "cover": "/sovereign-ui/public-avatars/jonas-suite-fitness.webp"
+      },
+      {
+        "label": "Automotive",
+        "cover": "/sovereign-ui/public-avatars/jonas-suite-automotive.webp"
+      },
+      {
+        "label": "Construction",
+        "cover": "/sovereign-ui/public-avatars/jonas-suite-construction.webp"
+      },
+      {
+        "label": "Real estate",
+        "cover": "/sovereign-ui/public-avatars/jonas-suite-real-estate.webp"
+      },
+      {
+        "label": "Medical",
+        "cover": "/sovereign-ui/public-avatars/jonas-suite-medical.webp"
+      },
+      {
+        "label": "Kitchen",
+        "cover": "/sovereign-ui/public-avatars/jonas-suite-kitchen.webp"
+      },
+      {
+        "label": "Garden",
+        "cover": "/sovereign-ui/public-avatars/jonas-suite-garden.webp"
+      }
+    ]
+  },
+  "leila": {
+    "id": "leila",
+    "name": "Leila",
+    "category": "Lifestyle",
+    "cover": "/sovereign-ui/public-avatars/leila.webp",
+    "source": "/storage/e5abe8e41d264c1da6de186685b8bf54.png",
+    "looks": [
+      {
+        "label": "Balcony",
+        "cover": "/sovereign-ui/public-avatars/leila-balcony.webp"
+      },
+      {
+        "label": "Kitchen",
+        "cover": "/sovereign-ui/public-avatars/leila-kitchen.webp"
+      },
+      {
+        "label": "Podcast",
+        "cover": "/sovereign-ui/public-avatars/leila-suite-podcast.webp"
+      },
+      {
+        "label": "Executive",
+        "cover": "/sovereign-ui/public-avatars/leila-suite-executive.webp"
+      },
+      {
+        "label": "Creative loft",
+        "cover": "/sovereign-ui/public-avatars/leila-suite-creative-loft.webp"
+      },
+      {
+        "label": "Presentation",
+        "cover": "/sovereign-ui/public-avatars/leila-suite-presentation.webp"
+      },
+      {
+        "label": "Home office",
+        "cover": "/sovereign-ui/public-avatars/leila-suite-home-office.webp"
+      },
+      {
+        "label": "Fitness",
+        "cover": "/sovereign-ui/public-avatars/leila-suite-fitness.webp"
+      },
+      {
+        "label": "Automotive",
+        "cover": "/sovereign-ui/public-avatars/leila-suite-automotive.webp"
+      },
+      {
+        "label": "Construction",
+        "cover": "/sovereign-ui/public-avatars/leila-suite-construction.webp"
+      },
+      {
+        "label": "Real estate",
+        "cover": "/sovereign-ui/public-avatars/leila-suite-real-estate.webp"
+      },
+      {
+        "label": "Medical",
+        "cover": "/sovereign-ui/public-avatars/leila-suite-medical.webp"
+      },
+      {
+        "label": "Garden",
+        "cover": "/sovereign-ui/public-avatars/leila-suite-garden.webp"
+      },
+      {
+        "label": "Library",
+        "cover": "/sovereign-ui/public-avatars/leila-suite-library.webp"
+      }
+    ]
+  },
+  "hiro": {
+    "id": "hiro",
+    "name": "Hiro",
+    "category": "Lifestyle",
+    "cover": "/sovereign-ui/public-avatars/hiro.webp",
+    "source": "/storage/55cc0fbf79d443f687c2a18b2851506d.png",
+    "looks": [
+      {
+        "label": "Street",
+        "cover": "/sovereign-ui/public-avatars/hiro-street.webp"
+      },
+      {
+        "label": "Studio",
+        "cover": "/sovereign-ui/public-avatars/hiro-studio.webp"
+      },
+      {
+        "label": "Podcast",
+        "cover": "/sovereign-ui/public-avatars/hiro-suite-podcast.webp"
+      },
+      {
+        "label": "Executive",
+        "cover": "/sovereign-ui/public-avatars/hiro-suite-executive.webp"
+      },
+      {
+        "label": "Creative loft",
+        "cover": "/sovereign-ui/public-avatars/hiro-suite-creative-loft.webp"
+      },
+      {
+        "label": "Presentation",
+        "cover": "/sovereign-ui/public-avatars/hiro-suite-presentation.webp"
+      },
+      {
+        "label": "Home office",
+        "cover": "/sovereign-ui/public-avatars/hiro-suite-home-office.webp"
+      },
+      {
+        "label": "Fitness",
+        "cover": "/sovereign-ui/public-avatars/hiro-suite-fitness.webp"
+      },
+      {
+        "label": "Automotive",
+        "cover": "/sovereign-ui/public-avatars/hiro-suite-automotive.webp"
+      },
+      {
+        "label": "Construction",
+        "cover": "/sovereign-ui/public-avatars/hiro-suite-construction.webp"
+      },
+      {
+        "label": "Real estate",
+        "cover": "/sovereign-ui/public-avatars/hiro-suite-real-estate.webp"
+      },
+      {
+        "label": "Medical",
+        "cover": "/sovereign-ui/public-avatars/hiro-suite-medical.webp"
+      },
+      {
+        "label": "Kitchen",
+        "cover": "/sovereign-ui/public-avatars/hiro-suite-kitchen.webp"
+      },
+      {
+        "label": "Garden",
+        "cover": "/sovereign-ui/public-avatars/hiro-suite-garden.webp"
+      }
+    ]
+  },
+  "camila": {
+    "id": "camila",
+    "name": "Camila",
+    "category": "Lifestyle",
+    "cover": "/sovereign-ui/public-avatars/camila.webp",
+    "source": "/storage/a52c471edd40469ea7e3443b082fbb8d.png",
+    "looks": [
+      {
+        "label": "Market",
+        "cover": "/sovereign-ui/public-avatars/camila-market.webp"
+      },
+      {
+        "label": "Home",
+        "cover": "/sovereign-ui/public-avatars/camila-home.webp"
+      },
+      {
+        "label": "Podcast",
+        "cover": "/sovereign-ui/public-avatars/camila-suite-podcast.webp"
+      },
+      {
+        "label": "Executive",
+        "cover": "/sovereign-ui/public-avatars/camila-suite-executive.webp"
+      },
+      {
+        "label": "Creative loft",
+        "cover": "/sovereign-ui/public-avatars/camila-suite-creative-loft.webp"
+      },
+      {
+        "label": "Presentation",
+        "cover": "/sovereign-ui/public-avatars/camila-suite-presentation.webp"
+      },
+      {
+        "label": "Home office",
+        "cover": "/sovereign-ui/public-avatars/camila-suite-home-office.webp"
+      },
+      {
+        "label": "Fitness",
+        "cover": "/sovereign-ui/public-avatars/camila-suite-fitness.webp"
+      },
+      {
+        "label": "Automotive",
+        "cover": "/sovereign-ui/public-avatars/camila-suite-automotive.webp"
+      },
+      {
+        "label": "Construction",
+        "cover": "/sovereign-ui/public-avatars/camila-suite-construction.webp"
+      },
+      {
+        "label": "Real estate",
+        "cover": "/sovereign-ui/public-avatars/camila-suite-real-estate.webp"
+      },
+      {
+        "label": "Medical",
+        "cover": "/sovereign-ui/public-avatars/camila-suite-medical.webp"
+      },
+      {
+        "label": "Kitchen",
+        "cover": "/sovereign-ui/public-avatars/camila-suite-kitchen.webp"
+      },
+      {
+        "label": "Garden",
+        "cover": "/sovereign-ui/public-avatars/camila-suite-garden.webp"
+      }
+    ]
+  },
+  "owen": {
+    "id": "owen",
+    "name": "Owen",
+    "category": "Lifestyle",
+    "cover": "/sovereign-ui/public-avatars/owen.webp",
+    "source": "/storage/5e5b799c6d6a4f97b153b06368ad3bde.png",
+    "looks": [
+      {
+        "label": "Porch",
+        "cover": "/sovereign-ui/public-avatars/owen-porch.webp"
+      },
+      {
+        "label": "Garage",
+        "cover": "/sovereign-ui/public-avatars/owen-garage.webp"
+      },
+      {
+        "label": "Podcast",
+        "cover": "/sovereign-ui/public-avatars/owen-suite-podcast.webp"
+      },
+      {
+        "label": "Executive",
+        "cover": "/sovereign-ui/public-avatars/owen-suite-executive.webp"
+      },
+      {
+        "label": "Creative loft",
+        "cover": "/sovereign-ui/public-avatars/owen-suite-creative-loft.webp"
+      },
+      {
+        "label": "Presentation",
+        "cover": "/sovereign-ui/public-avatars/owen-suite-presentation.webp"
+      },
+      {
+        "label": "Home office",
+        "cover": "/sovereign-ui/public-avatars/owen-suite-home-office.webp"
+      },
+      {
+        "label": "Fitness",
+        "cover": "/sovereign-ui/public-avatars/owen-suite-fitness.webp"
+      },
+      {
+        "label": "Automotive",
+        "cover": "/sovereign-ui/public-avatars/owen-suite-automotive.webp"
+      },
+      {
+        "label": "Construction",
+        "cover": "/sovereign-ui/public-avatars/owen-suite-construction.webp"
+      },
+      {
+        "label": "Real estate",
+        "cover": "/sovereign-ui/public-avatars/owen-suite-real-estate.webp"
+      },
+      {
+        "label": "Medical",
+        "cover": "/sovereign-ui/public-avatars/owen-suite-medical.webp"
+      },
+      {
+        "label": "Kitchen",
+        "cover": "/sovereign-ui/public-avatars/owen-suite-kitchen.webp"
+      },
+      {
+        "label": "Garden",
+        "cover": "/sovereign-ui/public-avatars/owen-suite-garden.webp"
+      }
+    ]
+  },
+  "zara": {
+    "id": "zara",
+    "name": "Zara",
+    "category": "UGC",
+    "cover": "/sovereign-ui/public-avatars/zara.webp",
+    "source": "/storage/d35a3e4db729491fa0dafdcfd0f7019c.png",
+    "looks": [
+      {
+        "label": "Car",
+        "cover": "/sovereign-ui/public-avatars/zara-car.webp"
+      },
+      {
+        "label": "Cafe",
+        "cover": "/sovereign-ui/public-avatars/zara-cafe.webp"
+      },
+      {
+        "label": "Podcast",
+        "cover": "/sovereign-ui/public-avatars/zara-suite-podcast.webp"
+      },
+      {
+        "label": "Executive",
+        "cover": "/sovereign-ui/public-avatars/zara-suite-executive.webp"
+      },
+      {
+        "label": "Creative loft",
+        "cover": "/sovereign-ui/public-avatars/zara-suite-creative-loft.webp"
+      },
+      {
+        "label": "Presentation",
+        "cover": "/sovereign-ui/public-avatars/zara-suite-presentation.webp"
+      },
+      {
+        "label": "Home office",
+        "cover": "/sovereign-ui/public-avatars/zara-suite-home-office.webp"
+      },
+      {
+        "label": "Fitness",
+        "cover": "/sovereign-ui/public-avatars/zara-suite-fitness.webp"
+      },
+      {
+        "label": "Automotive",
+        "cover": "/sovereign-ui/public-avatars/zara-suite-automotive.webp"
+      },
+      {
+        "label": "Construction",
+        "cover": "/sovereign-ui/public-avatars/zara-suite-construction.webp"
+      },
+      {
+        "label": "Real estate",
+        "cover": "/sovereign-ui/public-avatars/zara-suite-real-estate.webp"
+      },
+      {
+        "label": "Medical",
+        "cover": "/sovereign-ui/public-avatars/zara-suite-medical.webp"
+      },
+      {
+        "label": "Kitchen",
+        "cover": "/sovereign-ui/public-avatars/zara-suite-kitchen.webp"
+      },
+      {
+        "label": "Garden",
+        "cover": "/sovereign-ui/public-avatars/zara-suite-garden.webp"
+      }
+    ]
+  },
+  "dmitri": {
+    "id": "dmitri",
+    "name": "Dmitri",
+    "category": "UGC",
+    "cover": "/sovereign-ui/public-avatars/dmitri.webp",
+    "source": "/storage/a5e598dab75441618e209b98bd7c72a5.png",
+    "looks": [
+      {
+        "label": "Gym",
+        "cover": "/sovereign-ui/public-avatars/dmitri-gym.webp"
+      },
+      {
+        "label": "Street",
+        "cover": "/sovereign-ui/public-avatars/dmitri-street.webp"
+      },
+      {
+        "label": "Podcast",
+        "cover": "/sovereign-ui/public-avatars/dmitri-suite-podcast.webp"
+      },
+      {
+        "label": "Executive",
+        "cover": "/sovereign-ui/public-avatars/dmitri-suite-executive.webp"
+      },
+      {
+        "label": "Creative loft",
+        "cover": "/sovereign-ui/public-avatars/dmitri-suite-creative-loft.webp"
+      },
+      {
+        "label": "Presentation",
+        "cover": "/sovereign-ui/public-avatars/dmitri-suite-presentation.webp"
+      },
+      {
+        "label": "Home office",
+        "cover": "/sovereign-ui/public-avatars/dmitri-suite-home-office.webp"
+      },
+      {
+        "label": "Fitness",
+        "cover": "/sovereign-ui/public-avatars/dmitri-suite-fitness.webp"
+      },
+      {
+        "label": "Automotive",
+        "cover": "/sovereign-ui/public-avatars/dmitri-suite-automotive.webp"
+      },
+      {
+        "label": "Construction",
+        "cover": "/sovereign-ui/public-avatars/dmitri-suite-construction.webp"
+      },
+      {
+        "label": "Real estate",
+        "cover": "/sovereign-ui/public-avatars/dmitri-suite-real-estate.webp"
+      },
+      {
+        "label": "Medical",
+        "cover": "/sovereign-ui/public-avatars/dmitri-suite-medical.webp"
+      },
+      {
+        "label": "Kitchen",
+        "cover": "/sovereign-ui/public-avatars/dmitri-suite-kitchen.webp"
+      },
+      {
+        "label": "Garden",
+        "cover": "/sovereign-ui/public-avatars/dmitri-suite-garden.webp"
+      }
+    ]
+  },
+  "yara": {
+    "id": "yara",
+    "name": "Yara",
+    "category": "UGC",
+    "cover": "/sovereign-ui/public-avatars/yara.webp",
+    "source": "/storage/b5c0860483b84415a0c562bca5a73985.png",
+    "looks": [
+      {
+        "label": "Kitchen",
+        "cover": "/sovereign-ui/public-avatars/yara-kitchen.webp"
+      },
+      {
+        "label": "Outdoor",
+        "cover": "/sovereign-ui/public-avatars/yara-outdoor.webp"
+      },
+      {
+        "label": "Podcast",
+        "cover": "/sovereign-ui/public-avatars/yara-suite-podcast.webp"
+      },
+      {
+        "label": "Executive",
+        "cover": "/sovereign-ui/public-avatars/yara-suite-executive.webp"
+      },
+      {
+        "label": "Creative loft",
+        "cover": "/sovereign-ui/public-avatars/yara-suite-creative-loft.webp"
+      },
+      {
+        "label": "Presentation",
+        "cover": "/sovereign-ui/public-avatars/yara-suite-presentation.webp"
+      },
+      {
+        "label": "Home office",
+        "cover": "/sovereign-ui/public-avatars/yara-suite-home-office.webp"
+      },
+      {
+        "label": "Fitness",
+        "cover": "/sovereign-ui/public-avatars/yara-suite-fitness.webp"
+      },
+      {
+        "label": "Automotive",
+        "cover": "/sovereign-ui/public-avatars/yara-suite-automotive.webp"
+      },
+      {
+        "label": "Construction",
+        "cover": "/sovereign-ui/public-avatars/yara-suite-construction.webp"
+      },
+      {
+        "label": "Real estate",
+        "cover": "/sovereign-ui/public-avatars/yara-suite-real-estate.webp"
+      },
+      {
+        "label": "Medical",
+        "cover": "/sovereign-ui/public-avatars/yara-suite-medical.webp"
+      },
+      {
+        "label": "Garden",
+        "cover": "/sovereign-ui/public-avatars/yara-suite-garden.webp"
+      },
+      {
+        "label": "Library",
+        "cover": "/sovereign-ui/public-avatars/yara-suite-library.webp"
+      }
+    ]
+  },
+  "felix": {
+    "id": "felix",
+    "name": "Felix",
+    "category": "UGC",
+    "cover": "/sovereign-ui/public-avatars/felix.webp",
+    "source": "/storage/5c61bae16a7e427999ae1d5efb67fe76.png",
+    "looks": [
+      {
+        "label": "Cafe",
+        "cover": "/sovereign-ui/public-avatars/felix-cafe.webp"
+      },
+      {
+        "label": "Beach",
+        "cover": "/sovereign-ui/public-avatars/felix-beach.webp"
+      },
+      {
+        "label": "Podcast",
+        "cover": "/sovereign-ui/public-avatars/felix-suite-podcast.webp"
+      },
+      {
+        "label": "Executive",
+        "cover": "/sovereign-ui/public-avatars/felix-suite-executive.webp"
+      },
+      {
+        "label": "Creative loft",
+        "cover": "/sovereign-ui/public-avatars/felix-suite-creative-loft.webp"
+      },
+      {
+        "label": "Presentation",
+        "cover": "/sovereign-ui/public-avatars/felix-suite-presentation.webp"
+      },
+      {
+        "label": "Home office",
+        "cover": "/sovereign-ui/public-avatars/felix-suite-home-office.webp"
+      },
+      {
+        "label": "Fitness",
+        "cover": "/sovereign-ui/public-avatars/felix-suite-fitness.webp"
+      },
+      {
+        "label": "Automotive",
+        "cover": "/sovereign-ui/public-avatars/felix-suite-automotive.webp"
+      },
+      {
+        "label": "Construction",
+        "cover": "/sovereign-ui/public-avatars/felix-suite-construction.webp"
+      },
+      {
+        "label": "Real estate",
+        "cover": "/sovereign-ui/public-avatars/felix-suite-real-estate.webp"
+      },
+      {
+        "label": "Medical",
+        "cover": "/sovereign-ui/public-avatars/felix-suite-medical.webp"
+      },
+      {
+        "label": "Kitchen",
+        "cover": "/sovereign-ui/public-avatars/felix-suite-kitchen.webp"
+      },
+      {
+        "label": "Garden",
+        "cover": "/sovereign-ui/public-avatars/felix-suite-garden.webp"
+      }
+    ]
+  },
+  "amara": {
+    "id": "amara",
+    "name": "Amara",
+    "category": "UGC",
+    "cover": "/sovereign-ui/public-avatars/amara.webp",
+    "source": "/storage/bffc14fe148f42ca800e4ef95f50aea9.png",
+    "looks": [
+      {
+        "label": "Studio",
+        "cover": "/sovereign-ui/public-avatars/amara-studio.webp"
+      },
+      {
+        "label": "Market",
+        "cover": "/sovereign-ui/public-avatars/amara-market.webp"
+      },
+      {
+        "label": "Podcast",
+        "cover": "/sovereign-ui/public-avatars/amara-suite-podcast.webp"
+      },
+      {
+        "label": "Executive",
+        "cover": "/sovereign-ui/public-avatars/amara-suite-executive.webp"
+      },
+      {
+        "label": "Creative loft",
+        "cover": "/sovereign-ui/public-avatars/amara-suite-creative-loft.webp"
+      },
+      {
+        "label": "Presentation",
+        "cover": "/sovereign-ui/public-avatars/amara-suite-presentation.webp"
+      },
+      {
+        "label": "Home office",
+        "cover": "/sovereign-ui/public-avatars/amara-suite-home-office.webp"
+      },
+      {
+        "label": "Fitness",
+        "cover": "/sovereign-ui/public-avatars/amara-suite-fitness.webp"
+      },
+      {
+        "label": "Automotive",
+        "cover": "/sovereign-ui/public-avatars/amara-suite-automotive.webp"
+      },
+      {
+        "label": "Construction",
+        "cover": "/sovereign-ui/public-avatars/amara-suite-construction.webp"
+      },
+      {
+        "label": "Real estate",
+        "cover": "/sovereign-ui/public-avatars/amara-suite-real-estate.webp"
+      },
+      {
+        "label": "Medical",
+        "cover": "/sovereign-ui/public-avatars/amara-suite-medical.webp"
+      },
+      {
+        "label": "Kitchen",
+        "cover": "/sovereign-ui/public-avatars/amara-suite-kitchen.webp"
+      },
+      {
+        "label": "Garden",
+        "cover": "/sovereign-ui/public-avatars/amara-suite-garden.webp"
+      }
+    ]
+  },
+  "luca": {
+    "id": "luca",
+    "name": "Luca",
+    "category": "UGC",
+    "cover": "/sovereign-ui/public-avatars/luca.webp",
+    "source": "/storage/d0291e0b73a94d0b9f17e15f35cace4a.png",
+    "looks": [
+      {
+        "label": "Kitchen",
+        "cover": "/sovereign-ui/public-avatars/luca-kitchen.webp"
+      },
+      {
+        "label": "Car",
+        "cover": "/sovereign-ui/public-avatars/luca-car.webp"
+      },
+      {
+        "label": "Podcast",
+        "cover": "/sovereign-ui/public-avatars/luca-suite-podcast.webp"
+      },
+      {
+        "label": "Executive",
+        "cover": "/sovereign-ui/public-avatars/luca-suite-executive.webp"
+      },
+      {
+        "label": "Creative loft",
+        "cover": "/sovereign-ui/public-avatars/luca-suite-creative-loft.webp"
+      },
+      {
+        "label": "Presentation",
+        "cover": "/sovereign-ui/public-avatars/luca-suite-presentation.webp"
+      },
+      {
+        "label": "Home office",
+        "cover": "/sovereign-ui/public-avatars/luca-suite-home-office.webp"
+      },
+      {
+        "label": "Fitness",
+        "cover": "/sovereign-ui/public-avatars/luca-suite-fitness.webp"
+      },
+      {
+        "label": "Automotive",
+        "cover": "/sovereign-ui/public-avatars/luca-suite-automotive.webp"
+      },
+      {
+        "label": "Construction",
+        "cover": "/sovereign-ui/public-avatars/luca-suite-construction.webp"
+      },
+      {
+        "label": "Real estate",
+        "cover": "/sovereign-ui/public-avatars/luca-suite-real-estate.webp"
+      },
+      {
+        "label": "Medical",
+        "cover": "/sovereign-ui/public-avatars/luca-suite-medical.webp"
+      },
+      {
+        "label": "Garden",
+        "cover": "/sovereign-ui/public-avatars/luca-suite-garden.webp"
+      },
+      {
+        "label": "Library",
+        "cover": "/sovereign-ui/public-avatars/luca-suite-library.webp"
+      }
+    ]
+  },
+  "mei": {
+    "id": "mei",
+    "name": "Mei",
+    "category": "Community",
+    "cover": "/sovereign-ui/public-avatars/mei.webp",
+    "source": "/storage/1d4b3e17ada2425189dc3b0aff00258f.png",
+    "looks": [
+      {
+        "label": "Library",
+        "cover": "/sovereign-ui/public-avatars/mei-library.webp"
+      },
+      {
+        "label": "Garden",
+        "cover": "/sovereign-ui/public-avatars/mei-garden.webp"
+      },
+      {
+        "label": "Podcast",
+        "cover": "/sovereign-ui/public-avatars/mei-suite-podcast.webp"
+      },
+      {
+        "label": "Executive",
+        "cover": "/sovereign-ui/public-avatars/mei-suite-executive.webp"
+      },
+      {
+        "label": "Creative loft",
+        "cover": "/sovereign-ui/public-avatars/mei-suite-creative-loft.webp"
+      },
+      {
+        "label": "Presentation",
+        "cover": "/sovereign-ui/public-avatars/mei-suite-presentation.webp"
+      },
+      {
+        "label": "Home office",
+        "cover": "/sovereign-ui/public-avatars/mei-suite-home-office.webp"
+      },
+      {
+        "label": "Fitness",
+        "cover": "/sovereign-ui/public-avatars/mei-suite-fitness.webp"
+      },
+      {
+        "label": "Automotive",
+        "cover": "/sovereign-ui/public-avatars/mei-suite-automotive.webp"
+      },
+      {
+        "label": "Construction",
+        "cover": "/sovereign-ui/public-avatars/mei-suite-construction.webp"
+      },
+      {
+        "label": "Real estate",
+        "cover": "/sovereign-ui/public-avatars/mei-suite-real-estate.webp"
+      },
+      {
+        "label": "Medical",
+        "cover": "/sovereign-ui/public-avatars/mei-suite-medical.webp"
+      },
+      {
+        "label": "Kitchen",
+        "cover": "/sovereign-ui/public-avatars/mei-suite-kitchen.webp"
+      },
+      {
+        "label": "Studio white",
+        "cover": "/sovereign-ui/public-avatars/mei-suite-studio-white.webp"
+      }
+    ]
+  },
+  "andre": {
+    "id": "andre",
+    "name": "Andre",
+    "category": "Community",
+    "cover": "/sovereign-ui/public-avatars/andre.webp",
+    "source": "/storage/a4bf776d9aeb4df184196dd8ac7519bc.png",
+    "looks": [
+      {
+        "label": "Clinic",
+        "cover": "/sovereign-ui/public-avatars/andre-clinic.webp"
+      },
+      {
+        "label": "Outdoor",
+        "cover": "/sovereign-ui/public-avatars/andre-outdoor.webp"
+      },
+      {
+        "label": "Podcast",
+        "cover": "/sovereign-ui/public-avatars/andre-suite-podcast.webp"
+      },
+      {
+        "label": "Executive",
+        "cover": "/sovereign-ui/public-avatars/andre-suite-executive.webp"
+      },
+      {
+        "label": "Creative loft",
+        "cover": "/sovereign-ui/public-avatars/andre-suite-creative-loft.webp"
+      },
+      {
+        "label": "Presentation",
+        "cover": "/sovereign-ui/public-avatars/andre-suite-presentation.webp"
+      },
+      {
+        "label": "Home office",
+        "cover": "/sovereign-ui/public-avatars/andre-suite-home-office.webp"
+      },
+      {
+        "label": "Fitness",
+        "cover": "/sovereign-ui/public-avatars/andre-suite-fitness.webp"
+      },
+      {
+        "label": "Automotive",
+        "cover": "/sovereign-ui/public-avatars/andre-suite-automotive.webp"
+      },
+      {
+        "label": "Construction",
+        "cover": "/sovereign-ui/public-avatars/andre-suite-construction.webp"
+      },
+      {
+        "label": "Real estate",
+        "cover": "/sovereign-ui/public-avatars/andre-suite-real-estate.webp"
+      },
+      {
+        "label": "Medical",
+        "cover": "/sovereign-ui/public-avatars/andre-suite-medical.webp"
+      },
+      {
+        "label": "Kitchen",
+        "cover": "/sovereign-ui/public-avatars/andre-suite-kitchen.webp"
+      },
+      {
+        "label": "Garden",
+        "cover": "/sovereign-ui/public-avatars/andre-suite-garden.webp"
+      }
+    ]
+  },
+  "greta": {
+    "id": "greta",
+    "name": "Greta",
+    "category": "Community",
+    "cover": "/sovereign-ui/public-avatars/greta.webp",
+    "source": "/storage/961723605b394a01bd4cf938ca238609.png",
+    "looks": [
+      {
+        "label": "Library",
+        "cover": "/sovereign-ui/public-avatars/greta-library.webp"
+      },
+      {
+        "label": "Office",
+        "cover": "/sovereign-ui/public-avatars/greta-office.webp"
+      },
+      {
+        "label": "Podcast",
+        "cover": "/sovereign-ui/public-avatars/greta-suite-podcast.webp"
+      },
+      {
+        "label": "Executive",
+        "cover": "/sovereign-ui/public-avatars/greta-suite-executive.webp"
+      },
+      {
+        "label": "Creative loft",
+        "cover": "/sovereign-ui/public-avatars/greta-suite-creative-loft.webp"
+      },
+      {
+        "label": "Presentation",
+        "cover": "/sovereign-ui/public-avatars/greta-suite-presentation.webp"
+      },
+      {
+        "label": "Home office",
+        "cover": "/sovereign-ui/public-avatars/greta-suite-home-office.webp"
+      },
+      {
+        "label": "Fitness",
+        "cover": "/sovereign-ui/public-avatars/greta-suite-fitness.webp"
+      },
+      {
+        "label": "Automotive",
+        "cover": "/sovereign-ui/public-avatars/greta-suite-automotive.webp"
+      },
+      {
+        "label": "Construction",
+        "cover": "/sovereign-ui/public-avatars/greta-suite-construction.webp"
+      },
+      {
+        "label": "Real estate",
+        "cover": "/sovereign-ui/public-avatars/greta-suite-real-estate.webp"
+      },
+      {
+        "label": "Medical",
+        "cover": "/sovereign-ui/public-avatars/greta-suite-medical.webp"
+      },
+      {
+        "label": "Kitchen",
+        "cover": "/sovereign-ui/public-avatars/greta-suite-kitchen.webp"
+      },
+      {
+        "label": "Garden",
+        "cover": "/sovereign-ui/public-avatars/greta-suite-garden.webp"
+      }
+    ]
+  },
+  "samir": {
+    "id": "samir",
+    "name": "Samir",
+    "category": "Community",
+    "cover": "/sovereign-ui/public-avatars/samir.webp",
+    "source": "/storage/7025b11aa39b430c8a6b3b62d991005c.png",
+    "looks": [
+      {
+        "label": "Workshop",
+        "cover": "/sovereign-ui/public-avatars/samir-workshop.webp"
+      },
+      {
+        "label": "Office",
+        "cover": "/sovereign-ui/public-avatars/samir-office.webp"
+      },
+      {
+        "label": "Podcast",
+        "cover": "/sovereign-ui/public-avatars/samir-suite-podcast.webp"
+      },
+      {
+        "label": "Executive",
+        "cover": "/sovereign-ui/public-avatars/samir-suite-executive.webp"
+      },
+      {
+        "label": "Creative loft",
+        "cover": "/sovereign-ui/public-avatars/samir-suite-creative-loft.webp"
+      },
+      {
+        "label": "Presentation",
+        "cover": "/sovereign-ui/public-avatars/samir-suite-presentation.webp"
+      },
+      {
+        "label": "Home office",
+        "cover": "/sovereign-ui/public-avatars/samir-suite-home-office.webp"
+      },
+      {
+        "label": "Fitness",
+        "cover": "/sovereign-ui/public-avatars/samir-suite-fitness.webp"
+      },
+      {
+        "label": "Automotive",
+        "cover": "/sovereign-ui/public-avatars/samir-suite-automotive.webp"
+      },
+      {
+        "label": "Construction",
+        "cover": "/sovereign-ui/public-avatars/samir-suite-construction.webp"
+      },
+      {
+        "label": "Real estate",
+        "cover": "/sovereign-ui/public-avatars/samir-suite-real-estate.webp"
+      },
+      {
+        "label": "Medical",
+        "cover": "/sovereign-ui/public-avatars/samir-suite-medical.webp"
+      },
+      {
+        "label": "Kitchen",
+        "cover": "/sovereign-ui/public-avatars/samir-suite-kitchen.webp"
+      },
+      {
+        "label": "Garden",
+        "cover": "/sovereign-ui/public-avatars/samir-suite-garden.webp"
+      }
+    ]
+  },
+  "noor": {
+    "id": "noor",
+    "name": "Noor",
+    "category": "Community",
+    "cover": "/sovereign-ui/public-avatars/noor.webp",
+    "source": "/storage/630e7559627f4de8931222ca0c7ace06.png",
+    "looks": [
+      {
+        "label": "Studio",
+        "cover": "/sovereign-ui/public-avatars/noor-studio.webp"
+      },
+      {
+        "label": "Clinic",
+        "cover": "/sovereign-ui/public-avatars/noor-clinic.webp"
+      },
+      {
+        "label": "Podcast",
+        "cover": "/sovereign-ui/public-avatars/noor-suite-podcast.webp"
+      },
+      {
+        "label": "Executive",
+        "cover": "/sovereign-ui/public-avatars/noor-suite-executive.webp"
+      },
+      {
+        "label": "Creative loft",
+        "cover": "/sovereign-ui/public-avatars/noor-suite-creative-loft.webp"
+      },
+      {
+        "label": "Presentation",
+        "cover": "/sovereign-ui/public-avatars/noor-suite-presentation.webp"
+      },
+      {
+        "label": "Home office",
+        "cover": "/sovereign-ui/public-avatars/noor-suite-home-office.webp"
+      },
+      {
+        "label": "Fitness",
+        "cover": "/sovereign-ui/public-avatars/noor-suite-fitness.webp"
+      },
+      {
+        "label": "Automotive",
+        "cover": "/sovereign-ui/public-avatars/noor-suite-automotive.webp"
+      },
+      {
+        "label": "Construction",
+        "cover": "/sovereign-ui/public-avatars/noor-suite-construction.webp"
+      },
+      {
+        "label": "Real estate",
+        "cover": "/sovereign-ui/public-avatars/noor-suite-real-estate.webp"
+      },
+      {
+        "label": "Medical",
+        "cover": "/sovereign-ui/public-avatars/noor-suite-medical.webp"
+      },
+      {
+        "label": "Kitchen",
+        "cover": "/sovereign-ui/public-avatars/noor-suite-kitchen.webp"
+      },
+      {
+        "label": "Garden",
+        "cover": "/sovereign-ui/public-avatars/noor-suite-garden.webp"
+      }
+    ]
+  },
+  "theo": {
+    "id": "theo",
+    "name": "Theo",
+    "category": "Community",
+    "cover": "/sovereign-ui/public-avatars/theo.webp",
+    "source": "/storage/d41ba8e08ded4635ae3f438237e98c39.png",
+    "looks": [
+      {
+        "label": "Park",
+        "cover": "/sovereign-ui/public-avatars/theo-park.webp"
+      },
+      {
+        "label": "Study",
+        "cover": "/sovereign-ui/public-avatars/theo-study.webp"
+      },
+      {
+        "label": "Podcast",
+        "cover": "/sovereign-ui/public-avatars/theo-suite-podcast.webp"
+      },
+      {
+        "label": "Executive",
+        "cover": "/sovereign-ui/public-avatars/theo-suite-executive.webp"
+      },
+      {
+        "label": "Creative loft",
+        "cover": "/sovereign-ui/public-avatars/theo-suite-creative-loft.webp"
+      },
+      {
+        "label": "Presentation",
+        "cover": "/sovereign-ui/public-avatars/theo-suite-presentation.webp"
+      },
+      {
+        "label": "Home office",
+        "cover": "/sovereign-ui/public-avatars/theo-suite-home-office.webp"
+      },
+      {
+        "label": "Fitness",
+        "cover": "/sovereign-ui/public-avatars/theo-suite-fitness.webp"
+      },
+      {
+        "label": "Automotive",
+        "cover": "/sovereign-ui/public-avatars/theo-suite-automotive.webp"
+      },
+      {
+        "label": "Construction",
+        "cover": "/sovereign-ui/public-avatars/theo-suite-construction.webp"
+      },
+      {
+        "label": "Real estate",
+        "cover": "/sovereign-ui/public-avatars/theo-suite-real-estate.webp"
+      },
+      {
+        "label": "Medical",
+        "cover": "/sovereign-ui/public-avatars/theo-suite-medical.webp"
+      },
+      {
+        "label": "Kitchen",
+        "cover": "/sovereign-ui/public-avatars/theo-suite-kitchen.webp"
+      },
+      {
+        "label": "Garden",
+        "cover": "/sovereign-ui/public-avatars/theo-suite-garden.webp"
+      }
+    ]
+  }
+}

@@ -156,6 +156,16 @@ class ComfyUIGenerator(Generator):
             resp = await client.get(f"/history/{prompt_id}")
             resp.raise_for_status()
             entry = resp.json().get(prompt_id)
+            if entry and (entry.get("status") or {}).get("status_str") == "error":
+                for message in entry["status"].get("messages", []):
+                    if not isinstance(message, (list, tuple)) or len(message) != 2:
+                        continue
+                    kind, payload = message
+                    if kind == "execution_error" and isinstance(payload, dict):
+                        node = payload.get("node_type") or payload.get("node_id") or "unknown node"
+                        detail = payload.get("exception_message") or "execution failed"
+                        raise RuntimeError(f"ComfyUI image workflow failed at {node}: {detail}")
+                raise RuntimeError("ComfyUI image workflow failed")
             if entry and entry.get("outputs"):
                 return entry["outputs"]
             await asyncio.sleep(_POLL_INTERVAL_SECONDS)

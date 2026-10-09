@@ -275,6 +275,21 @@ def execute(job_id: str, payload: dict, suffix: str = "") -> None:
                 elif op == "isolate":
                     binary(job, "POST", "/v1/audio-isolation", files={"audio": file}, extension=".wav")
                     job["status"] = "completed"
+                elif op == "voice-clone":
+                    # ElevenLabs instant voice cloning: add a voice sample → get a voice_id.
+                    data = call("elevenlabs", "POST",
+                                "/v2/voices-and-default-voices/add",
+                                files={"audio_files": ("cloned" + suffix, stream, file[2])},
+                                json={"name": payload.get("title", f"{job['id']}"), "description": "", "labels": {}}).json()
+                    job["remote_id"] = data["voice_id"]
+                    job["status"] = "completed"
+                elif op == "sts":
+                    # HeyGen speak-to-video: upload source video + reference voice → avatar speaks.
+                    data = call("heygen", "POST", "/v1/video_generation/speak_to_video", files={
+                            "video_file": ("input" + suffix, stream, file[2]),
+                        }, json={"title": payload.get("title", ""), "target_voice_id": voice or None}).json()
+                    job["remote_id"] = str(data.get("data", {}).get("video_id") or data.get("video_generation_id"))
+                    job["status"] = "processing"
     except Exception as exc:
         job["status"] = "failed"
         job["error"] = str(exc.detail) if isinstance(exc, HTTPException) else "Cloud request could not be completed. Check the provider dashboard before resubmitting."
@@ -332,6 +347,16 @@ def refresh(job_id: str) -> dict:
         if status == "failed":
             job.update(status="failed", error="Provider could not finish this job. See its dashboard for details.")
         return save(job)
+    except HTTPException as exc:
+        # Keep the accepted remote job retryable and its diagnostic visible after
+        # a browser reload. Refresh must never create a replacement paid render.
+        job["error"] = str(exc.detail)
+        save(job)
+        raise
+    except (KeyError, TypeError, ValueError):
+        job["error"] = "Provider returned an unexpected job response. Refresh this job later; do not submit a replacement."
+        save(job)
+        raise HTTPException(502, job["error"]) from None
     finally:
         with _lock:
             _polling.discard(job_id)

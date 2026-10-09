@@ -1,0 +1,74 @@
+{
+  "title": "Spotting an Unidentified Spill",
+  "start_node_id": "intro",
+  "nodes": [
+    {
+      "id": "intro",
+      "title": "An unidentified spill",
+      "video_url": "",
+      "body": "You arrive at work and notice an unidentified spill across a walkway. Choose how to respond.",
+      "question": "",
+      "choices": [
+        {
+          "label": "Continue",
+          "next": "question"
+        }
+      ]
+    },
+    {
+      "id": "question",
+      "title": "What do you do before walking near a spill?",
+      "video_url": "",
+      "body": "",
+      "question": "What should you do first?",
+      "choices": [
+        {
+          "label": "A) Keep clear and notify designated staff",
+          "next": "correct",
+          "is_correct": true,
+          "feedback": "Keep clear and notify designated staff."
+        },
+        {
+          "label": "B) Walk through the spill",
+          "next": "remediation",
+          "is_correct": false,
+          "feedback": "Do not walk through an unidentified spill. Review the explanation and try again."
+        }
+      ]
+    },
+    {
+      "id": "correct",
+      "title": "Correct!",
+      "video_url": "",
+      "body": "The best course of action is to keep clear of the spill and notify designated staff. This helps prevent injury and ensures a safe cleanup.",
+      "question": "",
+      "choices": [
+        {
+          "label": "Continue",
+          "next": "end"
+        }
+      ]
+    },
+    {
+      "id": "remediation",
+      "title": "Incorrect. What do you do instead?",
+      "video_url": "",
+      "body": "Avoid the spill and follow your workplace reporting procedure. Notify the designated staff rather than attempting an unfamiliar cleanup.",
+      "question": "",
+      "choices": [
+        {
+          "label": "Continue",
+          "next": "question"
+        }
+      ]
+    },
+    {
+      "id": "end",
+      "title": "Learning Complete!",
+      "video_url": "",
+      "body": "Remember to always prioritize your safety and the safety of others when dealing with spills. If in doubt, err on the side of caution and seek guidance from designated staff.",
+      "question": "",
+      "choices": []
+    }
+  ]
+}

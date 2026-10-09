@@ -282,6 +282,22 @@ def _join_chunks(chunks: list[Path], audio: Path, total_frames: int, out_path: P
     ])
 
 
+def _prepare_avatar_frame(source: Path, destination: Path, width: int, height: int) -> None:
+    """Contain the complete source before InfiniteTalk's mandatory center crop.
+
+    A temporary RGB canvas matches the render dimensions, so the node cannot
+    crop the original portrait when producing square or landscape outputs.
+    """
+    from PIL import Image, ImageOps
+
+    with Image.open(source) as raw:
+        image = ImageOps.exif_transpose(raw).convert("RGBA")
+        image = ImageOps.contain(image, (width, height), Image.Resampling.LANCZOS)
+        canvas = Image.new("RGB", (width, height), (24, 24, 24))
+        canvas.paste(image, ((width - image.width) // 2, (height - image.height) // 2), image)
+        canvas.save(destination, format="PNG")
+
+
 async def generate_talking_avatar(
     image_path: Path,
     audio_path: Path,
@@ -300,7 +316,10 @@ async def generate_talking_avatar(
     plans, total_frames = plan_chunks(_audio_seconds(audio_path), preset.frames)
     base = config.COMFYUI_BASE_URL.rstrip("/")
     async with httpx.AsyncClient(base_url=base, timeout=_HTTP_TIMEOUT) as client:
-        image_name = await _upload(client, image_path, "image")
+        with tempfile.TemporaryDirectory(prefix="avatar_frame_") as framing_dir:
+            framed_path = Path(framing_dir) / f"avatar_source_{uuid.uuid4().hex}.png"
+            _prepare_avatar_frame(image_path, framed_path, preset.width, preset.height)
+            image_name = await _upload(client, framed_path, "image")
         if len(plans) == 1:
             audio_name = await _upload(client, audio_path, "audio")
             patched = _patch(workflow, image_name, audio_name, prompt, preset, length=plans[0].length)

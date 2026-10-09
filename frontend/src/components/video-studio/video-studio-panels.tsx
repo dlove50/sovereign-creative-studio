@@ -71,7 +71,7 @@ export function VideoModeBanner({
             <span className="text-sm font-semibold">Video backend</span>
             <Badge variant={isComfy ? "default" : "muted"}>{backend}</Badge>
             {isComfy ? (
-              <Badge variant="outline">Real LTX video mode</Badge>
+              <Badge variant="outline">Local video workflows</Badge>
             ) : (
               <Badge variant="outline">Mock preview mode</Badge>
             )}

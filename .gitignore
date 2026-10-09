@@ -70,3 +70,13 @@ best-chinese-local-models-downloader/
 # ── OS ────────────────────────────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
+
+# ── Never commit: secrets, backups, build output, model weights, QA scratch ─────
+backend/.env.bak*
+backend/sovereign.db.bak*
+backend/*.db.bak*
+frontend/.next*/
+*.safetensors
+*.ckpt
+*.gguf
+work/

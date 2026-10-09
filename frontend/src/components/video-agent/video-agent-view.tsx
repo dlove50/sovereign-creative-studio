@@ -2,9 +2,10 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { Check, ChevronRight, Clock, Loader2, Mic, Palette, Paperclip, PenLine, Sparkles, UserRound, X } from "lucide-react";
+import { Captions, Check, ChevronRight, Clock, Loader2, Monitor, Mic, Palette, Paperclip, PenLine, Sparkles, UserRound, X } from "lucide-react";
 
 import { defaultVoiceFor } from "@/lib/avatar-voice";
+import { CaptionedVideo } from "@/components/media/captioned-video";
 import { api, assetUrl } from "@/lib/api";
 import type { AvatarAsset, AvatarJob, BrandKit, VoiceOption } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -91,6 +92,8 @@ export function VideoAgentView() {
   const [voiceId, setVoiceId] = useState("");
   const [seconds, setSeconds] = useState<number>(30);
   const [instructions, setInstructions] = useState("");
+  const [shape, setShape] = useState<"auto" | "portrait" | "landscape">("auto");
+  const [captionsOn, setCaptionsOn] = useState(true);
   const [knowledge, setKnowledge] = useState<{ name: string; text: string }[]>([]);
   const [knowledgeError, setKnowledgeError] = useState<string | null>(null);
   const knowledgeInput = useRef<HTMLInputElement>(null);
@@ -163,7 +166,7 @@ export function VideoAgentView() {
       setStage("voice");
       const voice = await api.generateVoiceGreeting({ script_text: text, tts_voice_id: voiceId || undefined });
       setStage("video");
-      setJob(await api.createTalkingAvatar({ avatar_id: avatarId, voice_id: voice.id, script_text: text }));
+      setJob(await api.createTalkingAvatar({ avatar_id: avatarId, voice_id: voice.id, script_text: text, ...(shape === "auto" ? {} : { avatar_preset: `${shape}_480p` }) }));
     } catch (e) {
       setError(e instanceof Error ? e.message : "The video could not be started.");
       setStage("failed");
@@ -217,6 +220,7 @@ export function VideoAgentView() {
   return (
     <div className="mx-auto max-w-[1040px]">
       <h1 className="pt-6 text-center text-4xl font-extrabold tracking-[-0.03em]">What do you want to create?</h1>
+      <p className="mt-3 text-center"><Link href="/cinematic-planner" className="text-primary underline underline-offset-4">Plan a cinematic story with characters and multiple shots</Link></p>
 
       <section className="mt-7 rounded-3xl border border-primary/40 bg-card/70 p-4 shadow-[0_0_40px_hsl(var(--primary)/0.12)]">
         <div className="flex flex-wrap gap-2">
@@ -235,6 +239,19 @@ export function VideoAgentView() {
             <select value={brandId} onChange={(e) => setBrandId(e.target.value)} className={selectClass} aria-label="Brand">
               <option value="">None</option>
               {brands.map((b) => <option key={b.id} value={b.id}>{b.kit.brand_name || b.name}</option>)}
+            </select>
+          </Chip>
+          <Chip icon={Monitor} label="Shape">
+            <select value={shape} onChange={(e) => setShape(e.target.value as typeof shape)} className={selectClass} aria-label="Shape">
+              <option value="auto">Auto</option>
+              <option value="portrait">Portrait 9:16</option>
+              <option value="landscape">Landscape 16:9</option>
+            </select>
+          </Chip>
+          <Chip icon={Captions} label="Captions">
+            <select value={captionsOn ? "on" : "off"} onChange={(e) => setCaptionsOn(e.target.value === "on")} className={selectClass} aria-label="Captions">
+              <option value="on">On</option>
+              <option value="off">Off</option>
             </select>
           </Chip>
           <Chip icon={Clock} label="Length">
@@ -344,12 +361,10 @@ export function VideoAgentView() {
             </p>
           ) : null}
           {stage === "done" && job?.output_video_path ? (
-            <div className="mt-4 flex flex-wrap items-end gap-4">
-              <video controls src={assetUrl(job.output_video_path) ?? undefined} className="max-h-[480px] rounded-2xl border border-border" />
-              <span className="flex flex-col gap-2">
-                <a href={assetUrl(job.output_video_path) ?? "#"} download className="rounded-full bg-primary px-5 py-2 text-center text-sm font-semibold text-primary-foreground">Download video</a>
+            <div className="mt-4">
+              <CaptionedVideo src={job.output_video_path} auto={captionsOn} className="max-h-[480px]">
                 <Link href="/avatars/create" className="rounded-full border border-border px-5 py-2 text-center text-sm hover:bg-raised">Fine-tune in Make a video</Link>
-              </span>
+              </CaptionedVideo>
             </div>
           ) : null}
           {stage === "failed" && error ? <p className="mt-4 rounded-xl bg-destructive/15 px-3 py-2 text-sm text-destructive">{error}</p> : null}

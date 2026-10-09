@@ -98,3 +98,81 @@ def test_find_video_ignores_loader_preview_of_previous_chunk():
         "11": {"images": [{"filename": "sovereign_avatar_00026_.mp4", "subfolder": "", "type": "output"}], "animated": [True]},
     }
     assert ac._find_video(outputs)["filename"] == "sovereign_avatar_00026_.mp4"
+
+
+def test_tiny_preset_covers_sofia_full_voice_without_looping():
+    plans, total = ac.plan_chunks(3.616, chunk_frames=41)
+    assert total == 91
+    assert [p.audio_start_frame for p in plans] == [0, 0, 32]
+    assert [p.extends for p in plans] == [False, True, True]
+    assert plans[0].length + sum(p.length - ac.MOTION_FRAMES for p in plans[1:]) == 105
+
+
+
+@pytest.mark.parametrize("size", [(256, 256), (480, 832), (832, 480)])
+def test_portrait_frame_contains_top_and_bottom_without_modifying_source(tmp_path, size):
+    from PIL import Image, ImageDraw
+    source = tmp_path / "portrait.png"
+    image = Image.new("RGB", (100, 200), "green")
+    draw = ImageDraw.Draw(image)
+    draw.rectangle((0, 0, 99, 19), fill="red")
+    draw.rectangle((0, 180, 99, 199), fill="blue")
+    image.save(source)
+    before = source.read_bytes()
+    output = tmp_path / "framed.png"
+    ac._prepare_avatar_frame(source, output, *size)
+    with Image.open(output) as framed:
+        assert framed.size == size
+        contained_height = min(size[1], size[0] * 2)
+        top = (size[1] - contained_height) // 2
+        assert framed.getpixel((size[0] // 2, top + 3)) == (255, 0, 0)
+        assert framed.getpixel((size[0] // 2, top + contained_height - 4)) == (0, 0, 255)
+        assert framed.getpixel((0, size[1] // 2)) == (24, 24, 24)
+    assert source.read_bytes() == before
+
+@pytest.mark.parametrize("seconds", [0.4, 3.616])
+def test_independent_generations_reference_isolated_uploads(tmp_path, monkeypatch, seconds):
+    import asyncio
+    from PIL import Image
+    source = tmp_path / "portrait.png"
+    Image.new("RGB", (40, 80), "green").save(source)
+    audio = tmp_path / "voice.wav"
+    audio.write_bytes(b"fixture")
+    uploads, graphs = [], []
+
+    class Response:
+        def __init__(self, name): self.name = name
+        def raise_for_status(self): pass
+        def json(self): return {"name": "server_" + self.name, "subfolder": "isolated"}
+
+    class Client:
+        def __init__(self, **kwargs): pass
+        async def __aenter__(self): return self
+        async def __aexit__(self, *args): pass
+        async def post(self, url, files, data):
+            assert url == "/upload/image"
+            name = next(iter(files.values()))[0]
+            uploads.append(name)
+            return Response(name)
+
+    async def render(client, graph, path):
+        graphs.append(graph)
+        path.write_bytes(b"video fixture")
+
+    monkeypatch.setattr(ac.httpx, "AsyncClient", Client)
+    monkeypatch.setattr(ac, "_audio_seconds", lambda _: seconds)
+    monkeypatch.setattr(ac, "_render", render)
+    monkeypatch.setattr(ac, "_slice_audio", lambda src, plan, dst: dst.write_bytes(b"audio fixture"))
+    monkeypatch.setattr(ac, "_join_chunks", lambda chunks, audio, frames, out: out.write_bytes(b"joined fixture"))
+    for i in range(2):
+        asyncio.run(ac.generate_talking_avatar(source, audio, "hello", tmp_path / f"out{i}.mp4", resolve_preset("tiny_test")))
+    images = [name for name in uploads if name.endswith(".png")]
+    assert len(images) == len(set(images)) == 2
+    chunk_uploads = [name for name in uploads if "_a" in name or "_v" in name]
+    assert len(chunk_uploads) == len(set(chunk_uploads))
+    for graph in graphs:
+        assert graph["4"]["inputs"]["image"] in ["isolated/server_" + name for name in images]
+        assert graph["12"]["inputs"]["audio"] in ["isolated/server_" + name for name in uploads if name.endswith(".wav")]
+        if ac._PREV_LOADER_ID in graph:
+            assert graph[ac._PREV_LOADER_ID]["inputs"]["file"] in ["isolated/server_" + name for name in chunk_uploads]
+    assert graphs[0]["4"]["inputs"]["image"] != graphs[-1]["4"]["inputs"]["image"]

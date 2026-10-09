@@ -162,3 +162,9 @@ def test_unready_preset_blocks_on_real_backend(monkeypatch):
     )
     assert r.status_code == 409
     assert "setup required" in r.json()["detail"].lower()
+
+
+def test_local_fast_is_not_ready_when_comfy_is_offline(monkeypatch):
+    from app.services import image_presets
+    monkeypatch.setattr(image_presets, "_object_info", lambda: None)
+    assert not image_presets.preset_ready("local_fast")

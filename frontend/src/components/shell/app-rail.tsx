@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Coins, ShieldCheck, Sparkles } from "lucide-react";
 
+import { GemIcon } from "@/components/gem-icon";
 import { api } from "@/lib/api";
 import type { AvatarJob } from "@/lib/types";
 import { AVATAR_NAV, CREATE_NAV, RAIL_NAV, type NavigationItem } from "@/lib/navigation";
@@ -43,7 +44,7 @@ function RailItem({ item, pathname, onHover }: { item: NavigationItem; pathname:
           active ? "bg-raised text-foreground" : "text-muted-foreground group-hover:bg-raised group-hover:text-foreground",
         )}
       >
-        <Icon className="h-5 w-5" aria-hidden="true" />
+        {item.href === "/credits" ? <GemIcon className="h-5 w-5" /> : <Icon className="h-5 w-5" aria-hidden="true" />}
       </span>
       <span className={active ? "text-foreground" : "text-muted-foreground"}>{item.label}</span>
     </Link>

@@ -9,9 +9,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from .config import FRONTEND_ORIGIN, STORAGE_DIR
 from .database import SessionLocal
 from .db_migrate import upgrade_to_head
-from .models import AvatarJob, Movie, TranscriptionJob, VideoGeneration
+from .models import AvatarJob, Movie, TranscriptionJob, VideoGeneration, CinematicProduction
 from .services.private_storage import PublicStorage
 from .routers import cloud_media
+from .routers import music as music_router
+from .routers import music_dub as music_dub_router
+from .routers import director as director_router
 from .routers import (
     admin,
     assets,
@@ -40,11 +43,15 @@ from .routers import (
     transcriptions,
     users,
     auto_clips as auto_clips_router,
+    captions as captions_router,
     interactive as interactive_router,
     slides as slides_router,
     translate as translate_router,
     voice_library as voice_library_router,
     speech_cleanup as speech_cleanup_router,
+    recordings as recordings_router,
+    assistant as assistant_router,
+    developers as developers_router,
     video_agent,
     videos,
     workflow_manager as workflow_manager_router,
@@ -73,6 +80,7 @@ def _recover_interrupted_jobs(db) -> None:
         (TranscriptionJob, ("running",)),
         (AvatarJob, ("queued", "running")),
         (Movie, ("rendering",)),
+        (CinematicProduction, ("assembling",)),
     )
     for model, statuses in stuck:
         rows = db.query(model).filter(model.status.in_(statuses)).all()
@@ -122,6 +130,9 @@ app.add_middleware(
 
 app.mount("/storage", PublicStorage(directory=STORAGE_DIR), name="storage")
 app.include_router(cloud_media.router)
+app.include_router(music_router.router)
+app.include_router(music_dub_router.router)
+app.include_router(director_router.router)
 
 app.include_router(auth.router)
 app.include_router(users.router)
@@ -139,8 +150,12 @@ app.include_router(avatars.router)
 app.include_router(video_agent.router)
 app.include_router(movies_router.router)
 app.include_router(speech_cleanup_router.router)
+app.include_router(recordings_router.router)
+app.include_router(assistant_router.router)
+app.include_router(developers_router.router)
 app.include_router(slides_router.router)
 app.include_router(interactive_router.router)
+app.include_router(captions_router.router)
 app.include_router(translate_router.router)
 app.include_router(voice_library_router.router)
 app.include_router(auto_clips_router.router)

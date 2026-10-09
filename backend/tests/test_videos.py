@@ -202,6 +202,7 @@ def test_comfyui_allows_text_to_video_when_workflow_ready(client, monkeypatch):
             "prompt": "a premium product rotating under studio light",
             "motion_preset": "slow_zoom",
             "duration_seconds": 3,
+            "provider": "local_ltx",
             "mode": "text_to_video",
         },
     )
@@ -228,6 +229,7 @@ def test_comfyui_rejects_text_to_video_when_not_ready(client, monkeypatch):
             "prompt": "a premium product rotating under studio light",
             "motion_preset": "slow_zoom",
             "duration_seconds": 3,
+            "provider": "local_ltx",
             "mode": "text_to_video",
         },
     )
@@ -391,6 +393,7 @@ def test_comfyui_allows_video_to_video_when_workflow_ready(client, monkeypatch):
             "prompt": "restyle existing video",
             "motion_preset": "slow_zoom",
             "duration_seconds": 3,
+            "provider": "local_ltx",
             "mode": "video_to_video",
         },
     )
@@ -418,6 +421,7 @@ def test_comfyui_rejects_video_to_video_when_not_ready(client, monkeypatch):
             "prompt": "restyle existing video",
             "motion_preset": "slow_zoom",
             "duration_seconds": 3,
+            "provider": "local_ltx",
             "mode": "video_to_video",
         },
     )
@@ -565,3 +569,41 @@ def test_export_completed_video(client):
 
 def test_export_unknown_video_is_404(client):
     assert client.get("/api/exports/video/nope").status_code == 404
+
+@pytest.mark.parametrize("mode,expected", [
+    ("text_to_video", "local_h3"), ("image_to_video", "local_h3"),
+    ("video_to_video", "local_h3"), ("video_extension", "local_ltx"),
+    ("video_upscale", "local_ltx"),
+])
+def test_omitted_video_provider_uses_mode_default(client, monkeypatch, mode, expected):
+    monkeypatch.setattr(videos_router, "enqueue_video", lambda video_id: None)
+    project_id = client.post("/api/projects", json={"name": "Mode default"}).json()["id"]
+    response = client.post("/api/videos", json={
+        "project_id": project_id, "source_image_url": "/storage/videos/source.mp4",
+        "prompt": "A test", "motion_preset": "slow_zoom", "mode": mode,
+    })
+    assert response.status_code == 201, response.text
+    assert response.json()["provider"] == expected
+
+
+def test_explicit_ltx_choice_is_not_replaced_by_h3(client, monkeypatch):
+    monkeypatch.setattr(videos_router, "enqueue_video", lambda video_id: None)
+    project_id = client.post("/api/projects", json={"name": "Explicit provider"}).json()["id"]
+    response = client.post("/api/videos", json={
+        "project_id": project_id, "prompt": "A test", "motion_preset": "slow_zoom",
+        "mode": "text_to_video", "provider": "local_ltx",
+    })
+    assert response.status_code == 201, response.text
+    assert response.json()["provider"] == "local_ltx"
+
+
+def test_unavailable_default_h3_does_not_fall_back(client, monkeypatch):
+    monkeypatch.setattr(videos_router, "_h3_ready", lambda: (False, "Missing H3 model"))
+    monkeypatch.setattr(videos_router, "enqueue_video", lambda video_id: pytest.fail("Must not enqueue"))
+    project_id = client.post("/api/projects", json={"name": "No fallback"}).json()["id"]
+    response = client.post("/api/videos", json={
+        "project_id": project_id, "prompt": "A test", "motion_preset": "slow_zoom",
+        "mode": "text_to_video",
+    })
+    assert response.status_code == 409
+    assert "Missing H3 model" in response.json()["detail"]

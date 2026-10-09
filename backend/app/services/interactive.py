@@ -37,8 +37,32 @@ def clean_nodes(nodes: list[dict], start_node_id: str | None) -> tuple[list[dict
                 raise ValueError(f"A choice in clip {node.get('title') or node_id} has no label.")
             if target not in known:
                 raise ValueError(f"The choice {label} points at a clip that does not exist.")
-            choices.append({"label": label, "next": target})
-        cleaned.append({"id": node_id, "title": str(node.get("title") or "").strip()[:120], "video_url": url, "choices": choices})
+            result = {"label": label, "next": target}
+            feedback = str(choice.get("feedback") or "").strip()
+            if len(feedback) > 1000:
+                raise ValueError("Choice feedback must be at most 1000 characters.")
+            if feedback:
+                result["feedback"] = feedback
+            correct = choice.get("is_correct")
+            if correct is not None:
+                if not isinstance(correct, bool):
+                    raise ValueError("Choice correctness must be true, false or unset.")
+                result["is_correct"] = correct
+            choices.append(result)
+        question = str(node.get("question") or "").strip()
+        if len(question) > 1000:
+            raise ValueError("Training questions must be at most 1000 characters.")
+        if question and (not choices or any("is_correct" not in c for c in choices) or not any(c.get("is_correct") for c in choices)):
+            raise ValueError("A training question needs graded choices and at least one correct answer.")
+        result = {"id": node_id, "title": str(node.get("title") or "").strip()[:120], "video_url": url, "choices": choices}
+        if question:
+            result["question"] = question
+        body = str(node.get("body") or "").strip()
+        if len(body) > 4000:
+            raise ValueError("Step instructions must be at most 4000 characters.")
+        if body:
+            result["body"] = body
+        cleaned.append(result)
     start = (start_node_id or "").strip() or (ids[0] if ids else None)
     if start is not None and start not in known:
         raise ValueError("The starting clip does not exist.")

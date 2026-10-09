@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Loader2, Palette, Plus, X } from "lucide-react";
+import Link from "next/link";
+import { Loader2, Palette, Plus, Trash2, X } from "lucide-react";
 
 import { api } from "@/lib/api";
 import type { BrandKit, Project } from "@/lib/types";
@@ -57,6 +58,18 @@ export function BrandSystemsView() {
       setEditing({ project, kit });
     } catch (e) {
       setError(e instanceof Error ? e.message : "The brand system could not be created.");
+    }
+  }
+
+  async function removeBrand(entry: Entry) {
+    if (!window.confirm(`Delete the brand system “${entry.kit.brand_name || entry.project.name}”? Its colors, fonts and logos are removed.`)) return;
+    setError(null);
+    try {
+      await api.deleteProject(entry.project.id);
+      await load();
+    } catch (e) {
+      // The server refuses when videos or other work still belong to it, and says what is attached.
+      setError(e instanceof Error ? e.message : "The brand system could not be deleted.");
     }
   }
 
@@ -117,6 +130,10 @@ export function BrandSystemsView() {
                   </div>
                   <p className="mt-2 truncate text-sm font-semibold">{e.kit.brand_name || e.project.name}</p>
                 </button>
+                <span className="mt-2 flex items-center justify-between gap-3">
+                  <Link href={`/brand/${e.project.id}`} className="text-sm text-primary hover:underline">Edit colors, fonts, and logos</Link>
+                  <button type="button" onClick={() => removeBrand(e)} aria-label={`Delete brand system ${e.kit.brand_name || e.project.name}`} className="flex items-center gap-1 text-sm text-muted-foreground hover:text-destructive"><Trash2 className="h-4 w-4" /> Delete</button>
+                </span>
               </li>
             );
           })

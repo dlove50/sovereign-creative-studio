@@ -7,6 +7,8 @@ import type { HandoffAction, MediaObject } from "@/lib/types/media";
 import { setHandoff } from "@/lib/stores/useMediaHandoff";
 import { runInlineMediaAction } from "@/components/media/MediaActions";
 
+let handoffSequence = 0;
+
 // One hook the pages use to turn a MediaActions/NextStepCard onAction() into the
 // right effect: inline copy/download, open details drawer, or set the ephemeral
 // handoff + navigate (with a query-param fallback the target re-validates).
@@ -49,6 +51,8 @@ export function useMediaHandoffRouter(originLabel: string) {
       originLabel,
     });
     const params = new URLSearchParams();
+    // A repeated action is a new handoff even when its mode/source are identical.
+    params.set("handoff", `${Date.now()}-${++handoffSequence}`);
     if (action.targetMode) params.set("mode", action.targetMode);
     if (action.media.storageUrl) params.set("source", action.media.storageUrl);
     const qs = params.toString();

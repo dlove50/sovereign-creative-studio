@@ -359,7 +359,7 @@ export function AvatarsView() {
         </div>
         <p className="text-sm text-muted-foreground">
           1. Write what your avatar should say and pick a voice. 2. Choose a photo and quality. 3. Create the video —
-          long scripts are rendered in 3-second pieces and joined seamlessly.
+          long voice recordings are rendered in overlapping chunks and joined. Chunk length depends on the selected preset; review transitions and lip sync before publishing.
         </p>
         <div className="space-y-2 rounded-xl border border-border/70 bg-background/40 p-3">
           <label htmlFor="avatar-script" className="text-xs font-medium text-muted-foreground">

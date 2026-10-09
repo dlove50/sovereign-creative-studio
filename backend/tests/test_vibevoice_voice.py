@@ -25,6 +25,8 @@ def _fake_vibevoice(monkeypatch, *, final_status="done", calls=None):
     def handler(request: httpx.Request) -> httpx.Response:
         calls.append((request.method, request.url.path, request.content))
         path = request.url.path
+        if path == "/queue":  # the GPU-idle check before any model is unloaded
+            return httpx.Response(200, json={"queue_running": [], "queue_pending": []})
         if path == "/api/voices":
             return httpx.Response(200, json={"voices": [{"name": "en-Carter_man", "preset": True}, {"name": "david", "preset": False}]})
         if path == "/api/generate":

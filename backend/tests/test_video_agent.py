@@ -24,8 +24,12 @@ def _fake_ollama(monkeypatch, content: str, status: int = 200, calls=None):
             return httpx.Response(200, json={})
         return httpx.Response(status, json={"message": {"content": content}}, request=httpx.Request("POST", url))
 
+    def fake_get(url, **kw):  # the GPU-idle check reads ComfyUI's queue first
+        return httpx.Response(200, json={"queue_running": [], "queue_pending": []}, request=httpx.Request("GET", url))
+
     monkeypatch.setattr(va.httpx, "post", fake_post)
     monkeypatch.setattr("app.services.voice.httpx.post", fake_post)
+    monkeypatch.setattr("app.services.voice.httpx.get", fake_get)
     return calls
 
 
@@ -37,6 +41,15 @@ def test_writes_script_and_frees_gpu_both_ways(monkeypatch):
     body = calls[-1][1]
     assert body["keep_alive"] == 0 and body["think"] is False and body["format"] == "json"
     assert "about 75 words" in body["messages"][1]["content"]
+
+
+def test_refuses_to_touch_the_gpu_while_a_render_is_running(monkeypatch):
+    calls = _fake_ollama(monkeypatch, json.dumps({"title": "t", "script": "Hello."}))
+    busy = httpx.Response(200, json={"queue_running": [["job"]], "queue_pending": []}, request=httpx.Request("GET", "http://x/queue"))
+    monkeypatch.setattr("app.services.voice.httpx.get", lambda url, **kw: busy)
+    with pytest.raises(RuntimeError, match="render GPU is busy"):
+        va.write_script("tips", 30)
+    assert not any(url.endswith("/free") for url, _ in calls)  # nothing was unloaded
 
 
 def test_strips_stage_directions_markup_and_emoji(monkeypatch):

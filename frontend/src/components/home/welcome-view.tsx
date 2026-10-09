@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Check, ChevronRight, Clapperboard, Mic, Pause, Play, Shirt, UserRound, Video } from "lucide-react";
+import { Check, ChevronRight, Clapperboard, Mic, Music2, Pause, Play, Shirt, UserRound, Video } from "lucide-react";
+import { TemplateCarousel } from "@/components/director/template-carousel";
 
 import { api, assetUrl } from "@/lib/api";
 import type { AvatarAsset, AvatarJob, VoiceOption } from "@/lib/types";
@@ -20,13 +21,13 @@ type Step = {
 };
 
 const PROMPTS = [
-  { id: "ads", title: "Ads & promo", image: "/sovereign-ui/prompts/ads.webp",
+  { id: "ads", title: "Ads & promo", image: "/sovereign-ui/prompts/ads-reference.png",
     idea: "An upbeat 15-second promo for my business with a clear call to action." },
-  { id: "launch", title: "Product launch", image: "/sovereign-ui/prompts/launch.webp",
+  { id: "launch", title: "Product launch", image: "/sovereign-ui/prompts/launch-reference.png",
     idea: "Announce a new product launch: what it is, who it helps, and how to get it." },
-  { id: "tips", title: "Tips & how-to", image: "/sovereign-ui/prompts/tips.webp",
+  { id: "tips", title: "Tips & how-to", image: "/sovereign-ui/prompts/tips-reference.jpeg",
     idea: "Three quick, practical tips that save my audience time every day." },
-  { id: "edu", title: "Educational video", image: "/sovereign-ui/prompts/edu.webp",
+  { id: "edu", title: "Educational video", image: "/sovereign-ui/prompts/edu-reference.jpg",
     idea: "Explain one big idea in plain language with a simple everyday example." },
 ];
 
@@ -143,7 +144,7 @@ export function WelcomeView() {
   const currentIndex = steps.findIndex((s) => !s.done);
 
   return (
-    <div className="mx-auto max-w-[1120px]">
+    <div className="mx-auto max-w-[1000px]">
       <section className="relative isolate pb-10 pt-6 text-center">
         <div className="welcome-glow pointer-events-none absolute inset-x-0 -top-16 -z-10 h-72" aria-hidden="true" />
         <h1 className="text-4xl font-extrabold tracking-[-0.03em] sm:text-5xl">
@@ -164,6 +165,17 @@ export function WelcomeView() {
         </ol>
       </section>
 
+      <section aria-labelledby="director-heading" className="mt-10">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 id="director-heading" className="flex items-center gap-2 text-sm font-medium text-foreground/90">
+            <Clapperboard className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+            Direct your video
+          </h2>
+          <Link href="/director" className="text-xs text-muted-foreground hover:text-foreground">See all</Link>
+        </div>
+        <TemplateCarousel />
+      </section>
+
       <section aria-labelledby="prompts-heading" className="mt-10">
         <h2 id="prompts-heading" className="mb-4 flex items-center gap-2 text-sm font-medium text-foreground/90">
           <Clapperboard className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
@@ -174,11 +186,11 @@ export function WelcomeView() {
             <li key={p.id}>
               <Link
                 href={`/video-agent?prompt=${encodeURIComponent(p.idea)}`}
-                className="group relative block aspect-[16/7] overflow-hidden rounded-2xl border border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="group relative block aspect-[5/2] overflow-hidden rounded-2xl border border-border bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
-                <img src={p.image} alt="" width={960} height={420} className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]" />
+                <img src={p.image} alt="" className="block h-full w-full object-cover" style={{ objectPosition: p.id === "ads" ? "center 45%" : "center top" }} />
                 <span className="absolute inset-0 bg-gradient-to-r from-black/55 via-black/10 to-transparent" aria-hidden="true" />
-                <span className="absolute left-5 top-4 max-w-[60%] text-3xl font-extrabold leading-[1.05] tracking-[-0.02em] text-white drop-shadow sm:text-4xl">
+                <span className="absolute left-5 top-4 max-w-[60%] text-2xl font-extrabold leading-[1.05] tracking-[-0.02em] text-white drop-shadow sm:text-3xl">
                   {p.title}
                 </span>
                 <span className="absolute bottom-4 left-5 inline-flex items-center gap-1 rounded-full border border-white/30 bg-white/15 px-4 py-1.5 text-sm font-medium text-white backdrop-blur">
@@ -188,6 +200,26 @@ export function WelcomeView() {
             </li>
           ))}
         </ul>
+      </section>
+
+      <section aria-labelledby="music-heading" className="mt-10">
+        <h2 id="music-heading" className="mb-4 flex items-center gap-2 text-sm font-medium text-foreground/90">
+          <Music2 className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+          Music
+        </h2>
+        <Link
+          href="/music-lab"
+          className="group relative block aspect-[5/2] overflow-hidden rounded-2xl border border-border bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:aspect-[5/1]"
+        >
+          <img src="/home/music-lab.png" alt="" className="block h-full w-full object-cover" />
+          <span className="absolute inset-0 bg-gradient-to-r from-black/55 via-black/10 to-transparent" aria-hidden="true" />
+          <span className="absolute left-5 top-4 max-w-[60%] text-2xl font-extrabold leading-[1.05] tracking-[-0.02em] text-white drop-shadow sm:text-3xl">
+            Music Lab
+          </span>
+          <span className="absolute bottom-4 left-5 inline-flex items-center gap-1 rounded-full border border-white/30 bg-white/15 px-4 py-1.5 text-sm font-medium text-white backdrop-blur">
+            Create a song <ChevronRight className="h-4 w-4" />
+          </span>
+        </Link>
       </section>
     </div>
   );

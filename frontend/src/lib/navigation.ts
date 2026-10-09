@@ -17,6 +17,7 @@ import {
   ImageIcon,
   Layers3,
   Megaphone,
+  Music2,
   PackagePlus,
   PenLine,
   PersonStanding,
@@ -50,6 +51,7 @@ export const CREATOR_NAV: NavigationItem[] = [
   { href: "/video-to-text", label: "Transcribe Video", icon: Type },
   { href: "/ocr-studio", label: "OCR Studio", icon: ScanText },
   { href: "/create", label: "Image Studio", icon: ImageIcon },
+  { href: "/music-lab", label: "Music Lab", icon: Music2 },
   { href: "/inspiration", label: "Inspiration", icon: Sparkle },
   { href: "/avatars", label: "Avatars & Voices", icon: PersonStanding },
   { href: "/assets-library", label: "Assets", icon: Archive },
@@ -86,8 +88,10 @@ export const ADMIN_NAV: NavigationItem[] = [
 export const RAIL_NAV: NavigationItem[] = [
   { href: "/", label: "Home", icon: Home },
   { href: "/avatars", label: "Avatar", icon: PersonStanding },
+  { href: "/cloud-studio", label: "Apps", icon: Sparkle },
+  { href: "/director", label: "Director", icon: Clapperboard },
+  { href: "/music-lab", label: "Music", icon: Music2 },
   { href: "/brand", label: "Brand", icon: Palette },
-  { href: "/apps", label: "Apps", icon: LayoutGrid },
   { href: "/projects", label: "Projects", icon: Folder },
 ];
 

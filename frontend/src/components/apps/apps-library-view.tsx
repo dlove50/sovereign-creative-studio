@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   ChevronRight, Clapperboard, FileText, Film, ImageIcon, Languages, Layers, MessagesSquare, Mic,
-  MousePointerClick, PersonStanding, ScanText, Scissors, Search, Sparkles, Type, Video, Wand2, ZoomIn,
+  MousePointerClick, Music2, PersonStanding, ScanText, Scissors, Search, Sparkles, Type, Video, Wand2, ZoomIn,
   type LucideIcon,
 } from "lucide-react";
 
@@ -32,12 +32,16 @@ const FEATURED = [
 // Apps without an href are planned; they are listed so the roadmap is visible,
 // but never rendered as links.
 const APPS: AppEntry[] = [
+  { name: "AI Studio", blurb: "Start with a template or build an avatar video scene by scene.", icon: Clapperboard, category: "create", href: "/movies" },
+  { name: "Cinematic planner", blurb: "Plan characters, locations and shots, then assemble completed clips.", icon: Film, category: "create", href: "/cinematic-planner" },
   { name: "Cloud studio", blurb: "HeyGen profiles and ElevenLabs speech, sounds, transcription and dubbing.", icon: Sparkles, category: "create", href: "/cloud-studio" },
   { name: "Talking avatar", blurb: "Your photo speaks your script in your cloned voice.", icon: PersonStanding, category: "create", href: "/avatars/create" },
   { name: "Scene by scene", blurb: "Plan a video as a storyboard of scenes.", icon: Clapperboard, category: "create", href: "/storyboard-studio" },
   { name: "Quick Chain", blurb: "Image, motion, upscale and voice in one guided flow.", icon: Wand2, category: "create", href: "/chain" },
   { name: "AI video generator", blurb: "Turn a photo and a prompt into a short video clip.", icon: Video, category: "create", href: "/videos" },
   { name: "Image studio", blurb: "Make or edit images from a text prompt.", icon: ImageIcon, category: "create", href: "/create" },
+  { name: "Director", blurb: "Pick a format (short film, ad, trailer, micro drama) and get a finished video with voice and music.", icon: Clapperboard, category: "create", href: "/director" },
+  { name: "Music Lab", blurb: "Make a full song from an idea or your own lyrics, locally with YuE2.", icon: Music2, category: "create", href: "/music-lab" },
   { name: "Film studio", blurb: "Longer cinematic sequences from your clips.", icon: Film, category: "create", href: "/film-studio" },
   { name: "Video agent", blurb: "Describe a video and let local AI write and build it.", icon: Sparkles, category: "create", href: "/video-agent" },
   { name: "Video podcast", blurb: "Two avatars in conversation from one script.", icon: MessagesSquare, category: "create", href: "/podcast" },
@@ -50,6 +54,7 @@ const APPS: AppEntry[] = [
   { name: "OCR studio", blurb: "Pull text out of images and scanned pages.", icon: ScanText, category: "edit", href: "/ocr-studio" },
   { name: "Auto clips", blurb: "Find the best moments in a long video and cut shorts.", icon: Scissors, category: "edit", href: "/auto-clips" },
   { name: "Interactive video", blurb: "Videos with choices that branch to different scenes.", icon: MousePointerClick, category: "interactive", href: "/interactive" },
+  { name: "Screen recorder", blurb: "Record your screen and voice, then use the clip in videos and lessons.", icon: Video, category: "interactive", href: "/record" },
 ];
 
 function AppRow({ app }: { app: AppEntry }) {
@@ -97,7 +102,7 @@ export function AppsLibraryView() {
   return (
     <div className="mx-auto max-w-[1040px]">
       <h1 className="text-4xl font-extrabold tracking-[-0.03em]">App library</h1>
-      <p className="mt-1 text-sm text-muted-foreground">Every tool in your studio, running on this computer.</p>
+      <p className="mt-1 text-sm text-muted-foreground">Explore your local tools and connected services.</p>
 
       <h2 className="mb-3 mt-8 text-base font-semibold">Featured apps</h2>
       <ul className="grid gap-4 sm:grid-cols-3">

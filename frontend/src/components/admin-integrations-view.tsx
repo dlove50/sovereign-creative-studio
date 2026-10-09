@@ -6,6 +6,7 @@ import { AlertTriangle, Check, KeyRound, Loader2, Plug, Trash2 } from "lucide-re
 import { api } from "@/lib/api";
 import type { IntegrationProvider } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { IntegrationDirectory } from "./integration-directory";
 
 const LOCAL_DEFAULTS = [
   { name: "Local ComfyUI / Flux", kind: "Images & product scenes", detail: "Default local/private image engine." },
@@ -241,6 +242,7 @@ export function AdminIntegrationsView() {
           ))}
         </div>
       </section>
+      <IntegrationDirectory />
     </div>
   );
 }

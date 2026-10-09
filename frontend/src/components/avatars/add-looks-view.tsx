@@ -30,6 +30,27 @@ export function AddLooksView() {
   const [seconds, setSeconds] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [dragging, setDragging] = useState(false);
+  const [filePreview, setFilePreview] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!file) { setFilePreview(null); return; }
+    const url = URL.createObjectURL(file);
+    setFilePreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
+
+  function selectFile(selected?: File) {
+    if (!selected) return;
+    if (!/\.(mp4|mov|webm|mkv|m4v|png|jpe?g|webp)$/i.test(selected.name)) {
+      setError("Choose a PNG, JPG or WEBP photo, or an MP4, MOV or WEBM video.");
+      return;
+    }
+    setError(null);
+    setFile(selected);
+    setTips(isVideoFile(selected) ? "video" : "photo");
+    setSeconds(MIN_RECORD_SECONDS);
+  }
 
   useEffect(() => {
     if (!avatarId) { setAvatar(null); return; }
@@ -111,7 +132,10 @@ export function AddLooksView() {
       </div>
       <h1 className="text-center text-3xl font-extrabold tracking-[-0.03em]">Add more looks for {avatar.name}</h1>
 
-      <div className="mt-6 rounded-3xl border-2 border-dashed border-border bg-card/40 p-6 text-center">
+      <div onDragOver={(e) => { e.preventDefault(); if (!recording && !busy) setDragging(true); }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={(e) => { e.preventDefault(); setDragging(false); if (!recording && !busy) selectFile(e.dataTransfer.files[0]); }}
+        className={cn("mt-6 rounded-3xl border-2 border-dashed bg-card/40 p-6 text-center", dragging ? "border-primary" : "border-border")}>
         <video ref={preview} muted playsInline className={cn("mx-auto mb-4 max-h-[260px] rounded-2xl bg-black", recording ? "block" : "hidden")} />
         {recording ? (
           <div className="flex flex-col items-center gap-3">
@@ -120,18 +144,21 @@ export function AddLooksView() {
           </div>
         ) : (
           <>
-            <button type="button" onClick={() => input.current?.click()} className="mx-auto flex flex-col items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            {filePreview && file ? (isVideoFile(file)
+              ? <video src={filePreview} controls playsInline className="mx-auto mb-4 max-h-[260px] rounded-2xl" />
+              : <img src={filePreview} alt="Selected avatar look" className="mx-auto mb-4 max-h-[260px] rounded-2xl object-contain" />) : null}
+            <button type="button" disabled={busy} onClick={() => input.current?.click()} className="mx-auto flex flex-col items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
               {file ? <Check className="h-7 w-7 text-primary" /> : <Upload className="h-7 w-7 text-muted-foreground" />}
-              <span className="text-sm font-semibold">{file ? file.name : "Choose a file to upload"}</span>
+              <span className="text-sm font-semibold">{file ? file.name : "Drag and drop or click to upload"}</span>
               <span className="text-xs text-muted-foreground">Video (MP4, MOV, WEBM) or photo (PNG, JPG, WEBP)</span>
             </button>
             <p className="my-3 text-xs text-muted-foreground">or</p>
             <button type="button" onClick={record} className="inline-flex items-center gap-2 rounded-full border border-border px-5 py-2 text-sm font-semibold hover:bg-raised"><Camera className="h-4 w-4" /> Record now</button>
           </>
         )}
-        <input ref={input} type="file" accept="video/mp4,video/quicktime,video/webm,image/png,image/jpeg,image/webp,.mkv,.m4v" className="hidden" onChange={(e) => { setFile(e.target.files?.[0] ?? null); setSeconds(MIN_RECORD_SECONDS); e.target.value = ""; }} />
+        <input ref={input} type="file" accept="video/mp4,video/quicktime,video/webm,image/png,image/jpeg,image/webp,.mkv,.m4v" className="hidden" onChange={(e) => { selectFile(e.target.files?.[0]); e.target.value = ""; }} />
       </div>
-      <p className="mt-2 text-center text-xs text-muted-foreground">Phone upload and cloud-drive links are not available because everything stays on this computer. Send the file to this PC and choose it above.</p>
+      <p className="mt-2 text-center text-xs text-muted-foreground">For files on your phone or Google Drive, download or transfer them to this device first, then upload them here.</p>
 
       <label className="mt-5 block text-sm font-semibold">
         Look name (optional)

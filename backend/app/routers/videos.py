@@ -1,4 +1,6 @@
+import json
 from pathlib import Path
+import shutil
 from typing import Any
 
 import httpx
@@ -85,6 +87,7 @@ _VIDEO_EXTENSION_REQUIRED_NODES = {
     "CheckpointLoaderSimple",
     "LoadVideo",
     "GetVideoComponents",
+    "ImageFromBatch",
     "ImageScale",
     "LTXAVTextEncoderLoader",
     "CLIPTextEncode",
@@ -98,17 +101,6 @@ _VIDEO_EXTENSION_REQUIRED_NODES = {
     "CreateVideo",
     "SaveVideo",
 }
-_VIDEO_TO_VIDEO_LIVE_BLOCKER = (
-    "Video -> Video is setup-required after live validation: the current LTX "
-    "workflow fails at SaveVideo with [Errno 22] Invalid argument. Keep using "
-    "Image -> Video/Text -> Video/Upscale until the workflow is repaired."
-)
-_VIDEO_EXTENSION_LIVE_BLOCKER = (
-    "Video Extension is setup-required after live validation: the current LTX "
-    "workflow finishes execution but the app cannot retrieve the ComfyUI output "
-    "(/view returns HTTP 404). Keep using Image -> Video/Text -> Video/Upscale "
-    "until the workflow is repaired."
-)
 
 # Video Studio mode registry (Phase C11). id -> (label, description, source_required).
 _VIDEO_MODES = [
@@ -386,6 +378,39 @@ def _loader_options(
     return [option for option in options if isinstance(option, str)]
 
 
+_WORKFLOW_MODEL_INPUTS = {
+    "CheckpointLoaderSimple": "ckpt_name",
+    "UNETLoader": "unet_name",
+    "CLIPLoader": "clip_name",
+    "VAELoader": "vae_name",
+    "LoraLoaderModelOnly": "lora_name",
+}
+
+
+def _workflow_models_ready(
+    workflow_text: str, object_info: dict[str, Any]
+) -> tuple[bool, str | None]:
+    """Readiness for an arbitrary ComfyUI API workflow: its nodes exist and every
+    model file it names is listed by the running ComfyUI."""
+    try:
+        workflow = json.loads(workflow_text)
+    except ValueError as exc:
+        return False, f"Text -> Video workflow is not valid JSON: {exc}"
+    nodes = [
+        node for node in workflow.values() if isinstance(node, dict) and "class_type" in node
+    ]
+    missing_nodes = sorted({n["class_type"] for n in nodes if n["class_type"] not in object_info})
+    if missing_nodes:
+        return False, "Missing ComfyUI nodes: " + ", ".join(missing_nodes)
+    for node in nodes:
+        input_name = _WORKFLOW_MODEL_INPUTS.get(node["class_type"])
+        value = (node.get("inputs") or {}).get(input_name) if input_name else None
+        if isinstance(value, str) and value and not value.startswith("__"):
+            if value not in _loader_options(object_info, node["class_type"], input_name):
+                return False, f"Model not listed in ComfyUI: {value}"
+    return True, None
+
+
 def _text_to_video_ready() -> tuple[bool, str | None]:
     if VIDEO_BACKEND == "mock":
         return True, None
@@ -406,6 +431,15 @@ def _text_to_video_ready() -> tuple[bool, str | None]:
             object_info = response.json()
     except Exception as exc:  # noqa: BLE001 - readiness should degrade to unavailable.
         return False, f"ComfyUI unavailable at {COMFYUI_BASE_URL}: {exc}"
+
+    try:
+        workflow_text = workflow_path.read_text(encoding="utf-8")
+    except OSError as exc:
+        return False, f"Text -> Video workflow unreadable: {exc}"
+    if "EmptyLTXVLatentVideo" not in workflow_text:
+        # Not the LTX workflow (for example Wan 2.1 1.3B on an 8 GB GPU): check the
+        # workflow's own nodes and model files instead of the LTX-specific list.
+        return _workflow_models_ready(workflow_text, object_info)
 
     missing_nodes = sorted(
         node for node in _TEXT_TO_VIDEO_REQUIRED_NODES if node not in object_info
@@ -441,8 +475,6 @@ def _video_to_video_ready() -> tuple[bool, str | None]:
         return True, None
     if VIDEO_BACKEND != "comfyui":
         return False, f"Video backend {VIDEO_BACKEND} is not a real ComfyUI backend."
-    return False, _VIDEO_TO_VIDEO_LIVE_BLOCKER
-
     workflow_path = _workflow_path(COMFYUI_VIDEO_TO_VIDEO_WORKFLOW_PATH)
     if not workflow_path.is_file():
         return False, f"Video -> Video workflow missing: {workflow_path}"
@@ -489,11 +521,12 @@ def _video_extension_ready() -> tuple[bool, str | None]:
         return True, None
     if VIDEO_BACKEND != "comfyui":
         return False, f"Video backend {VIDEO_BACKEND} is not a real ComfyUI backend."
-    return False, _VIDEO_EXTENSION_LIVE_BLOCKER
-
     workflow_path = _workflow_path(COMFYUI_VIDEO_EXTENSION_WORKFLOW_PATH)
     if not workflow_path.is_file():
         return False, f"Video Extension workflow missing: {workflow_path}"
+    missing_tools = [tool for tool in ("ffmpeg", "ffprobe") if not shutil.which(tool)]
+    if missing_tools:
+        return False, "Video Extension assembly requires: " + ", ".join(missing_tools)
 
     try:
         with httpx.Client(
@@ -632,7 +665,10 @@ def create_video(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    provider = payload.provider or "local_ltx"
+    provider = payload.provider or (
+        "local_h3" if payload.mode in {"text_to_video", "image_to_video", "video_to_video"}
+        else "local_ltx"
+    )
     if provider == "seedance_api":
         ready, reason = _seedance_ready()
         if not ready:

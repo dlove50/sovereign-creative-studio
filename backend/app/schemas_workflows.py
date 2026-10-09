@@ -19,6 +19,8 @@ VideoQualityPreset = Literal[
     "standard_local",
     "best_local",
     "image_to_video_best",
+    # Wan 2.1 1.3B text-to-video at its native 16 frames per second (natural-speed motion).
+    "wan_smooth",
     # MiniMax H3 only: 20 steps without the turbo LoRA / keep the subject from reference pictures.
     "h3_turbo",
     "h3_full",
@@ -34,7 +36,8 @@ class VideoCreate(BaseModel):
     motion_preset: VideoMotionPreset
     duration_seconds: int = Field(default=5, ge=2, le=30)
     mode: VideoMode = "image_to_video"
-    provider: Literal["local_ltx", "local_wan", "local_h3", "seedance_api"] = "local_ltx"
+    # Resolve omitted providers by mode at submission; retain explicit choices.
+    provider: Optional[Literal["local_ltx", "local_wan", "local_h3", "seedance_api"]] = None
     quality_preset: Optional[VideoQualityPreset] = "standard_local"
     # Optional creative brief whose context is appended to the video prompt.
     brief_id: Optional[str] = None

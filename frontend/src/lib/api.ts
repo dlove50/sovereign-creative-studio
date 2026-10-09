@@ -6,6 +6,7 @@ export {
 } from "@/lib/api/core";
 
 import { adminApi } from "@/lib/api/admin";
+import { cloudApi } from "@/lib/api/cloud";
 import { mediaApi } from "@/lib/api/media";
 import { productionApi } from "@/lib/api/production";
 import { projectsApi } from "@/lib/api/projects";
@@ -15,4 +16,5 @@ export const api = {
   ...projectsApi,
   ...mediaApi,
   ...productionApi,
+  ...cloudApi,
 };

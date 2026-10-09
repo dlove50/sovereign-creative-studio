@@ -65,3 +65,22 @@ body {
 .ocr-markdown code { border-radius: .35rem; background: hsl(var(--muted)); padding: .15rem .35rem; font-size: .85em; }
 .ocr-markdown pre { overflow-x: auto; border: 1px solid hsl(var(--border)); border-radius: .75rem; background: hsl(var(--background) / .6); padding: 1rem; }
 .ocr-markdown blockquote { border-left: 3px solid hsl(var(--primary)); padding-left: 1rem; color: hsl(var(--muted-foreground)); }
+
+/* Music Lab seek bar and dub-plate sliders */
+.seek-bar::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  height: 0.9rem;
+  width: 0.9rem;
+  border-radius: 9999px;
+  background: hsl(var(--foreground));
+  box-shadow: 0 0 0 3px hsl(var(--primary) / 0.35);
+}
+.seek-bar::-moz-range-thumb {
+  height: 0.9rem;
+  width: 0.9rem;
+  border: 0;
+  border-radius: 9999px;
+  background: hsl(var(--foreground));
+  box-shadow: 0 0 0 3px hsl(var(--primary) / 0.35);
+}
+.seek-bar:disabled::-webkit-slider-thumb { opacity: 0.35; }

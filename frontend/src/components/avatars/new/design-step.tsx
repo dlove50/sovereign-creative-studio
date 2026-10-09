@@ -114,7 +114,7 @@ export function DesignStep({ onCancel, onSaved }: { onCancel: () => void; onSave
       <div className="flex min-h-[420px] flex-col items-center justify-center gap-4 text-center" role="status">
         <Loader2 className="h-10 w-10 animate-spin text-primary" />
         <p className="text-xl font-bold">Generating your avatar…</p>
-        <p className="max-w-sm text-sm text-muted-foreground">Four pictures are being made on this computer. It usually takes one to two minutes. Please stay on this page.</p>
+        <p className="max-w-sm text-sm text-muted-foreground">Four avatar previews are being generated. Timing depends on the render queue and selected model. Please stay on this page.</p>
         <button type="button" onClick={() => { runId.current++; setPhase("form"); }} className="mt-2 rounded-full border border-border px-5 py-2 text-sm hover:bg-raised">Cancel</button>
       </div>
     );
@@ -177,6 +177,7 @@ export function DesignStep({ onCancel, onSaved }: { onCancel: () => void; onSave
         <Segmented label="Orientation" value={form.orientation} options={ORIENTATIONS} onChange={(v) => set("orientation", v)} />
         <Segmented label="Pose" value={form.pose} options={POSES} onChange={(v) => set("pose", v)} />
         <Select label="Style" value={form.style} options={STYLES} onChange={(v) => set("style", v)} />
+        <p className="text-sm text-muted-foreground">Choose a photographic, illustrated, or animated-film look for your preview image. Unspecified follows your description without adding a style.</p>
       </div>
       {error ? <p className="mt-4 rounded-xl bg-destructive/15 px-3 py-2 text-sm text-destructive">{error}</p> : null}
       <div className="mt-6 flex justify-between border-t border-border pt-5">
