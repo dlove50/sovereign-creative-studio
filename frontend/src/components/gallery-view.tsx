@@ -1,12 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
 import { Images } from "lucide-react";
 
 import { api } from "@/lib/api";
 import type { Generation } from "@/lib/types";
-import { buttonVariants } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import { SkeletonGrid } from "@/components/ui/skeleton";
 import { GenerationCard } from "@/components/generation-card";
 import { useStaggerIn } from "@/components/motion/use-motion";
@@ -26,13 +25,12 @@ export function GalleryView() {
 
   if (generations.length === 0) {
     return (
-      <div className="flex h-64 flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-border text-center text-sm text-muted-foreground">
-        <Images className="h-6 w-6" />
-        Nothing here yet.
-        <Link href="/create" className={buttonVariants()}>
-          Create your first generation
-        </Link>
-      </div>
+      <EmptyState
+        icon={Images}
+        title="No pictures or videos yet"
+        body="Everything you generate lands here, ready to download or reuse."
+        action={{ label: "Create your first generation", href: "/create" }}
+      />
     );
   }
 

@@ -1,4 +1,5 @@
 "use client";
+import { confirmDialog } from "@/components/ui/confirm-host";
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
@@ -54,7 +55,7 @@ export function AvatarMenu({ avatar, lookCount, onRenamed, onDeleted, className 
   }
   async function remove() {
     setOpen(false);
-    if (!window.confirm(`Delete “${avatar.name}” and its ${lookCount} ${lookCount === 1 ? "look" : "looks"}? This can't be undone.`)) return;
+    if (!await confirmDialog(`Delete “${avatar.name}” and its ${lookCount} ${lookCount === 1 ? "look" : "looks"}? This can't be undone.`)) return;
     await api.deleteAvatar(avatar.id);
     onDeleted();
   }

@@ -88,7 +88,7 @@ export const ADMIN_NAV: NavigationItem[] = [
 export const RAIL_NAV: NavigationItem[] = [
   { href: "/", label: "Home", icon: Home },
   { href: "/avatars", label: "Avatar", icon: PersonStanding },
-  { href: "/cloud-studio", label: "Apps", icon: Sparkle },
+  { href: "/apps", label: "Apps", icon: Sparkle },
   { href: "/director", label: "Director", icon: Clapperboard },
   { href: "/music-lab", label: "Music", icon: Music2 },
   { href: "/brand", label: "Brand", icon: Palette },

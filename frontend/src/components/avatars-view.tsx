@@ -1,4 +1,5 @@
 "use client";
+import { confirmDialog } from "@/components/ui/confirm-host";
 
 import { useEffect, useRef, useState } from "react";
 import { ImagePlus, Loader2, Mic, Shirt, Sparkles, Trash2, UserSquare, Video } from "lucide-react";
@@ -216,7 +217,7 @@ export function AvatarsView() {
   }
 
   async function deleteVoiceGreeting(voice: VoiceAsset) {
-    if (!window.confirm(`Delete “${voice.name}”? This removes its generated audio and cannot be undone.`)) return;
+    if (!await confirmDialog(`Delete “${voice.name}”? This removes its generated audio and cannot be undone.`)) return;
     setBusy(`delete-voice-${voice.id}`);
     setError(null);
     try {

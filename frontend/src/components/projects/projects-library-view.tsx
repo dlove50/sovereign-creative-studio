@@ -1,4 +1,6 @@
 "use client";
+import { EmptyState } from "@/components/ui/empty-state";
+import { confirmDialog } from "@/components/ui/confirm-host";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
@@ -114,8 +116,8 @@ export function ProjectsLibraryView() {
     if (item.kind === "cinematic") return;
     const label = item.title.slice(0, 60);
     const ok = item.kind === "movie"
-      ? window.confirm(`Delete “${label}”? Its scenes are removed with it.`)
-      : window.confirm(`Move “${label}” to the trash? An admin can restore it.`);
+      ? await confirmDialog(`Delete “${label}”? Its scenes are removed with it.`)
+      : await confirmDialog(`Move “${label}” to the trash? An admin can restore it.`);
     if (!ok) return;
     const [prefix, rawId] = [item.id.slice(0, 2), item.id.slice(2)];
     try {
@@ -213,10 +215,7 @@ export function ProjectsLibraryView() {
       {items === null ? (
         <SkeletonGrid count={6} aspect="aspect-video" className="grid grid-cols-2 gap-x-4 gap-y-6 md:grid-cols-3" />
       ) : videos.length === 0 ? (
-        <div className="py-12 text-center">
-          <p className="font-semibold">{q || kind !== "all" ? "No videos match." : "No videos yet."}</p>
-          <Link href="/video-agent" className="mt-2 inline-block text-sm text-primary hover:underline">Make your first video with the Video agent</Link>
-        </div>
+        q || kind !== "all" ? <EmptyState icon={Video} title="No videos match." body="Try another word or clear the filter." /> : <EmptyState icon={Video} title="No videos yet" body="Finished avatar videos, movies and clips collect here." action={{ label: "Make your first video", href: "/video-agent" }} />
       ) : (
         <ul ref={grid} className="grid grid-cols-2 gap-x-4 gap-y-6 md:grid-cols-3">
           {videos.map((item) => (

@@ -1,8 +1,10 @@
 "use client";
+import { EmptyState } from "@/components/ui/empty-state";
+import { SkeletonGrid } from "@/components/ui/skeleton";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { LayoutGrid, List, Search, UserPlus } from "lucide-react";
+import { LayoutGrid, List, Search, UserPlus, UserSquare } from "lucide-react";
 
 import { api, assetUrl } from "@/lib/api";
 import { useStaggerIn } from "@/components/motion/use-motion";
@@ -136,12 +138,9 @@ export function AvatarGalleryView() {
             {["All", "Look Packs", ...LOOK_CATEGORIES].map(c => <button key={c} type="button" aria-pressed={category === c} onClick={() => setCategory(c)} className={cn("rounded-full border px-3 py-1.5 text-sm focus-visible:ring-2 focus-visible:ring-ring", category === c ? "border-primary bg-primary/15 text-foreground" : "border-border bg-card text-foreground hover:bg-raised")}>{c}</button>)}
           </div>
           {category !== "All" && category !== "Look Packs" ? <CategoryAvatars category={category} query={query} /> : avatars === null ? (
-            <p className="py-16 text-center text-sm text-muted-foreground">Loading your avatars…</p>
+            <SkeletonGrid count={8} aspect="aspect-[3/4]" className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4" />
           ) : groups.length === 0 ? (
-            <div className="py-16 text-center">
-              <p className="text-base font-semibold">{query ? `No avatars match “${query}”.` : "No avatars yet."}</p>
-              <p className="mt-1 text-sm text-muted-foreground">Use New avatar to upload a photo, or pick one from Public avatars.</p>
-            </div>
+            <EmptyState icon={UserSquare} title={query ? `No avatars match “${query}”.` : "No avatars yet"} body="Use New avatar to upload a photo, or pick one from Public avatars." />
           ) : (
             <ul ref={grid} className={cn("mt-6 grid gap-x-5 gap-y-7", list ? "grid-cols-1 md:grid-cols-2" : "sm:grid-cols-2")}>
               {groups.map((g) => (

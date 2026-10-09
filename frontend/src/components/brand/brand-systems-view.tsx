@@ -1,4 +1,6 @@
 "use client";
+import { Skeleton } from "@/components/ui/skeleton";
+import { confirmDialog } from "@/components/ui/confirm-host";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -62,7 +64,7 @@ export function BrandSystemsView() {
   }
 
   async function removeBrand(entry: Entry) {
-    if (!window.confirm(`Delete the brand system “${entry.kit.brand_name || entry.project.name}”? Its colors, fonts and logos are removed.`)) return;
+    if (!await confirmDialog(`Delete the brand system “${entry.kit.brand_name || entry.project.name}”? Its colors, fonts and logos are removed.`)) return;
     setError(null);
     try {
       await api.deleteProject(entry.project.id);
@@ -112,7 +114,7 @@ export function BrandSystemsView() {
           )}
         </li>
         {entries === null ? (
-          <li className="flex items-center justify-center text-sm text-muted-foreground"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading…</li>
+          <li><Skeleton className="h-24 w-full" /></li>
         ) : (
           configured.map((e) => {
             const colors = swatches(e.kit.primary_colors);

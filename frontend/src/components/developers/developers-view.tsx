@@ -1,4 +1,5 @@
 "use client";
+import { SkeletonGrid } from "@/components/ui/skeleton";
 
 import { useEffect, useMemo, useState } from "react";
 import { Search } from "lucide-react";
@@ -61,7 +62,7 @@ export function DevelopersView() {
       </p>
 
       {error ? <p role="alert" className="mt-6 rounded-xl bg-destructive/15 px-3 py-2 text-sm text-destructive">{error}</p> : null}
-      {!data && !error ? <p className="py-16 text-center text-sm text-muted-foreground">Loading…</p> : null}
+      {!data && !error ? <SkeletonGrid count={3} className="grid grid-cols-1 gap-4 py-8 sm:grid-cols-3" /> : null}
 
       {data ? (
         <>

@@ -1,4 +1,5 @@
 "use client";
+import { confirmDialog } from "@/components/ui/confirm-host";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -31,7 +32,7 @@ export function InteractiveListView() {
   async function startTraining(){try{const made=await api.createInteractive(trainingExample);router.push(`/interactive/${made.id}`);}catch(e){setError(e instanceof Error?e.message:"Could not create training example.");}}
 
   async function remove(id: string) {
-    if (!window.confirm("Delete this interactive video?")) return;
+    if (!await confirmDialog("Delete this interactive video?")) return;
     await api.deleteInteractive(id);
     setItems((all) => (all ?? []).filter((i) => i.id !== id));
   }

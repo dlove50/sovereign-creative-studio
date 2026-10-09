@@ -41,7 +41,7 @@ function RailItem({ item, pathname, onHover }: { item: NavigationItem; pathname:
       <span
         className={cn(
           "flex h-10 w-10 items-center justify-center rounded-xl transition-colors group-focus-visible:ring-2 group-focus-visible:ring-ring",
-          active ? "bg-raised text-foreground" : "text-muted-foreground group-hover:bg-raised group-hover:text-foreground",
+          active ? "relative bg-raised text-foreground before:absolute before:-left-3 before:top-2.5 before:h-5 before:w-[3px] before:rounded-full before:bg-primary" : "text-muted-foreground group-hover:bg-raised group-hover:text-foreground",
         )}
       >
         {item.href === "/credits" ? <GemIcon className="h-5 w-5" /> : <Icon className="h-5 w-5" aria-hidden="true" />}

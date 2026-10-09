@@ -1,4 +1,5 @@
 "use client";
+import { confirmDialog } from "@/components/ui/confirm-host";
 
 import { useMemo, useState } from "react";
 import { Download, Loader2, Monitor, Music, Pencil, Play, Search, Speaker, Star, Trash2 } from "lucide-react";
@@ -69,8 +70,8 @@ export function LibraryPanel({
     if (next && next !== song.title) void run(song.id, () => musicApi.patchSong(song.id, { title: next }));
   };
 
-  const remove = (song: Song) => {
-    if (!window.confirm(`Delete “${song.title}”? This removes the audio file.`)) return;
+  const remove = async (song: Song) => {
+    if (!await confirmDialog(`Delete “${song.title}”? This removes the audio file.`)) return;
     if (player.song?.id === song.id) void player.stop();
     void run(song.id, () => musicApi.deleteSong(song.id));
   };

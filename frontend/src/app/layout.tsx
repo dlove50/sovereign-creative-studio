@@ -4,6 +4,7 @@ import "./globals.css";
 
 import { AssistantPanel } from "@/components/assistant/assistant-panel";
 import { MotionProvider } from "@/components/motion/motion-provider";
+import { ConfirmHost } from "@/components/ui/confirm-host";
 import { AppRail } from "@/components/shell/app-rail";
 import { Topbar } from "@/components/topbar";
 
@@ -36,6 +37,7 @@ export default function RootLayout({
           </div>
         </div>
         <MotionProvider />
+        <ConfirmHost />
         <AssistantPanel />
       </body>
     </html>

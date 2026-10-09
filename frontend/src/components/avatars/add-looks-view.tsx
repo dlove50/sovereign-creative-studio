@@ -1,4 +1,5 @@
 "use client";
+import { SkeletonGrid } from "@/components/ui/skeleton";
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
@@ -114,7 +115,7 @@ export function AddLooksView() {
     }
   }
 
-  if (avatar === undefined) return <p className="py-16 text-center text-sm text-muted-foreground">Loading…</p>;
+  if (avatar === undefined) return <SkeletonGrid count={3} className="grid grid-cols-1 gap-4 py-8 sm:grid-cols-3" />;
   if (!avatar) {
     return (
       <div className="py-16 text-center">

@@ -1,4 +1,5 @@
 "use client";
+import { confirmDialog } from "@/components/ui/confirm-host";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
@@ -50,7 +51,7 @@ export function MovieEditorView({ movieId }: { movieId: string }) {
   const router = useRouter();
 
   async function removeVideo() {
-    if (!movie || !window.confirm(`Delete “${movie.title.slice(0, 60)}”? Its scenes are removed with it.`)) return;
+    if (!movie || !await confirmDialog(`Delete “${movie.title.slice(0, 60)}”? Its scenes are removed with it.`)) return;
     try {
       await api.deleteMovie(movieId);
       router.push("/projects");

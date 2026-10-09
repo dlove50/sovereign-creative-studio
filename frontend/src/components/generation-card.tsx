@@ -1,4 +1,5 @@
 "use client";
+import { confirmDialog } from "@/components/ui/confirm-host";
 
 import { useState } from "react";
 import { Clapperboard, ImageIcon, Loader2, Trash2 } from "lucide-react";
@@ -23,7 +24,7 @@ export function GenerationCard({ generation, onDeleted }: { generation: Generati
   const inProgress = generation.status === "queued" || generation.status === "running";
 
   async function remove() {
-    if (!window.confirm("Delete this picture? It moves to the trash, where an admin can restore it.")) return;
+    if (!await confirmDialog("Delete this picture? It moves to the trash, where an admin can restore it.")) return;
     setDeleting(true);
     setDeleteError(null);
     try {
