@@ -96,7 +96,7 @@ function SecondaryButton({ action, onClick }: { action: ActionDef; onClick: () =
       <Icon className="h-3.5 w-3.5" />
       {action.label}
       {disabled && statusLabel ? (
-        <span className="ml-1 rounded bg-amber-500/15 px-1 py-0.5 text-[10px] text-amber-700 dark:text-amber-400">
+        <span className="ml-1 rounded bg-amber-500/15 px-1 py-0.5 text-[10px] text-amber-400">
           {statusLabel}
         </span>
       ) : null}

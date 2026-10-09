@@ -80,7 +80,7 @@ import type {
 } from "../types";
 
 
-import { API_BASE, downloadZip, formRequest, request, setActiveUserId } from "@/lib/api/core";
+import { downloadZip, formRequest, request, requestVoid, setActiveUserId } from "@/lib/api/core";
 
 export const projectsApi = {
   listLibrary: (projectId?: string) =>
@@ -135,11 +135,7 @@ export const projectsApi = {
       { method: "PUT", body: JSON.stringify(input) },
     ),
   deleteCollection: async (projectId: string, collectionId: string) => {
-    const res = await fetch(
-      `${API_BASE}/api/projects/${projectId}/collections/${collectionId}`,
-      { method: "DELETE", cache: "no-store" },
-    );
-    if (!res.ok) throw new Error("Could not delete collection");
+    await requestVoid(`/api/projects/${projectId}/collections/${collectionId}`, { method: "DELETE" });
   },
   createCollectionCampaign: (
     projectId: string,
@@ -172,11 +168,7 @@ export const projectsApi = {
       body: JSON.stringify(input),
     }),
   deleteBrief: async (projectId: string, briefId: string) => {
-    const res = await fetch(
-      `${API_BASE}/api/projects/${projectId}/briefs/${briefId}`,
-      { method: "DELETE", cache: "no-store" },
-    );
-    if (!res.ok) throw new Error("Could not delete brief");
+    await requestVoid(`/api/projects/${projectId}/briefs/${briefId}`, { method: "DELETE" });
   },
   getCreativeDirectorRecommendations: (input: {
     project_id: string;
@@ -193,11 +185,7 @@ export const projectsApi = {
     }),
 
   deleteBrandAsset: async (projectId: string, kind: "logos" | "assets", name: string) => {
-    const res = await fetch(
-      `${API_BASE}/api/projects/${encodeURIComponent(projectId)}/brand-assets/${encodeURIComponent(name)}?kind=${kind}`,
-      { method: "DELETE", cache: "no-store" },
-    );
-    if (!res.ok) throw new Error("Could not delete asset.");
+    await requestVoid(`/api/projects/${encodeURIComponent(projectId)}/brand-assets/${encodeURIComponent(name)}?kind=${kind}`, { method: "DELETE" });
   },
 
   fetchRemoteImage: async (projectId: string, kind: "logos" | "assets", imageUrl: string) =>

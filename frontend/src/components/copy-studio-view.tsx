@@ -169,7 +169,7 @@ export function CopyStudioView() {
     <>
       <CopyProviderBanner />
       {transcriptNote ? (
-        <p className="mb-4 flex items-center gap-1.5 rounded-md bg-emerald-500/10 px-3 py-2 text-xs text-emerald-700 dark:text-emerald-400">
+        <p className="mb-4 flex items-center gap-1.5 rounded-md bg-emerald-500/10 px-3 py-2 text-xs text-emerald-400">
           {transcriptNote}
         </p>
       ) : null}

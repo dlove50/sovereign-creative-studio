@@ -97,7 +97,7 @@ export function SourceMediaPicker({
       <label className="text-sm font-medium">{label}</label>
 
       {incompatibleWarning ? (
-        <p className="flex items-center gap-1.5 rounded-md bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
+        <p className="flex items-center gap-1.5 rounded-md bg-amber-500/10 px-3 py-2 text-xs text-amber-400">
           <AlertCircle className="h-3.5 w-3.5" /> {incompatibleWarning}
         </p>
       ) : null}
@@ -116,7 +116,7 @@ export function SourceMediaPicker({
             <p className="truncate text-sm font-medium">{value.filename ?? "Attached source"}</p>
             <p className="text-xs text-muted-foreground">{value.type}</p>
             {autoAttachedFrom ? (
-              <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
+              <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-medium text-emerald-400">
                 <CheckCircle2 className="h-3 w-3" /> Auto-attached{` ${autoAttachedFrom}`}
               </span>
             ) : null}

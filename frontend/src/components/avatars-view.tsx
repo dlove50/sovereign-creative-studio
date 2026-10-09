@@ -20,8 +20,8 @@ function ReadyBadge({ ready, label }: { ready: boolean; label: string }) {
       className={cn(
         "rounded-full px-2 py-0.5 text-[11px] font-medium",
         ready
-          ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
-          : "bg-amber-500/15 text-amber-700 dark:text-amber-400",
+          ? "bg-emerald-500/15 text-emerald-400"
+          : "bg-amber-500/15 text-amber-400",
       )}
     >
       {label}: {ready ? "Ready" : "Setup required"}
@@ -427,7 +427,7 @@ export function AvatarsView() {
                   {preset.width}x{preset.height} · {preset.frames} frames · {preset.steps} steps
                 </span>
                 {preset.warning ? (
-                  <span className="mt-1 block text-[11px] text-amber-600 dark:text-amber-400">{preset.warning}</span>
+                  <span className="mt-1 block text-[11px] text-amber-400">{preset.warning}</span>
                 ) : null}
               </button>
             ))}

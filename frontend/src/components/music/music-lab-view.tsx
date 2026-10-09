@@ -136,11 +136,10 @@ export function MusicLabView() {
       </div>
 
       <div role="tabpanel">
-        {tab === "create" ? (
-          <div className="rounded-2xl border border-border bg-card p-5 md:p-6">
-            <CreatePanel status={status} onSongReady={onSongReady} />
-          </div>
-        ) : null}
+        {/* Always mounted, only hidden: leaving this tab must not drop a running song's progress, the typed lyrics or the chat. */}
+        <div hidden={tab !== "create"} className="rounded-2xl border border-border bg-card p-5 md:p-6">
+          <CreatePanel status={status} onSongReady={onSongReady} />
+        </div>
         {tab === "library" ? (
           <LibraryPanel songs={songs} loading={loadingSongs} player={player} onChanged={refreshSongs} />
         ) : null}

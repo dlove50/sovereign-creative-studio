@@ -276,7 +276,7 @@ export function VideoToTextView() {
               <div className="space-y-2">
                 <Label htmlFor="source-url">Source URL override</Label>
                 {autoAttachedFrom && sourceUrl ? (
-                  <p className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
+                  <p className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-medium text-emerald-400">
                     Auto-attached {autoAttachedFrom}
                   </p>
                 ) : null}

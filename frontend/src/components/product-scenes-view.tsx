@@ -287,7 +287,7 @@ export function ProductScenesView() {
     <div className="space-y-6">
       <ActiveConfigBadge fields={["image_model", "scene_mode"]} />
       {handoffNote ? (
-        <p className="flex items-center gap-1.5 rounded-md bg-emerald-500/10 px-3 py-2 text-xs text-emerald-700 dark:text-emerald-400">
+        <p className="flex items-center gap-1.5 rounded-md bg-emerald-500/10 px-3 py-2 text-xs text-emerald-400">
           {handoffNote}
         </p>
       ) : null}

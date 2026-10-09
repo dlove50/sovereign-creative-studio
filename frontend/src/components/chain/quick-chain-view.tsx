@@ -265,7 +265,7 @@ export function QuickChainView() {
             </div>
           ) : !audioReadiness.piper ? (
             <div className="space-y-2">
-              <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-300">
+              <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-300">
                 <strong>Voice narration is not set up yet.</strong>{" "}
                 {audioReadiness.piper_detail} You can still continue — skip this step.
               </div>
@@ -409,7 +409,7 @@ export function QuickChainView() {
               ) : (
                 <div className="space-y-2">
                   {summarizeError ? (
-                    <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-300">
+                    <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-300">
                       {displayError}
                       <button
                         type="button"
@@ -466,7 +466,7 @@ export function QuickChainView() {
       {state.current === "download" ? (
         <Panel title="Step 6 — Your Outputs Are Ready" icon={Download}>
           <div
-            className="flex items-center gap-2 text-sm font-medium text-emerald-600 dark:text-emerald-400"
+            className="flex items-center gap-2 text-sm font-medium text-emerald-400"
             data-testid="chain-complete"
           >
             <CheckCircle2 className="h-4 w-4" />
@@ -573,7 +573,7 @@ function StepIndicator({
                 active
                   ? "border-primary bg-primary/15 text-primary"
                   : done
-                    ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                    ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400"
                     : "border-border text-muted-foreground",
                 clickable && !active && "hover:bg-muted",
               )}

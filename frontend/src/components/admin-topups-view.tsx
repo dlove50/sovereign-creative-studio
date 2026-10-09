@@ -119,9 +119,9 @@ export function AdminTopupsView() {
       </Link>
 
       <div className="flex items-start gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 p-4">
-        <FlaskConical className="mt-0.5 h-5 w-5 text-amber-600 dark:text-amber-400" />
+        <FlaskConical className="mt-0.5 h-5 w-5 text-amber-400" />
         <div className="text-sm">
-          <p className="font-semibold text-amber-700 dark:text-amber-300">
+          <p className="font-semibold text-amber-300">
             Local credits only — no real money is processed.
           </p>
           <p className="text-muted-foreground">

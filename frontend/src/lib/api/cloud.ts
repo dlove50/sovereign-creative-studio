@@ -1,4 +1,4 @@
-import { API_BASE, formRequest, getActiveUserId, request } from "./core";
+import { authedFetch, formRequest, readError, request } from "./core";
 import type { IntegrationProvider } from "../types";
 
 export type CloudOperation = "avatar-video" | "tts" | "sound-effects" | "voice-changer" | "transcribe" | "dubbing" | "isolate" | "music" | "align" | "voice-clone" | "sts";
@@ -27,8 +27,12 @@ function outputFilesFor(operation: CloudOperation): string[] {
   return m[operation] || ["output.txt"];
 }
 
-/** Simulated cloud studio for development — zero API calls, zero credits. Defaults enabled. */
-export const mockApi = { enabled: true };
+/**
+ * Simulated cloud studio for development: zero API calls, zero credits, fake jobs.
+ * OFF by default (a fake "completed" job looked like a real one). Turn on with NEXT_PUBLIC_CLOUD_MOCK=1;
+ * simulated jobs carry provider "mock" so the screen can label them.
+ */
+export const mockApi = { enabled: process.env.NEXT_PUBLIC_CLOUD_MOCK === "1" };
 
 export function startSimulatedJob(operation: CloudOperation, title = ""): MockJob {
   const now = Date.now();
@@ -105,11 +109,11 @@ export const cloudApi = {
   },
   refresh: (id: string) => request<CloudJob>(`/api/cloud/jobs/${id}/refresh`, { method: "POST" }),
   file: async (job: CloudJob, name: string): Promise<Blob> => {
-    const userId = getActiveUserId();
-    const response = await fetch(`${API_BASE}/api/cloud/jobs/${job.id}/files/${encodeURIComponent(name)}`, {
-      credentials: "include", headers: userId ? { "X-SCS-Family-User-Id": userId } : {},
-    });
-    if (!response.ok) throw new Error("Could not download this output. Check your session and try again.");
+    const response = await authedFetch(`/api/cloud/jobs/${job.id}/files/${encodeURIComponent(name)}`);
+    if (!response.ok) {
+      const failure = await readError(response);
+      throw new Error(failure.status === 401 || failure.status === 403 ? "Could not download this output. Check your session and try again." : failure.message);
+    }
     return response.blob();
   },
   download: async (job: CloudJob, name: string) => {

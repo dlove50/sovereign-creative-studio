@@ -315,7 +315,7 @@ export function AdminDashboardView() {
           className="flex items-center justify-between rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm transition-colors hover:bg-amber-500/15"
         >
           <span>
-            <span className="font-semibold text-amber-700 dark:text-amber-300">
+            <span className="font-semibold text-amber-300">
               Local Credit Top-Up
             </span>
             <span className="ml-2 text-muted-foreground">

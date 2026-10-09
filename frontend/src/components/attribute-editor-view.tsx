@@ -384,7 +384,7 @@ export function AttributeEditorView() {
           </div>
 
           {isShirt ? (
-            <p className="rounded-md bg-amber-500/15 px-3 py-2 text-xs text-amber-600 dark:text-amber-400">
+            <p className="rounded-md bg-amber-500/15 px-3 py-2 text-xs text-amber-400">
               If the shirt overlaps with a jacket, automatic segmentation may not isolate it. Use a manual mask for best results.
             </p>
           ) : null}
@@ -463,7 +463,7 @@ export function AttributeEditorView() {
             </p>
           ) : null}
           {previewNote ? (
-            <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">{previewNote}</p>
+            <p className="mt-2 text-xs text-amber-400">{previewNote}</p>
           ) : null}
           {latest ? (
             <div className="mt-4">

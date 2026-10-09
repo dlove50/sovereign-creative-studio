@@ -327,7 +327,7 @@ export function PromptForm() {
                       </Badge>
                     </p>
                     {!selectedPresetInfo.ready ? (
-                      <p className="text-amber-700 dark:text-amber-300">{selectedPresetInfo.detail}</p>
+                      <p className="text-amber-300">{selectedPresetInfo.detail}</p>
                     ) : null}
                   </div>
                 ) : (
@@ -462,7 +462,7 @@ export function PromptForm() {
           </p>
         )}
         {providerBlockReason && mediaType === "image" ? (
-          <p className="rounded-md bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-300">
+          <p className="rounded-md bg-amber-500/10 px-3 py-2 text-sm text-amber-300">
             {providerBlockReason}
           </p>
         ) : null}
@@ -511,7 +511,7 @@ export function PromptForm() {
                 <h4 className="mb-2 text-sm font-semibold">What do you want to do with this?</h4>
                 <MediaActions media={generationToMedia(result)} onAction={onAction} />
               </div>
-              {toast ? <p className="text-xs text-emerald-600 dark:text-emerald-400">{toast}</p> : null}
+              {toast ? <p className="text-xs text-emerald-400">{toast}</p> : null}
             </div>
           ) : null}
         </div>

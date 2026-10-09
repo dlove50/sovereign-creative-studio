@@ -665,7 +665,7 @@ export function VideosView() {
                 : "Source video/image URL"}
             </Label>
             {autoAttachedFrom && sourceUrl ? (
-              <p className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
+              <p className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-medium text-emerald-400">
                 Auto-attached {autoAttachedFrom}
               </p>
             ) : null}
@@ -788,7 +788,7 @@ export function VideosView() {
           </p>
         ) : null}
         {providerBlockReason ? (
-          <p className="rounded-md bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-300">
+          <p className="rounded-md bg-amber-500/10 px-3 py-2 text-sm text-amber-300">
             {providerBlockReason}
           </p>
         ) : null}

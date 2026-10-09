@@ -58,7 +58,8 @@ export function BrandVisualsView({ projectId }: { projectId: string }) {
     setFetchBusy(true); setMessage(""); setError("");
     try {
       const updated = await api.fetchRemoteImage(projectId, kind, url.trim());
-      setSpec(updated);
+      // Merge only the images: replacing the whole spec would throw away unsaved colour and font edits.
+      setSpec(current => current ? { ...current, logos: updated.logos, assets: updated.assets } : updated);
       setFetchUrl(prev => { const m = new Map(prev); m.delete(kind); return m; });
       setMessage(`Imported from ${url}. Review the results below.`);
     } catch(e) { setError(e instanceof Error ? e.message : "Could not download this image."); }
@@ -68,6 +69,7 @@ export function BrandVisualsView({ projectId }: { projectId: string }) {
   async function deleteAsset(kind: "logos" | "assets", name: string, ev: React.MouseEvent) {
     ev.stopPropagation();
     if (busy || !spec) return;
+    if (!window.confirm(`Remove "${name}" from this brand? This cannot be undone.`)) return;
     setBusy(true); setError(""); setMessage("");
     try {
       await api.deleteBrandAsset(projectId, kind, name);
@@ -78,7 +80,6 @@ export function BrandVisualsView({ projectId }: { projectId: string }) {
     finally { setBusy(false); }
   }
 
-// ... rest of file unchanged — find and replace the existing thumbnail line
   const field = "rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground";
   const action = "rounded-full border border-border px-4 py-2 text-sm hover:bg-raised disabled:opacity-50";
   return <div className="mx-auto max-w-[850px] py-4">
@@ -120,7 +121,7 @@ export function BrandVisualsView({ projectId }: { projectId: string }) {
         <p className="mt-1 text-sm text-muted-foreground">PNG, JPEG, or WebP, up to 10 MB and 20 megapixels. Uploads save immediately.</p>
         <div className="mt-4 flex flex-wrap gap-4">
           {spec[kind].map(image=><figure key={image.name} className="relative w-36 group">
-            <button onClick={e=>deleteAsset(kind,image.name,e)} title="Remove" aria-label={`Remove ${image.name}`} className="absolute top-0 right-0 z-10 m-1 rounded-full bg-destructive p-1 text-white opacity-0 transition-opacity group-hover:opacity-100"><svg width="12" height="12" viewBox="0 0 12 12"><path d="M3 3l6 6M9 3l-6 6" stroke="currentColor" strokeWidth="1.5"/></svg></button>
+            <button onClick={e=>deleteAsset(kind,image.name,e)} title="Remove" aria-label={`Remove ${image.name}`} className="absolute top-0 right-0 z-10 m-1 rounded-full bg-destructive p-1 text-white opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100"><svg width="12" height="12" viewBox="0 0 12 12"><path d="M3 3l6 6M9 3l-6 6" stroke="currentColor" strokeWidth="1.5"/></svg></button>
             <img src={assetUrl(image.url) || undefined} alt={image.name} className="h-28 w-36 rounded-lg border border-border object-contain"/>
             <figcaption className="mt-1 truncate text-xs text-muted-foreground">{image.name}</figcaption></figure>)}</div>
         {/* "Download from URL" toggle / input row */}
@@ -128,7 +129,7 @@ export function BrandVisualsView({ projectId }: { projectId: string }) {
           <div className="mt-3 flex gap-2">
             <input type="url" placeholder="https://example.com/logo.png" value={fetchUrl.get(kind)||""} onChange={e=>{const m=new Map(fetchUrl);m.set(kind,e.target.value);setFetchUrl(m);}} className="flex-1 rounded border border-input bg-background px-3 py-2 text-sm" />
             <button type="button" disabled={busy||fetchBusy||!fetchUrl.get(kind)||spec[kind].length>=20} onClick={()=>fetchRemote(kind)} className="rounded-full border border-border px-4 py-2 text-sm hover:bg-raised disabled:opacity-50">Download</button>
-            <button type="button" onClick={()=>{const m=new Map(fetchUrl);m.delete(kind);setFetchUrl(m);}} className="rounded-full border border-border px-3 py-2 text-sm hover:bg-rais">Cancel</button></div>
+            <button type="button" onClick={()=>{const m=new Map(fetchUrl);m.delete(kind);setFetchUrl(m);}} className="rounded-full border border-border px-3 py-2 text-sm hover:bg-raised">Cancel</button></div>
         ) : (
           <button type="button" disabled={busy||spec[kind].length>=20} onClick={()=>{const m=new Map(fetchUrl);m.set(kind,"");setFetchUrl(m);}} className="mt-3 rounded-full border border-border px-4 py-2 text-sm hover:bg-raised">{kind==="logos"?"Add logo from URL":"Add reference image from URL"}</button>
         )}

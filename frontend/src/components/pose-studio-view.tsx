@@ -296,7 +296,7 @@ export function PoseStudioView() {
             {submitting || activeJob ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
-                {latest?.status === "running" ? "Posingâ€¦" : "Queuedâ€¦"}
+                {latest?.status === "running" ? "Posing…" : "Queued…"}
               </>
             ) : (
               <>
@@ -402,7 +402,7 @@ function PoseCard({ scene, featured = false }: { scene: ProductSceneGeneration; 
               <Download className="h-4 w-4" /> Download
             </a>
             <button type="button" onClick={saveToLibrary} disabled={saving || saved} className={cn(buttonVariants({ variant: "outline", size: "sm" }), "flex-1")}>
-              <Archive className="h-4 w-4" /> {saved ? "Saved" : saving ? "Savingâ€¦" : "Save"}
+              <Archive className="h-4 w-4" /> {saved ? "Saved" : saving ? "Saving…" : "Save"}
             </button>
           </div>
         ) : null}
