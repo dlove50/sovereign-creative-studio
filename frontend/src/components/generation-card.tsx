@@ -37,7 +37,7 @@ export function GenerationCard({ generation, onDeleted }: { generation: Generati
 
   return (
     <div className="group overflow-hidden rounded-lg border border-border bg-card transition-colors hover:border-primary/50">
-      <div className="relative aspect-square w-full bg-background/60">
+      <div className={`relative aspect-square w-full bg-background/60${inProgress ? " job-shimmer" : ""}`}>
         {src ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img

@@ -99,3 +99,22 @@ html.lenis, html.lenis body { height: auto; }
     background-image: radial-gradient(240px circle at var(--mx) var(--my), hsl(var(--primary) / 0.16), transparent 70%);
   }
 }
+
+/* Motion phase 2: page transition, dialog easing and a shimmer on running jobs. Transform and opacity only; off for reduced motion. */
+@media (prefers-reduced-motion: no-preference) {
+  .page-enter { animation: page-in 0.35s cubic-bezier(0.22, 1, 0.36, 1) both; }
+  @keyframes page-in { from { opacity: 0; transform: translate3d(0, 10px, 0); } to { opacity: 1; transform: none; } }
+
+  [role="dialog"][aria-modal="true"].fixed { animation: dialog-fade 0.2s ease-out both; }
+  [role="dialog"][aria-modal="true"].fixed > * { animation: dialog-rise 0.28s cubic-bezier(0.22, 1, 0.36, 1) both; }
+  @keyframes dialog-fade { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes dialog-rise { from { opacity: 0; transform: translate3d(0, 14px, 0) scale(0.98); } to { opacity: 1; transform: none; } }
+
+  .job-shimmer { position: relative; overflow: hidden; }
+  .job-shimmer::after {
+    content: ""; position: absolute; inset: 0; pointer-events: none;
+    background: linear-gradient(100deg, transparent 30%, hsl(var(--primary) / 0.18) 50%, transparent 70%);
+    transform: translate3d(-100%, 0, 0); animation: job-sweep 1.8s ease-in-out infinite;
+  }
+  @keyframes job-sweep { to { transform: translate3d(100%, 0, 0); } }
+}

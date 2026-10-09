@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { GemIcon } from "@/components/gem-icon";
+import { CountUp } from "@/components/motion/count-up";
 import { Coins, LogOut, Sparkles, UserCircle } from "lucide-react";
 
 import { api } from "@/lib/api";
@@ -100,7 +101,7 @@ export function Topbar() {
         <Link href="/credits">
           <div className="flex items-center gap-1.5 rounded-lg border border-primary/30 bg-gradient-to-r from-primary/15 to-transparent px-3 py-1.5 transition-colors hover:border-primary hover:bg-primary/20">
             <GemIcon className="h-4 w-4" />
-            <span className="text-sm font-semibold text-foreground">{credits === null ? "—" : credits}</span>
+            <span className="text-sm font-semibold text-foreground">{credits === null ? "—" : <CountUp value={credits} />}</span>
           </div>
         </Link>
 
