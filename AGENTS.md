@@ -22,10 +22,4 @@ You are working on David's **Lenovo laptop** (RTX 4070, 8 GB graphics memory), n
 - Commit only named files (`git add <files>`), review `git diff --cached --stat` first, never push.
 
 ## Pre-approved work
-David approved on 2026-10-09 (in chat) **motion Phase 2**, exactly these four items and nothing else:
-1. Page transitions (a short fade/rise between routes).
-2. Credit counter count-up (numbers tween to their value).
-3. Modal/dialog open easing.
-4. Shimmer on running-job cards.
-
-Limits: edit only `frontend\src` files these four need; animate only transform and opacity; reuse `components\motion\*` and gsap (no new dependencies); everything off under `prefers-reduced-motion`; no motion in editors or Music Lab. Do one item at a time: edit, `npx tsc --noEmit`, then after all four rebuild and check in Playwright (motion allowed) with no new console errors and no horizontal scroll at 390 px. Commit only the files you changed (`git add <files>`, review `git diff --cached --stat`), message ending `Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>`. Never push. Anything beyond these four: propose, then wait for David. Record progress in the handoff sheet section 5 item 2 and report in the final reply.
+None at present. Motion phase 2 (approved 2026-10-09) and the UI redesign pass (approved the same day) are done and committed. Propose anything new, then wait for David.
