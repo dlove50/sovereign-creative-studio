@@ -1,5 +1,7 @@
 "use client";
 
+import { PromptAssist } from "@/components/prompt-assist/prompt-assist";
+
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Check, ExternalLink, Loader2, Music2, Sparkles, Wand2 } from "lucide-react";
@@ -240,6 +242,7 @@ export function CreatePanel({
               placeholder="A reggae song about a sunrise at the bay, easygoing and warm…"
               className="min-h-[110px]"
             />
+              <PromptAssist value={idea} onChange={(t) => setIdea(t.slice(0, 600))} kind="song_idea" context="Music Lab: what the song is about" />
             <p className="text-xs text-muted-foreground">
               Sovereign writes original lyrics from your idea, then YuE2 composes and sings the full song.
             </p>
@@ -282,6 +285,7 @@ export function CreatePanel({
                 onChange={(e) => setStyle(e.target.value)}
                 placeholder="indie folk, warm female vocal, acoustic guitar"
               />
+                <PromptAssist value={style} onChange={(t) => setStyle(t.slice(0, 500))} kind="style" context="Music Lab: style tags for the song" />
             </div>
           </div>
           <div className="space-y-2">
@@ -327,6 +331,7 @@ export function CreatePanel({
                 placeholder={"[verse]\nWrite your own words here…\n[chorus]\nThe part everyone sings along to…"}
                 className="min-h-[220px] font-mono"
               />
+                <PromptAssist value={lyrics} onChange={(t) => setLyrics(t.slice(0, 3000))} kind="lyrics" context={`Music Lab lyrics${style ? `, style: ${style}` : ""}`} />
               <p className="text-right text-xs tabular-nums text-muted-foreground">
                 {lyrics.length} / {limits?.max_lyrics_chars ?? 3000}
               </p>

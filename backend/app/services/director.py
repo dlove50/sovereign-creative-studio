@@ -209,7 +209,7 @@ def estimate_credits(seconds: int) -> dict[str, int]:
 def create_project(
     user_id: str, template_id: str, brief: dict[str, Any] | None, seconds: int, *, music: bool = True,
     narration: bool = True, voice_id: str | None = None, series_id: str | None = None, direction: str = "",
-    planner: str = "fast",
+    planner: str = "fast", script: str = "",
 ) -> dict[str, Any]:
     try:
         template = tpl.get_template(template_id)
@@ -240,7 +240,7 @@ def create_project(
         "seconds": seconds, "orientation": template["orientation"], "music": bool(music and template["music"]),
         "narration": bool(narration and template["narration"]), "voice_id": voice_id,
         "planner": planner, "series_id": series["id"] if series else None, "episode": len(series["episodes"]) if series else None,
-        "prompt": tpl.compose_prompt(template, clean, context, seconds), "status": "queued", "stage": "queued",
+        "prompt": tpl.compose_prompt(template, clean, context, seconds, script), "status": "queued", "stage": "queued",
         "message": "Waiting for the GPU...", "title": f"{template['label']}", "shots": [], "plan": None,
         "notes": [], "result_url": None, "error": None, "credits_estimate": estimate_credits(seconds),
         "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),

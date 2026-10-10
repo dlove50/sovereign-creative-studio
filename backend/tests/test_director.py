@@ -300,3 +300,14 @@ def test_a_cancelled_or_failed_episode_does_not_count_in_the_series(client, monk
     assert again["episode"] == 2 and _wait(again["id"])["status"] == "done"
     assert client.delete(f"/api/director/projects/{again['id']}").status_code == 204
     assert [e["number"] for e in client.get(f"/api/director/series/{series_id}").json()["episodes"]] == [1]
+
+
+def test_a_chapter_script_reaches_the_planner_prompt():
+    from app.services import director_templates as dt
+
+    template = dt.TEMPLATES[0]
+    brief = {f["id"]: "a lighthouse keeper finds a message" for f in template["fields"] if f["required"]}
+    script = "\n".join(["THE KEEPER", "BIBLE", "Look: moody drama, 16:9", "CHAPTERS", "1. Storm (8 s)", "   Waves hit the rocks."])
+    prompt = dt.compose_prompt(template, brief, None, 30, script)
+    assert "Follow this chapter script closely" in prompt and "1. Storm (8 s)" in prompt
+    assert "Follow this chapter script" not in dt.compose_prompt(template, brief, None, 30)

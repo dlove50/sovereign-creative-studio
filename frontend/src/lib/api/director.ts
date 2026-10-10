@@ -74,6 +74,7 @@ export type StartInput = {
   narration: boolean;
   voice_id?: string | null;
   planner?: "fast" | "best";
+  script?: string;
 };
 
 const post = <T>(path: string, body?: unknown) =>

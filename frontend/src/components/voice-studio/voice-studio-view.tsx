@@ -1,5 +1,7 @@
 "use client";
 
+import { PromptAssist } from "@/components/prompt-assist/prompt-assist";
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AudioLines, Dices, Download, Loader2, Pause, Play, Power, Square, Trash2, Upload, Users } from "lucide-react";
 
@@ -449,6 +451,7 @@ export function VoiceStudioView() {
                 id="vs-script" value={script} onChange={(e) => setScript(e.target.value)} rows={12} maxLength={60000}
                 placeholder={"Speaker 1: Welcome to the show!\nSpeaker 2: Thanks for having me.\n\nOr paste plain text and the lines are shared out among the speakers."}
               />
+                <PromptAssist value={script} onChange={(t) => setScript(t.slice(0, 60000))} kind="podcast" context="Voice Studio conversation script" />
               <div className="flex flex-wrap items-center gap-2">
                 {Array.from({ length: count }, (_, i) => (
                   <Button key={i} size="sm" variant="outline" type="button" onClick={() => insertSpeaker(i + 1)}>+ Speaker {i + 1}</Button>
@@ -520,6 +523,7 @@ export function VoiceStudioView() {
             </div>
           </div>
           <Textarea value={rtText} onChange={(e) => setRtText(e.target.value)} rows={5} maxLength={20000} aria-label="Text to speak" placeholder="Type what the voice should say…" />
+          <PromptAssist value={rtText} onChange={(t) => setRtText(t.slice(0, 20000))} kind="narration" context="Voice Studio single-voice narration" />
           <Button size="lg" onClick={() => void speak()} disabled={!engine?.ready || !isRealtime || busy || !rtText.trim()}>
             {busy && job?.kind === "realtime" ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <AudioLines className="h-4 w-4" aria-hidden="true" />}
             Speak

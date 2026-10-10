@@ -1,5 +1,7 @@
 "use client";
 
+import { PromptAssist } from "@/components/prompt-assist/prompt-assist";
+
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { Captions, Check, ChevronRight, Clock, Loader2, Monitor, Mic, Palette, Paperclip, PenLine, Sparkles, UserRound, X } from "lucide-react";
@@ -285,6 +287,7 @@ export function VideoAgentView() {
           placeholder="Describe the video you want: the topic, who it's for, and the feeling. I'll write the script."
           className="mt-3 w-full resize-none bg-transparent text-[15px] placeholder:text-muted-foreground/70 focus:outline-none"
         />
+          <PromptAssist value={prompt} onChange={(t) => setPrompt(t.slice(0, 2000))} kind="story" context="Video agent: what the video is about" className="mt-2" />
         <div className="flex items-center justify-end gap-2">
           <select value={mode} onChange={(e) => setMode(e.target.value as Mode)} aria-label="Mode" className="h-11 rounded-xl border border-border bg-subdued px-3 text-xs">
             <option value="review">Review script first</option>
@@ -341,6 +344,7 @@ export function VideoAgentView() {
                 maxLength={2000}
                 className="mt-1.5 w-full rounded-2xl border border-border bg-background/60 px-4 py-3 text-[15px] leading-relaxed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               />
+                {stage === "review" ? <PromptAssist value={script} onChange={(t) => setScript(t.slice(0, 2000))} kind="narration" context="Video agent narration script" className="mt-2" /> : null}
               {stage === "review" ? (
                 <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
                   <span className="text-xs text-muted-foreground">Rendering takes about {estMinutes} min on your GPU.</span>

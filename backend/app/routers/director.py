@@ -28,6 +28,7 @@ class ProjectIn(BaseModel):
     narration: bool = True
     voice_id: str | None = Field(default=None, max_length=80)
     planner: str = Field(default="fast", pattern="^(fast|best)$")
+    script: str = Field(default="", max_length=8000)  # optional chapter script written or edited on the brief page
 
 
 class NextEpisodeIn(BaseModel):
@@ -64,7 +65,8 @@ def templates(_user: User = Depends(get_current_user)):
 def start(body: ProjectIn, user: User = Depends(get_current_user)):
     try:
         project = director.create_project(user.id, body.template, body.brief, body.seconds, music=body.music,
-                                          narration=body.narration, voice_id=body.voice_id, planner=body.planner)
+                                          narration=body.narration, voice_id=body.voice_id, planner=body.planner,
+                                          script=body.script)
     except director.DirectorError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return _public(project)

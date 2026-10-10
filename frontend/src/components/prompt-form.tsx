@@ -1,5 +1,7 @@
 "use client";
 
+import { PromptAssist } from "@/components/prompt-assist/prompt-assist";
+
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, Clapperboard, Film, ImageIcon, Loader2, Wand2 } from "lucide-react";
@@ -209,6 +211,7 @@ export function PromptForm() {
             placeholder="Describe what you want to create, e.g. a luxury perfume bottle on wet marble, cinematic lighting"
             className="min-h-[140px]"
           />
+            <PromptAssist value={prompt} onChange={setPrompt} kind="visual" context="Image studio prompt" />
         </div>
 
         <div className="space-y-2">

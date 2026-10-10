@@ -3,7 +3,10 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, Clapperboard, Loader2, Mic, Music2 } from "lucide-react";
+import { ArrowLeft, Clapperboard, Loader2, Mic, Music2, PenLine } from "lucide-react";
+
+import { PromptAssist } from "@/components/prompt-assist/prompt-assist";
+import { promptAssistApi } from "@/lib/api/prompt-assist";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -53,6 +56,8 @@ export function DirectorBriefView() {
   const [planner, setPlanner] = useState<"fast" | "best">("fast");
   const [voices, setVoices] = useState<{ id: string; label: string }[]>([]);
   const [busy, setBusy] = useState(false);
+  const [script, setScript] = useState("");
+  const [writing, setWriting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -84,12 +89,27 @@ export function DirectorBriefView() {
     try {
       const project = await directorApi.start({
         template: template.id, brief, seconds, music: music && !!template.music,
-        narration: narration && template.narration, voice_id: voiceId || null, planner,
+        narration: narration && template.narration, voice_id: voiceId || null, planner, script: script.trim(),
       });
       router.push(`/director/watch?id=${project.id}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "The video could not be started.");
       setBusy(false);
+    }
+  };
+
+  const writeScript = async () => {
+    const idea = template.fields.map((f) => (brief[f.id] ?? "").trim() ? `${f.label}: ${brief[f.id].trim()}` : "").filter(Boolean).join("\n");
+    if (!idea) { setError("Fill in the brief first, then I can write the chapters from it."); return; }
+    setError(null);
+    setWriting(true);
+    try {
+      const out = await promptAssistApi.movie(idea, seconds, `${template.label}, ${template.orientation === "portrait" ? "vertical 9:16" : "widescreen 16:9"}`);
+      setScript(out.text);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "The script could not be written.");
+    } finally {
+      setWriting(false);
     }
   };
 
@@ -128,10 +148,16 @@ export function DirectorBriefView() {
                 {field.required ? null : <span className="ml-1 text-xs font-normal text-muted-foreground">(optional)</span>}
               </Label>
               {field.long ? (
-                <Textarea
-                  id={`brief-${field.id}`} rows={3} maxLength={600} placeholder={field.placeholder}
-                  value={brief[field.id] ?? ""} onChange={(e) => setBrief((b) => ({ ...b, [field.id]: e.target.value }))}
-                />
+                <>
+                  <Textarea
+                    id={`brief-${field.id}`} rows={3} maxLength={600} placeholder={field.placeholder}
+                    value={brief[field.id] ?? ""} onChange={(e) => setBrief((b) => ({ ...b, [field.id]: e.target.value }))}
+                  />
+                  <PromptAssist
+                    value={brief[field.id] ?? ""} onChange={(text) => setBrief((b) => ({ ...b, [field.id]: text.slice(0, 600) }))}
+                    kind="story" context={`${template.label}: ${field.label}`}
+                  />
+                </>
               ) : (
                 <Input
                   id={`brief-${field.id}`} maxLength={600} placeholder={field.placeholder}
@@ -140,6 +166,28 @@ export function DirectorBriefView() {
               )}
             </div>
           ))}
+
+          <div className="space-y-2 rounded-xl border border-border bg-card/40 p-4">
+            <Label htmlFor="director-script">Chapter script <span className="text-xs font-normal text-muted-foreground">(optional)</span></Label>
+            <p className="text-xs text-muted-foreground">
+              Have the whole film written as titled chapters, with a cast and look that stay the same in every shot. Edit anything,
+              then press Start directing. Leave it empty and the Director plans the shots itself.
+            </p>
+            <button
+              type="button" onClick={() => void writeScript()} disabled={writing || busy}
+              className="inline-flex h-10 items-center gap-2 rounded-lg border border-primary/50 px-3.5 text-sm font-medium text-primary hover:bg-primary/10 disabled:opacity-50"
+            >
+              {writing ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <PenLine className="h-4 w-4" aria-hidden="true" />}
+              {writing ? "Writing the chapters…" : script ? "Write it again from my brief" : "Write the chapter script from my brief"}
+            </button>
+            <Textarea
+              id="director-script" rows={script ? 16 : 4} maxLength={8000} value={script} onChange={(e) => setScript(e.target.value)}
+              placeholder="Or type or speak your own outline here."
+              className="font-mono text-xs leading-relaxed"
+            />
+            <PromptAssist value={script} onChange={(text) => setScript(text.slice(0, 8000))} kind="movie" movieSeconds={seconds}
+              context={template.label} writeLabel="Turn this into chapters" />
+          </div>
 
           <div className="space-y-2">
             <div className="flex items-center justify-between">

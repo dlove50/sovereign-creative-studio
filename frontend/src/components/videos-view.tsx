@@ -1,4 +1,6 @@
 "use client";
+
+import { PromptAssist } from "@/components/prompt-assist/prompt-assist";
 import { confirmDialog } from "@/components/ui/confirm-host";
 
 import { useEffect, useMemo, useState } from "react";
@@ -736,6 +738,7 @@ export function VideosView() {
             }
             className="min-h-[100px]"
           />
+            <PromptAssist value={prompt} onChange={setPrompt} kind="video" context="AI video generator prompt" />
           <p className="text-xs text-muted-foreground">
             {selectedQuality.label}: {selectedQuality.description}
           </p>

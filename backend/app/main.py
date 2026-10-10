@@ -48,6 +48,7 @@ from .routers import (
     slides as slides_router,
     ocr as ocr_router,
     voice_studio as voice_studio_router,
+    prompt_assist as prompt_assist_router,
     translate as translate_router,
     voice_library as voice_library_router,
     speech_cleanup as speech_cleanup_router,
@@ -158,6 +159,7 @@ app.include_router(developers_router.router)
 app.include_router(slides_router.router)
 app.include_router(ocr_router.router)
 app.include_router(voice_studio_router.router)
+app.include_router(prompt_assist_router.router)
 app.include_router(interactive_router.router)
 app.include_router(captions_router.router)
 app.include_router(translate_router.router)

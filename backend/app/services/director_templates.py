@@ -158,6 +158,7 @@ def music_style(template: dict[str, Any], brief: dict[str, str]) -> str | None:
 
 def compose_prompt(
     template: dict[str, Any], brief: dict[str, str], series_context: str | None = None, seconds: int | None = None,
+    script: str = "",
 ) -> str:
     """The story request handed to the cinematic planner."""
     lines = [f"Video type: {template['label']}.", template["structure"]]
@@ -175,5 +176,10 @@ def compose_prompt(
         lines.append("Use no narration; tell the story with pictures and, where natural, short dialogue.")
     if series_context:
         lines.append(series_context)
+    script = "\n".join(line.rstrip() for line in (script or "").strip().splitlines())[:8000]
+    if script:
+        lines.append("Follow this chapter script closely: one or more shots per chapter, in order. Repeat the look, every "
+                     "character's identity and wardrobe, and the rules from its bible inside every shot's prompts so the "
+                     "people never change. Script:\n" + script)
     lines.append("Invent original characters, places and wording. Do not use real people, brands, logos or franchises.")
     return "\n".join(lines)
