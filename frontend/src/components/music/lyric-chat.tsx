@@ -42,7 +42,7 @@ export function LyricChat({ song, duration, onSong }: { song: DraftSong; duratio
     setError(null);
     setBusy(true);
     try {
-      const out = await musicApi.lyricsChat({ messages: next, current: song.lyrics ? song : undefined, duration });
+      const out = await musicApi.lyricsChat({ messages: next, current: song.lyrics || song.style ? song : undefined, duration });
       setTurns([...next, { role: "assistant", content: out.reply }]);
       onSong({ title: out.title, style: out.style, lyrics: out.lyrics });
     } catch (e) {

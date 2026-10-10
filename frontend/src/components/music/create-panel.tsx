@@ -37,6 +37,39 @@ const GENRES = [
   "Reggae", "Pop", "Rock", "Hip hop", "Country", "Jazz", "Lo-fi", "EDM", "Folk", "R&B", "Latin",
   "Gospel", "Blues", "Metal", "Synthwave", "Ambient",
 ];
+/** The style tags with the chosen genre first (unless the style already names it). */
+function withGenre(style: string, genre: string | null): string {
+  const trimmed = style.trim();
+  if (!genre || trimmed.toLowerCase().includes(genre.toLowerCase())) return trimmed;
+  return trimmed ? `${genre}, ${trimmed}` : genre;
+}
+
+function GenrePicker({ genre, onChange }: { genre: string | null; onChange: (genre: string | null) => void }) {
+  return (
+    <div className="space-y-2">
+      <Label>Genre</Label>
+      <div className="flex flex-wrap gap-2">
+        {GENRES.map((g) => (
+          <button
+            key={g}
+            type="button"
+            aria-pressed={genre === g}
+            onClick={() => onChange(genre === g ? null : g)}
+            className={cn(
+              "rounded-full border px-3 py-1 text-sm transition-colors",
+              genre === g
+                ? "border-primary bg-primary/15 text-primary"
+                : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground",
+            )}
+          >
+            {g}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 const TAG_GROUPS: { label: string; tags: string[] }[] = [
   { label: "Mood", tags: ["uplifting", "melancholic", "dreamy", "energetic", "romantic", "dark", "chill"] },
   { label: "Instruments", tags: ["acoustic guitar", "piano", "synth", "drums", "bass", "strings", "brass"] },
@@ -135,7 +168,7 @@ export function CreatePanel({
         ? await musicApi.generate({
             // A short instrumental of the chosen style: a draft to approve before the long vocal render.
             title: `Preview: ${title.trim() || style.trim().slice(0, 40)}`.slice(0, 80),
-            style: style.trim(),
+            style: withGenre(style, genre),
             instrumental: true,
             duration: PREVIEW_SECONDS,
             quality,
@@ -152,7 +185,7 @@ export function CreatePanel({
             })
           : await musicApi.generate({
               title: title.trim() || undefined,
-              style: style.trim(),
+              style: withGenre(style, genre),
               lyrics: instrumental ? undefined : lyrics.trim(),
               instrumental,
               duration,
@@ -189,7 +222,9 @@ export function CreatePanel({
   };
 
   const hasInput =
-    mode === "describe" ? idea.trim().length > 0 : style.trim().length > 0 && (instrumental || lyrics.trim().length > 0);
+    mode === "describe"
+      ? idea.trim().length > 0
+      : withGenre(style, genre).length > 0 && (instrumental || lyrics.trim().length > 0);
   // An offline engine is fine: creating a song launches it.
   const canSubmit = hasInput && !busy && (ready || engineOffline);
   const stepIndex = job ? Math.max(0, STEPS.findIndex((s) => s.stage.includes(job.stage))) : -1;
@@ -225,11 +260,14 @@ export function CreatePanel({
       </div>
 
       {mode === "chat" ? (
-        <LyricChat
-          song={{ title, style, lyrics }}
-          duration={duration}
-          onSong={(next) => { setTitle(next.title); setStyle(next.style); setLyrics(next.lyrics); }}
-        />
+        <div className="space-y-4">
+          <GenrePicker genre={genre} onChange={setGenre} />
+          <LyricChat
+            song={{ title, style: withGenre(style, genre), lyrics }}
+            duration={duration}
+            onSong={(next) => { setTitle(next.title); setStyle(next.style); setLyrics(next.lyrics); }}
+          />
+        </div>
       ) : mode === "describe" ? (
         <div className="space-y-4">
           <div className="space-y-2">
@@ -247,30 +285,11 @@ export function CreatePanel({
               Sovereign writes original lyrics from your idea, then YuE2 composes and sings the full song.
             </p>
           </div>
-          <div className="space-y-2">
-            <Label>Genre</Label>
-            <div className="flex flex-wrap gap-2">
-              {GENRES.map((g) => (
-                <button
-                  key={g}
-                  type="button"
-                  aria-pressed={genre === g}
-                  onClick={() => setGenre(genre === g ? null : g)}
-                  className={cn(
-                    "rounded-full border px-3 py-1 text-sm transition-colors",
-                    genre === g
-                      ? "border-primary bg-primary/15 text-primary"
-                      : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground",
-                  )}
-                >
-                  {g}
-                </button>
-              ))}
-            </div>
-          </div>
+          <GenrePicker genre={genre} onChange={setGenre} />
         </div>
       ) : (
         <div className="space-y-4">
+          <GenrePicker genre={genre} onChange={setGenre} />
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="music-title">Title <span className="text-muted-foreground">(optional)</span></Label>
@@ -467,7 +486,7 @@ export function CreatePanel({
           {busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : mode === "describe" ? <Sparkles className="h-4 w-4" aria-hidden="true" /> : <Wand2 className="h-4 w-4" aria-hidden="true" />}
           {busy ? `${(job?.message ?? "Creating").replace(/\.+$/, "")}… ${Math.floor(elapsed / 60)}:${String(elapsed % 60).padStart(2, "0")}` : "Create song"}
         </Button>
-        {mode !== "describe" && style.trim() && !busy ? (
+        {mode !== "describe" && withGenre(style, genre) && !busy ? (
           <Button size="lg" variant="outline" onClick={() => void submit(true)} disabled={!(ready || engineOffline)} title="Makes a 20-second instrumental of this style so you can approve the sound before the long vocal render">
             <Music2 className="h-4 w-4" aria-hidden="true" />
             Preview the sound ({PREVIEW_SECONDS} s)
