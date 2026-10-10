@@ -471,6 +471,14 @@ export function VoiceStudioView() {
               {busy ? <Button size="lg" variant="destructive" onClick={() => void stopJob()}><Square className="h-4 w-4" aria-hidden="true" /> Stop</Button> : null}
             </div>
 
+            {busy && job?.kind === "podcast" ? (
+              <div role="status" className="flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-200">
+                <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400" aria-hidden="true" />
+                <strong>LIVE STREAMING</strong>
+                <span>Audio plays as it is generated{live.heard ? ` (${live.heard.toFixed(1)}s heard so far)` : ""}. It can pause briefly between chunks.</span>
+              </div>
+            ) : null}
+
             {job && job.kind === "podcast" ? (
               <div className="space-y-2 rounded-xl border border-border bg-card/50 p-3 text-sm">
                 <p className="text-muted-foreground">
@@ -517,6 +525,24 @@ export function VoiceStudioView() {
             Speak
           </Button>
           {result && result.kind === "realtime" ? <ClipPlayer url={result.audio_url} name={`voice-studio-${result.id}.wav`} autoPlay /> : null}
+        </section>
+      ) : null}
+
+      {tab !== "library" ? (
+        <section className="space-y-3 rounded-2xl border border-border bg-card/40 p-4 text-sm" aria-label="Tips and limitations">
+          <h2 className="text-sm font-semibold">Usage tips</h2>
+          <ul className="list-disc space-y-1 pl-5 text-muted-foreground">
+            <li>Press <strong>Generate voices</strong> to start. Audio plays live as it is made, and the complete file appears with a download button when it finishes.</li>
+            <li><strong>Stop</strong> interrupts a generation at any time.</li>
+            <li>Not happy with it? Generate again, or change the CFG scale or seed in Advanced settings.</li>
+            <li>The 7B model clones your recorded voices best. The Realtime 0.5B model is fastest but uses preset voices only.</li>
+          </ul>
+          <h2 className="pt-2 text-sm font-semibold">Risks and limitations</h2>
+          <p className="text-muted-foreground">
+            VibeVoice can produce outputs that are unexpected, biased or inaccurate, and it inherits any biases of its base model. High-quality synthetic
+            speech can be misused for impersonation, fraud or disinformation. Use generated audio lawfully, check that transcripts are accurate, only clone
+            voices you have the right to use, and say that audio is AI-generated when you share it.
+          </p>
         </section>
       ) : null}
 
