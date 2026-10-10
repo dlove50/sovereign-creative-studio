@@ -78,6 +78,8 @@ def start(body: StartIn | None = None, _user: User = Depends(get_current_user)):
         return vs.start(body.model if body else None)
     except vs.VoiceStudioError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001 - say what went wrong instead of a bare "Internal Server Error"
+        raise HTTPException(status_code=409, detail=f"The voice engine could not be started: {exc}") from exc
 
 
 @router.post("/stop")

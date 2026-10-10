@@ -133,3 +133,28 @@ def test_a_voice_upload_is_checked_and_forwarded(engine, monkeypatch):
         assert c.post("/api/voice-studio/voices", files={"file": ("empty.wav", b"")}).status_code == 422
         ok = c.post("/api/voice-studio/voices", files={"file": ("my voice.m4a", b"1234567890")})
         assert ok.status_code == 201 and ok.json()["added"] == "my-voice" and got == {"name": "my voice.m4a", "size": 10}
+
+
+def test_a_busy_render_engine_is_explained_not_a_server_error(monkeypatch):
+    monkeypatch.setattr(vs, "installed", lambda: True)
+    monkeypatch.setattr(vs, "engine_status", lambda: {"installed": True, "online": False, "ready": False, "loading": None, "model": None,
+                                                      "kind": None, "generating": False, "voices": 0})
+    monkeypatch.setattr(vs, "stop_gradio_demo", lambda: False)
+
+    def busy():
+        raise vs.VoiceStudioError("The image, video or music engine is busy rendering. Wait for it to finish, then start the voice engine.")
+
+    monkeypatch.setattr(vs, "free_graphics_card", busy)
+    with TestClient(app) as c:
+        out = c.post("/api/voice-studio/start", json={})
+        assert out.status_code == 409 and "busy rendering" in out.json()["detail"]
+
+
+def test_an_unexpected_start_failure_gets_a_readable_message(monkeypatch):
+    def boom(model=None):
+        raise OSError("disk exploded")
+
+    monkeypatch.setattr(vs, "start", boom)
+    with TestClient(app) as c:
+        out = c.post("/api/voice-studio/start", json={})
+        assert out.status_code == 409 and "disk exploded" in out.json()["detail"]

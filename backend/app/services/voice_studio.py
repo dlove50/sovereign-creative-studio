@@ -112,7 +112,7 @@ def _free_comfy(base_url: str) -> None:
     try:
         with urllib.request.urlopen(base + "/queue", timeout=4.0) as response:
             queue = json.load(response)
-    except (urllib.error.URLError, OSError, ValueError):
+    except Exception:  # noqa: BLE001 - any failure to ask means there is nothing running to free
         return  # not running: holds nothing
     if isinstance(queue, dict) and (queue.get("queue_running") or queue.get("queue_pending")):
         raise VoiceStudioError("The image, video or music engine is busy rendering. Wait for it to finish, then start the voice engine.")
@@ -120,7 +120,7 @@ def _free_comfy(base_url: str) -> None:
         request = urllib.request.Request(base + "/free", data=json.dumps({"unload_models": True, "free_memory": True}).encode("utf-8"),
                                          headers={"Content-Type": "application/json"})
         urllib.request.urlopen(request, timeout=10.0).close()
-    except (urllib.error.URLError, OSError):
+    except Exception:  # noqa: BLE001 - freeing is best effort
         pass
 
 
@@ -145,7 +145,10 @@ def free_graphics_card() -> None:
     _free_comfy(config.COMFYUI_BASE_URL)
     _free_comfy(config.MUSIC_COMFYUI_URL)
     music_compose.unload_models()
-    _release_main_engine()
+    try:
+        _release_main_engine()
+    except Exception as exc:  # noqa: BLE001 - a busy render engine is an expected, explainable refusal, not a crash
+        raise VoiceStudioError(str(exc) or "The image and video engine is busy. Try again when it finishes.") from exc
 
 
 def start(model_label: str | None = None) -> dict[str, Any]:
