@@ -2,14 +2,27 @@ import { expect, test } from "@playwright/test";
 
 test.describe("shared UI contract", () => {
   test("controls expose professional sizing, focus, disabled, and surface styling", async ({ page }) => {
-    await page.route("**/api/**", (route) =>
-      route.fulfill({ status: 200, contentType: "application/json", body: "{}" }),
-    );
+    const pageErrors: string[] = [];
+    page.on("pageerror", (error) => pageErrors.push(error.message));
+    await page.route("**/api/**", (route) => {
+      const pathname = new URL(route.request().url()).pathname;
+      let body: unknown = {};
+      if (pathname.endsWith("/api/auth/me")) {
+        body = { name: "Studio Owner", role: "owner_admin", credits: 120 };
+      } else if (pathname.endsWith("/api/generations/presets")) {
+        body = { quality_presets: [], style_presets: [], image_modes: [], face_refine: { ready: false } };
+      } else if (pathname.endsWith("/api/audio-merge/readiness")) {
+        body = { ffmpeg: true, piper: true, ready: true, detail: "ready", piper_detail: "ready", default_voice: null, voices: [] };
+      }
+      return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(body) });
+    });
     await page.goto("/chain", { waitUntil: "domcontentloaded", timeout: 15_000 });
 
     const textarea = page.getByLabel("What should the image look like?");
     const submit = page.getByRole("button", { name: "Generate Image" });
     await expect(textarea).toBeVisible({ timeout: 5_000 });
+    await page.waitForTimeout(250);
+    expect(pageErrors).toEqual([]);
 
     for (const control of [textarea, submit]) {
       const box = await control.boundingBox();

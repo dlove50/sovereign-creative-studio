@@ -421,7 +421,7 @@ export function VideosView() {
         </summary>
         <p className="mt-3 max-w-prose text-sm text-muted-foreground">
           Keep local generation as your default, or open a free service below.
-          Sign in on the provider's website if needed, choose its free option,
+          Sign in on the provider&apos;s website if needed, choose its free option,
           and download your finished clip. Availability and limits vary by service.
         </p>
         <nav aria-label="Free video services" className="mt-3 flex flex-wrap gap-2">

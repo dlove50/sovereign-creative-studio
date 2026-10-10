@@ -80,5 +80,34 @@ test.describe("motion runtime", () => {
     await expect(page.locator("html")).toHaveAttribute("data-motion", "off", { timeout: 5_000 });
     await expect(page.locator("html")).not.toHaveClass(/lenis/);
     await expect(page.locator(".page-enter")).toHaveCSS("animation-name", "none");
+    const headlineWords = page.getByRole("heading", { level: 1 }).locator("[data-word]");
+    await expect(headlineWords.first()).toHaveCSS("filter", "none");
+    await expect(headlineWords.first()).toHaveCSS("opacity", "1");
+  });
+
+  test("forced-off startup never leaves animated headline styles behind", async ({ page }) => {
+    await page.addInitScript(
+      ({ key }) => localStorage.setItem(key, "off"),
+      { key: MOTION_STORAGE_KEY },
+    );
+    await page.goto("/", { waitUntil: "domcontentloaded", timeout: 15_000 });
+    await expect(page.locator("html")).toHaveAttribute("data-motion", "off", { timeout: 5_000 });
+    const headlineWord = page.getByRole("heading", { level: 1 }).locator("[data-word]").first();
+    await expect(headlineWord).toHaveCSS("filter", "none");
+    await expect(headlineWord).toHaveCSS("opacity", "1");
+  });
+
+  test("system follows both operating-system motion states", async ({ page }) => {
+    await page.addInitScript(
+      ({ key }) => localStorage.setItem(key, "system"),
+      { key: MOTION_STORAGE_KEY },
+    );
+
+    await page.goto("/", { waitUntil: "domcontentloaded", timeout: 15_000 });
+    await expect(page.locator("html")).toHaveAttribute("data-motion", "off", { timeout: 5_000 });
+
+    await page.emulateMedia({ reducedMotion: "no-preference" });
+    await expect(page.locator("html")).toHaveAttribute("data-motion", "on", { timeout: 5_000 });
+    await expect(page.locator("html")).toHaveClass(/lenis/);
   });
 });
