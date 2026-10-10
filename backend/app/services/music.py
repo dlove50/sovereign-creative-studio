@@ -112,6 +112,9 @@ def start_engine() -> dict[str, Any]:
         cwd=str(main_py.parent), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
         creationflags=flags if hasattr(subprocess, "CREATE_NO_WINDOW") else 0,
     )
+    from .process_power import disable_power_throttling  # Windows otherwise runs the hidden engine about 8x slower
+
+    disable_power_throttling(_engine_process.pid)
     return {"started": True, "detail": f"engine starting (pid {_engine_process.pid})"}
 
 

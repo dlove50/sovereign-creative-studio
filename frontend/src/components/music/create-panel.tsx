@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Check, ExternalLink, Loader2, Sparkles, Wand2 } from "lucide-react";
+import { Check, ExternalLink, Loader2, Music2, Sparkles, Wand2 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,9 @@ import { cn } from "@/lib/utils";
 
 /** The average length of a commercial release: 3 minutes 30 seconds. */
 const RADIO_SECONDS = 210;
+
+/** Length of the instrumental style preview. Measured here: instrumentals take about 6 s of work per second of music, so 20 s is a few minutes. */
+const PREVIEW_SECONDS = 20;
 /** The default is 2 minutes: a 3:30 song can take an hour on this laptop, so long songs are an explicit choice. */
 const DEFAULT_SECONDS = 120;
 
@@ -120,14 +123,23 @@ export function CreatePanel({
     [onSongReady],
   );
 
-  const submit = async () => {
+  const submit = async (preview = false) => {
     setError(null);
     setBusy(true);
     setJob(null);
     const auto_play = target === "speakers";
     try {
-      const started =
-        mode === "describe"
+      const started = preview
+        ? await musicApi.generate({
+            // A short instrumental of the chosen style: a draft to approve before the long vocal render.
+            title: `Preview: ${title.trim() || style.trim().slice(0, 40)}`.slice(0, 80),
+            style: style.trim(),
+            instrumental: true,
+            duration: PREVIEW_SECONDS,
+            quality,
+            auto_play,
+          })
+        : mode === "describe"
           ? await musicApi.createFromIdea({
               idea: idea.trim(),
               genre: genre ?? undefined,
@@ -434,7 +446,7 @@ export function CreatePanel({
       {error ? (
         <div role="alert" className="flex flex-wrap items-center gap-3 rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
           <p className="min-w-0 flex-1">{error}</p>
-          <Button size="sm" variant="outline" className="text-foreground" onClick={submit} disabled={!canSubmit}>
+          <Button size="sm" variant="outline" className="text-foreground" onClick={() => void submit(false)} disabled={!canSubmit}>
             Try again
           </Button>
           {duration > 120 ? (
@@ -446,10 +458,16 @@ export function CreatePanel({
       ) : null}
 
       <div className="flex flex-wrap items-center gap-4">
-        <Button size="lg" onClick={submit} disabled={!canSubmit}>
+        <Button size="lg" onClick={() => void submit(false)} disabled={!canSubmit}>
           {busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : mode === "describe" ? <Sparkles className="h-4 w-4" aria-hidden="true" /> : <Wand2 className="h-4 w-4" aria-hidden="true" />}
           {busy ? `${(job?.message ?? "Creating").replace(/\.+$/, "")}… ${Math.floor(elapsed / 60)}:${String(elapsed % 60).padStart(2, "0")}` : "Create song"}
         </Button>
+        {mode !== "describe" && style.trim() && !busy ? (
+          <Button size="lg" variant="outline" onClick={() => void submit(true)} disabled={!(ready || engineOffline)} title="Makes a 20-second instrumental of this style so you can approve the sound before the long vocal render">
+            <Music2 className="h-4 w-4" aria-hidden="true" />
+            Preview the sound ({PREVIEW_SECONDS} s)
+          </Button>
+        ) : null}
         {busy ? (
           <p className="max-w-[60ch] text-sm text-muted-foreground">
             This song usually takes about {makeTime(duration, limits).typical} minutes, and up to {makeTime(duration, limits).slow} if the graphics card is busy.
