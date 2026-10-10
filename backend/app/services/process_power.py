@@ -57,3 +57,47 @@ def throttling_forced_off(pid: int) -> bool:
         return bool(ok) and bool(state.ControlMask & _EXECUTION_SPEED) and not (state.StateMask & _EXECUTION_SPEED)
     finally:
         k.CloseHandle(handle)
+
+
+class _ProcessEntry(ctypes.Structure):
+    _fields_ = [
+        ("dwSize", wintypes.DWORD), ("cntUsage", wintypes.DWORD), ("th32ProcessID", wintypes.DWORD),
+        ("th32DefaultHeapID", ctypes.c_size_t), ("th32ModuleID", wintypes.DWORD), ("cntThreads", wintypes.DWORD),
+        ("th32ParentProcessID", wintypes.DWORD), ("pcPriClassBase", ctypes.c_long), ("dwFlags", wintypes.DWORD),
+        ("szExeFile", ctypes.c_wchar * 260),
+    ]
+
+
+def descendants(pid: int) -> list[int]:
+    """Every child, grandchild and so on of ``pid`` (the Python launcher starts the real engine as a child)."""
+    if sys.platform != "win32":
+        return []
+    k = _kernel32()
+    k.CreateToolhelp32Snapshot.restype = wintypes.HANDLE
+    snapshot = k.CreateToolhelp32Snapshot(0x2, 0)  # TH32CS_SNAPPROCESS
+    if snapshot in (None, wintypes.HANDLE(-1).value):
+        return []
+    parents: dict[int, list[int]] = {}
+    try:
+        entry = _ProcessEntry()
+        entry.dwSize = ctypes.sizeof(_ProcessEntry)
+        more = k.Process32FirstW(snapshot, ctypes.byref(entry))
+        while more:
+            parents.setdefault(int(entry.th32ParentProcessID), []).append(int(entry.th32ProcessID))
+            more = k.Process32NextW(snapshot, ctypes.byref(entry))
+    finally:
+        k.CloseHandle(snapshot)
+    found: list[int] = []
+    queue = [int(pid)]
+    while queue:
+        for child in parents.get(queue.pop(), []):
+            if child not in found:
+                found.append(child)
+                queue.append(child)
+    return found
+
+
+def disable_power_throttling_tree(pid: int) -> list[int]:
+    """Mark ``pid`` and everything it started as never-throttle. Returns the pids that were set."""
+    done = [p for p in [int(pid), *descendants(pid)] if disable_power_throttling(p)]
+    return done

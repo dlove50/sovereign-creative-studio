@@ -112,9 +112,9 @@ def start_engine() -> dict[str, Any]:
         cwd=str(main_py.parent), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
         creationflags=flags if hasattr(subprocess, "CREATE_NO_WINDOW") else 0,
     )
-    from .process_power import disable_power_throttling  # Windows otherwise runs the hidden engine about 8x slower
+    from .process_power import disable_power_throttling_tree  # Windows otherwise runs the hidden engine about 8x slower
 
-    disable_power_throttling(_engine_process.pid)
+    disable_power_throttling_tree(_engine_process.pid)
     return {"started": True, "detail": f"engine starting (pid {_engine_process.pid})"}
 
 
@@ -395,6 +395,10 @@ def _run_job(job_id: str, params: dict[str, Any]) -> None:
             status = engine_status()
             if not status["ready"]:
                 raise MusicError(status["detail"])
+            if _engine_process is not None:
+                from .process_power import disable_power_throttling_tree
+
+                disable_power_throttling_tree(_engine_process.pid)  # the real engine is a child of the launcher
             _release_main_engine()
             from .music_compose import unload_models  # local import: music_compose depends on this module
 
