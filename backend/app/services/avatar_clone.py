@@ -73,7 +73,14 @@ def register_voice(name: str, sample: Path) -> str | None:
         with sample.open("rb") as handle:
             resp = httpx.post(f"{config.VIBEVOICE_BASE_URL}/api/voices", params={"name": name}, files={"file": (sample.name, handle)}, timeout=60.0)
     except httpx.HTTPError:
-        return None
+        from . import voice_studio
+
+        if not voice_studio.installed():
+            return None
+        try:
+            return voice_studio.add_voice_file(name, sample)
+        except voice_studio.VoiceStudioError as exc:
+            raise RuntimeError(str(exc)) from exc
     if resp.status_code == 409:
         raise RuntimeError(f"A cloned voice named {name} already exists. Pick a different name.")
     if resp.status_code >= 400:

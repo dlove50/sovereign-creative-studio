@@ -248,3 +248,86 @@ def delete_clip(clip_id: str) -> bool:
         if source.exists():
             source.replace(trash / source.name)
     return True
+
+
+# --- the recorded-voice folder and on-demand start (used by avatars, movies, translate, slides, the Voices page) ---
+
+_AUDIO_SUFFIXES = {".wav", ".mp3", ".flac", ".ogg", ".m4a", ".aac"}
+
+
+def voices_dir() -> Path:
+    return VV_ROOT / "demo" / "voices"
+
+
+def _is_builtin(name: str) -> bool:
+    import re
+
+    return bool(re.match(r"^(en|in|zh)-", name))
+
+
+def list_voice_names() -> list[tuple[str, bool]]:
+    """(name, is_builtin_preset) for every recorded voice, straight from the folder, so voices are listed even
+    while the engine sleeps. Names match what the engine itself reports."""
+    folder = voices_dir()
+    if not installed() or not folder.is_dir():
+        return []
+    names = sorted(p.stem for p in folder.iterdir() if p.is_file() and p.suffix.lower() in _AUDIO_SUFFIXES)
+    return [(n, _is_builtin(n)) for n in names]
+
+
+def voice_file(name: str) -> Path | None:
+    folder = voices_dir()
+    if not installed() or not folder.is_dir():
+        return None
+    for path in folder.iterdir():
+        if path.is_file() and path.stem == name and path.suffix.lower() in _AUDIO_SUFFIXES:
+            return path
+    return None
+
+
+def add_voice_file(name: str, sample: Path) -> str:
+    """Save a clean sample into the voice folder as <name>.wav (used while the engine sleeps)."""
+    import re
+
+    stem = re.sub(r"[^A-Za-z0-9_-]+", "-", name).strip("-")
+    if not stem:
+        raise VoiceStudioError("Give the voice a name.")
+    if voice_file(stem) is not None:
+        raise VoiceStudioError(f"A cloned voice named {stem} already exists. Pick a different name.")
+    voices_dir().mkdir(parents=True, exist_ok=True)
+    destination = voices_dir() / f"{stem}.wav"
+    subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(sample), "-ac", "1", "-ar", "24000", str(destination)],
+                   capture_output=True, check=False)
+    if not destination.is_file() or destination.stat().st_size == 0:
+        raise VoiceStudioError("Could not read that recording.")
+    return stem
+
+
+def remove_voice_file(name: str) -> bool:
+    """Move a cloned voice aside (never erased). Built-in voices cannot be removed."""
+    path = voice_file(name)
+    if path is None or _is_builtin(name):
+        return False
+    removed = voices_dir() / "_removed"
+    removed.mkdir(parents=True, exist_ok=True)
+    path.replace(removed / path.name)
+    return True
+
+
+def ensure_ready(timeout: float = BOOT_TIMEOUT) -> None:
+    """Start the engine if needed and wait until a voice-cloning model is loaded."""
+    if not engine_status()["online"]:
+        start()
+    deadline = time.time() + timeout
+    state = engine_status()
+    while not state["ready"]:
+        if time.time() > deadline:
+            raise VoiceStudioError("The voice engine did not finish loading in time.")
+        time.sleep(2)
+        state = engine_status()
+    if state.get("kind") != "full":  # Realtime 0.5B cannot clone: swap to the best cloning model
+        models = call("GET", "/models")["models"]
+        full = next((m["label"] for m in models if m["kind"] == "full"), None)
+        if full is None:
+            raise VoiceStudioError("No voice-cloning model is installed.")
+        call("POST", "/model", {"label": full}, timeout=600.0)

@@ -93,7 +93,12 @@ def _vibevoice_voices() -> list[dict]:
         resp.raise_for_status()
         entries = [(v["name"], bool(v.get("preset"))) for v in resp.json().get("voices", [])]
     except (httpx.HTTPError, ValueError, KeyError, TypeError):
-        return []
+        # The engine is asleep: read the recorded-voice folder so the voices still show up everywhere.
+        from . import voice_studio
+
+        entries = voice_studio.list_voice_names()
+        if not entries:
+            return []
     return [
         {
             "id": f"{VIBEVOICE_PREFIX}{name}",
@@ -255,6 +260,12 @@ def _vibevoice_speech(text: str, out_path: Path, voice_name: str) -> None:
     # VibeVoice scripts are "Speaker N:" lines; collapse the text onto one speaker line.
     script = "Speaker 1: " + " ".join(text.split())
     _free_comfyui_vram()
+    from . import voice_studio  # starts the engine on demand (and swaps to a cloning model if needed)
+
+    try:
+        voice_studio.ensure_ready()
+    except voice_studio.VoiceStudioError as exc:
+        raise RuntimeError(str(exc)) from exc
     out_path.parent.mkdir(parents=True, exist_ok=True)
     try:
         with httpx.Client(timeout=30.0) as client:

@@ -14,6 +14,7 @@ import httpx  # noqa: E402
 import pytest  # noqa: E402
 
 from app.services import voice as vsvc  # noqa: E402
+from app.services import voice_studio  # noqa: E402
 
 _REAL_CLIENT = httpx.Client
 
@@ -37,6 +38,7 @@ def _fake_vibevoice(monkeypatch, *, final_status="done", calls=None):
             return httpx.Response(200, content=b"RIFF\x00\x00\x00\x00WAVEclone")
         return httpx.Response(200, json={})
 
+    monkeypatch.setattr(voice_studio, "ensure_ready", lambda timeout=0: None)  # never start a real engine from these tests
     transport = httpx.MockTransport(handler)
     monkeypatch.setattr(vsvc.httpx, "Client", lambda **kw: _REAL_CLIENT(transport=transport, **kw))
     monkeypatch.setattr(vsvc.httpx, "get", lambda url, **kw: _REAL_CLIENT(transport=transport).get(url, **kw))
@@ -51,12 +53,24 @@ def test_vibevoice_voices_are_listed_with_prefix(monkeypatch):
     assert [v["quality"] for v in vsvc._vibevoice_voices()] == ["preset", "clone"]
 
 
-def test_vibevoice_voices_empty_when_app_not_running(monkeypatch):
+def test_vibevoice_voices_empty_when_app_not_running_and_not_installed(monkeypatch):
     def down(*_a, **_kw):
         raise httpx.ConnectError("refused")
 
     monkeypatch.setattr(vsvc.httpx, "get", down)
+    monkeypatch.setattr(voice_studio, "installed", lambda: False)
     assert vsvc._vibevoice_voices() == []
+
+
+def test_voices_come_from_the_folder_while_the_engine_sleeps(monkeypatch):
+    def down(*_a, **_kw):
+        raise httpx.ConnectError("refused")
+
+    monkeypatch.setattr(vsvc.httpx, "get", down)
+    monkeypatch.setattr(voice_studio, "list_voice_names", lambda: [("en-Alice_woman", True), ("David-speaking", False)])
+    voices = vsvc._vibevoice_voices()
+    assert [v["id"] for v in voices] == ["vibevoice:en-Alice_woman", "vibevoice:David-speaking"]
+    assert [v["quality"] for v in voices] == ["preset", "clone"]
 
 
 def test_clone_speech_writes_wav_and_hands_gpu_back(monkeypatch, tmp_path):
@@ -66,8 +80,8 @@ def test_clone_speech_writes_wav_and_hands_gpu_back(monkeypatch, tmp_path):
 
     assert out.read_bytes().endswith(b"clone")
     paths = [p for _m, p, _c in calls]
-    # ComfyUI freed first, VibeVoice unloaded last, so the GPU is shared in turn.
-    assert paths[0] == "/free" and paths[-1] == "/api/models/unload"
+    # ComfyUI is checked idle, then freed, first; VibeVoice is unloaded last, so the GPU is shared in turn.
+    assert paths[:2] == ["/queue", "/free"] and paths[-1] == "/api/models/unload"
     generate_body = next(c for _m, p, c in calls if p == "/api/generate")
     assert b'"Speaker 1: Hello there. Second line."' in generate_body
     assert b'"voices":["david"]' in generate_body.replace(b" ", b"")

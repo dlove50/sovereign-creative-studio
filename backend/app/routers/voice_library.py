@@ -41,9 +41,15 @@ def preview(voice_id: str, user: User = Depends(get_current_user)):
         try:
             resp = httpx.get(f"{config.VIBEVOICE_BASE_URL}/api/voices/{name}/preview", timeout=20.0)
             resp.raise_for_status()
+            content = resp.content
         except httpx.HTTPError as exc:
-            raise HTTPException(status_code=503, detail="The voice app is not running, so this voice can't be played.") from exc
-        target.write_bytes(resp.content)
+            from ..services import voice_studio
+
+            sample = voice_studio.voice_file(name)  # the engine is asleep: play the recording straight from its folder
+            if sample is None:
+                raise HTTPException(status_code=503, detail="The voice app is not running, so this voice can't be played.") from exc
+            content = sample.read_bytes()
+        target.write_bytes(content)
         return {"url": f"/storage/voice_previews/{target.name}", "kind": "reference"}
     target = folder / f"piper_{uuid.uuid5(uuid.NAMESPACE_URL, voice_id).hex}.wav"
     if not target.is_file():
@@ -92,6 +98,10 @@ def delete_clone(name: str, user: User = Depends(get_current_user)):
     try:
         resp = httpx.delete(f"{config.VIBEVOICE_BASE_URL}/api/voices/{name}", timeout=20.0)
     except httpx.HTTPError as exc:
+        from ..services import voice_studio
+
+        if voice_studio.remove_voice_file(name):  # engine asleep: the recording is moved aside in its folder
+            return
         raise HTTPException(status_code=503, detail="The voice app is not running.") from exc
     if resp.status_code == 404:
         raise HTTPException(status_code=404, detail="Cloned voice not found")
