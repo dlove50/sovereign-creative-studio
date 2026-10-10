@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, Sparkles, X } from "lucide-react";
@@ -92,7 +93,7 @@ export function MobileNavigation({ isAdmin }: { isAdmin: boolean }) {
         <Menu className="h-5 w-5" aria-hidden="true" />
       </button>
 
-      {open ? (
+      {open ? createPortal(
         <div className="fixed inset-0 z-[70] md:hidden" role="dialog" aria-modal="true" aria-label="Studio navigation">
           <div
             aria-hidden="true"
@@ -148,7 +149,8 @@ export function MobileNavigation({ isAdmin }: { isAdmin: boolean }) {
               </>
             ) : null}
           </aside>
-        </div>
+        </div>,
+        document.body,
       ) : null}
     </>
   );

@@ -72,4 +72,3 @@ The home view becomes the reference composition for hierarchy, cards, calls to a
 - Source edits stay on branch `ui-upgrade-2026-10` and use named-file commits only.
 - The backend remains untouched unless a frontend verification failure proves a pre-existing backend blocker.
 - The real app must be rebuilt with `.next-cinematic-fixed` and verified through Playwright after frontend changes.
-

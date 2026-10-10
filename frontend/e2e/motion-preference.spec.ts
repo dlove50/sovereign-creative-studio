@@ -97,6 +97,31 @@ test.describe("motion runtime", () => {
     await expect(headlineWord).toHaveCSS("opacity", "1");
   });
 
+  test("switching off cancels pending reveals and restores visible content", async ({ page }) => {
+    await page.addInitScript(
+      ({ key }) => localStorage.setItem(key, "on"),
+      { key: MOTION_STORAGE_KEY },
+    );
+    await page.setViewportSize({ width: 1440, height: 700 });
+    await page.goto("/", { waitUntil: "domcontentloaded", timeout: 15_000 });
+    await expect(page.locator("html")).toHaveAttribute("data-motion", "on", { timeout: 5_000 });
+    const reveals = page.locator("[data-reveal]");
+    await expect(reveals.first()).toBeAttached();
+
+    await page.evaluate(({ key }) => {
+      localStorage.setItem(key, "off");
+      window.dispatchEvent(new StorageEvent("storage", { key, newValue: "off" }));
+    }, { key: MOTION_STORAGE_KEY });
+
+    await expect(page.locator("html")).toHaveAttribute("data-motion", "off", { timeout: 5_000 });
+    const styles = await reveals.evaluateAll((nodes) => nodes.map((node) => {
+      const style = getComputedStyle(node);
+      return { opacity: style.opacity, transform: style.transform };
+    }));
+    expect(styles.every(({ opacity }) => opacity === "1")).toBe(true);
+    expect(styles.every(({ transform }) => transform === "none")).toBe(true);
+  });
+
   test("system follows both operating-system motion states", async ({ page }) => {
     await page.addInitScript(
       ({ key }) => localStorage.setItem(key, "system"),

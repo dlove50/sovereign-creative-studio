@@ -67,10 +67,6 @@ export function SpectrumCanvas({ frames, bands, fps, getPosition, active, visual
       canvas.height = height * dpr;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     };
-    resize();
-    const observer = new ResizeObserver(resize);
-    observer.observe(canvas);
-
     const draw = (now: number) => {
       const s = live.current;
       ctx.clearRect(0, 0, width, height);
@@ -91,13 +87,19 @@ export function SpectrumCanvas({ frames, bands, fps, getPosition, active, visual
       else drawBars(ctx, width, height, smooth, peaks, n);
       if (motionEnabled) raf = requestAnimationFrame(draw);
     };
+    resize();
+    const observer = new ResizeObserver(() => {
+      resize();
+      if (!motionEnabled) draw(0);
+    });
+    observer.observe(canvas);
     if (motionEnabled) raf = requestAnimationFrame(draw);
     else draw(0);
     return () => {
       cancelAnimationFrame(raf);
       observer.disconnect();
     };
-  }, [motionEnabled]);
+  }, [active, bands, fps, frames, motionEnabled, visual]);
 
   return <canvas ref={ref} className={cn("block h-full w-full", className)} aria-hidden="true" />;
 }

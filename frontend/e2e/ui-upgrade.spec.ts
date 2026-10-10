@@ -104,9 +104,21 @@ test.describe("application shell", () => {
     await expect(create).toBeFocused();
     await create.press("Enter");
     await expect(create).toHaveAttribute("aria-expanded", "true", { timeout: 5_000 });
-    await expect(page.getByRole("navigation", { name: "Create" })).toBeVisible({ timeout: 5_000 });
+    const createNavigation = page.getByRole("navigation", { name: "Create" });
+    await expect(createNavigation).toBeVisible({ timeout: 5_000 });
+    await create.press("Tab");
+    await expect(createNavigation.getByRole("link").first()).toBeFocused();
     await page.keyboard.press("Escape");
     await expect(page.getByRole("navigation", { name: "Create" })).toBeHidden({ timeout: 5_000 });
+
+    const avatar = mainNav.getByRole("link", { name: "Avatar" });
+    await avatar.focus();
+    const avatarNavigation = page.getByRole("navigation", { name: "Manage avatars" });
+    await expect(avatarNavigation).toBeVisible({ timeout: 5_000 });
+    await avatar.press("Tab");
+    await expect(avatarNavigation.getByRole("link").first()).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expect(avatarNavigation).toBeHidden({ timeout: 5_000 });
 
     const account = page.getByRole("button", { name: "Account menu" });
     expect((await account.boundingBox())?.height ?? 0).toBeGreaterThan(43.9);
@@ -141,6 +153,8 @@ test.describe("application shell", () => {
 
     const dialog = page.getByRole("dialog", { name: "Studio navigation" });
     await expect(dialog).toBeVisible({ timeout: 5_000 });
+    const dialogBox = await dialog.boundingBox();
+    expect(dialogBox?.height ?? 0).toBeGreaterThanOrEqual(812);
     const projects = dialog.getByRole("link", { name: "My Projects", exact: true });
     await expect(projects).toHaveAttribute("aria-current", "page");
     await expect(projects).toHaveCSS("min-height", "44px");

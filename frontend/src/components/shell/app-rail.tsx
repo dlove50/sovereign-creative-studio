@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type KeyboardEventHandler } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Coins, ShieldCheck, Sparkles } from "lucide-react";
@@ -23,7 +23,12 @@ function timeAgo(iso: string) {
   return `${days} day${days === 1 ? "" : "s"} ago`;
 }
 
-function RailItem({ item, pathname, onHover }: { item: NavigationItem; pathname: string; onHover?: () => void }) {
+function RailItem({ item, pathname, onHover, onKeyDown }: {
+  item: NavigationItem;
+  pathname: string;
+  onHover?: () => void;
+  onKeyDown?: KeyboardEventHandler<HTMLAnchorElement>;
+}) {
   const active = isNavigationActive(item.href, pathname);
   const Icon = item.icon;
   return (
@@ -32,6 +37,7 @@ function RailItem({ item, pathname, onHover }: { item: NavigationItem; pathname:
       aria-current={active ? "page" : undefined}
       onMouseEnter={onHover}
       onFocus={onHover}
+      onKeyDown={onKeyDown}
       className="group flex min-h-11 flex-col items-center justify-center gap-1 rounded-xl py-1 text-[11px] font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       <span
@@ -57,6 +63,7 @@ export function AppRail() {
   const [recents, setRecents] = useState<AvatarJob[]>([]);
   const rootRef = useRef<HTMLDivElement>(null);
   const createRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const previousPathname = useRef(pathname);
 
   useEffect(() => {
@@ -108,6 +115,9 @@ export function AppRail() {
   function toggleCreate() {
     setPanel((value) => (value === "create" ? null : "create"));
   }
+  function focusFirstPanelLink() {
+    panelRef.current?.querySelector<HTMLAnchorElement>("a[href]")?.focus();
+  }
 
   return (
     <div ref={rootRef} className="relative hidden shrink-0 md:block">
@@ -116,15 +126,12 @@ export function AppRail() {
           ref={createRef}
           type="button"
           onKeyDown={(event) => {
-            if (event.key !== "Enter" && event.key !== " ") return;
-            event.preventDefault();
-            if (open) setPanel(null);
-            else show("create");
+            if (event.key === "Tab" && !event.shiftKey && open) {
+              event.preventDefault();
+              focusFirstPanelLink();
+            }
           }}
-          onClick={(event) => {
-            if (event.detail === 0) return;
-            toggleCreate();
-          }}
+          onClick={toggleCreate}
           aria-expanded={open}
           aria-controls="rail-create-panel"
           aria-label="Create"
@@ -134,7 +141,18 @@ export function AppRail() {
         </button>
         <nav className="flex flex-col gap-1" aria-label="Main">
           {RAIL_NAV.map((item) => (
-            <RailItem key={item.href} item={item} pathname={pathname} onHover={() => (item.href === "/avatars" ? show("avatars") : setPanel(null))} />
+            <RailItem
+              key={item.href}
+              item={item}
+              pathname={pathname}
+              onHover={() => (item.href === "/avatars" ? show("avatars") : setPanel(null))}
+              onKeyDown={(event) => {
+                if (item.href === "/avatars" && event.key === "Tab" && !event.shiftKey && panel === "avatars") {
+                  event.preventDefault();
+                  focusFirstPanelLink();
+                }
+              }}
+            />
           ))}
         </nav>
         <div className="mt-auto flex flex-col items-center gap-2">
@@ -152,6 +170,7 @@ export function AppRail() {
 
       {panel === "avatars" ? (
         <div
+          ref={panelRef}
           onMouseEnter={() => show("avatars")}
           className="absolute left-[76px] top-0 z-40 flex h-screen w-[272px] flex-col border-r border-border bg-card/95 shadow-elevated backdrop-blur-xl"
         >
@@ -181,6 +200,7 @@ export function AppRail() {
 
       {open ? (
         <div
+          ref={panelRef}
           id="rail-create-panel"
           onMouseEnter={() => show("create")}
           className="absolute left-[76px] top-0 z-40 flex h-screen w-[272px] flex-col border-r border-border bg-card/95 shadow-elevated backdrop-blur-xl"

@@ -26,7 +26,7 @@ export function BlurWords({ text, className, delay = 0 }: { text: string; classN
       { opacity: 1, filter: "blur(0px)", y: 0, duration: 0.7, ease: "power3.out", stagger: 0.09, delay, clearProps: "filter,transform" },
     );
     return () => tween.revert();
-  }, { scope: root, dependencies: [text, motionEnabled] });
+  }, { scope: root, dependencies: [text, motionEnabled], revertOnUpdate: true });
 
   return (
     <span ref={root} className={className} aria-label={text}>

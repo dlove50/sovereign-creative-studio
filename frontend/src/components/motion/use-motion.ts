@@ -27,7 +27,7 @@ export function useStaggerIn(container: RefObject<HTMLElement | null>, count: nu
       opacity: 0, y: 18, duration: 0.5, ease: "power2.out", stagger: 0.04, clearProps: "opacity,transform",
     });
     return () => tween.revert();
-  }, { scope: container, dependencies: [count > 0, motionEnabled] });
+  }, { scope: container, dependencies: [count > 0, motionEnabled], revertOnUpdate: true });
 }
 
 /** Elements marked `data-reveal` inside `container` fade up as they scroll into view. */
@@ -43,7 +43,7 @@ export function useScrollReveal(container: RefObject<HTMLElement | null>) {
       }),
     );
     return () => tweens.forEach((tween) => tween.revert());
-  }, { scope: container, dependencies: [motionEnabled] });
+  }, { scope: container, dependencies: [motionEnabled], revertOnUpdate: true });
 }
 
 /**

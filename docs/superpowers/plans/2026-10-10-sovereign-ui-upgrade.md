@@ -200,4 +200,3 @@
 - [ ] Re-grade findings by user impact; fix Critical/Important findings with RED→GREEN tests in one pass and ledger deferred minors.
 - [ ] Re-run the complete frontend verification suite and inspect staged named-file diffs.
 - [ ] Use `superpowers:finishing-a-development-branch` to present merge/keep/discard options; do not push.
-

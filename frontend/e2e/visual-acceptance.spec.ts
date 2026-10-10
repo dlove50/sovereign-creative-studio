@@ -94,4 +94,33 @@ test.describe("responsive and visual acceptance", () => {
     await expect(page.getByRole("radiogroup", { name: "Motion" })).toBeVisible({ timeout: 5_000 });
     await page.screenshot({ path: path.join(screenshotDirectory, "shell-desktop.png"), fullPage: true });
   });
+
+  test("motion-off Music Lab keeps a visible static spectrum", async ({ page }) => {
+    await page.setViewportSize({ width: 1024, height: 768 });
+    await mockStudio(page);
+    await page.route("**/api/music/status", (route) => route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        default_provider: "yue2",
+        providers: [],
+        engine: { online: false, ready: false, checkpoint: "", checkpoint_present: false, nodes_present: false, vram_free_gb: null, detail: "offline" },
+        limits: { min_seconds: 10, max_seconds: 300, max_lyrics_chars: 10_000, max_style_chars: 1_000, qualities: [] },
+      }),
+    }));
+    await page.goto("/music-lab?tab=stage", { waitUntil: "domcontentloaded", timeout: 15_000 });
+    const canvas = page.locator("canvas").first();
+    await expect(canvas).toBeVisible({ timeout: 5_000 });
+    await page.waitForTimeout(100);
+    const paintedPixels = await canvas.evaluate((node) => {
+      const surface = node as HTMLCanvasElement;
+      const context = surface.getContext("2d");
+      if (!context) return 0;
+      const data = context.getImageData(0, 0, surface.width, surface.height).data;
+      let painted = 0;
+      for (let index = 3; index < data.length; index += 4) if (data[index] > 0) painted += 1;
+      return painted;
+    });
+    expect(paintedPixels).toBeGreaterThan(0);
+  });
 });
