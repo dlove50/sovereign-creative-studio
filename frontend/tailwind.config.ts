@@ -12,6 +12,8 @@ const config: Config = {
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
         raised: "hsl(var(--raised))",
+        subdued: "hsl(var(--surface-subdued))",
+        overlay: "hsl(var(--overlay))",
         primary: {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
@@ -40,6 +42,18 @@ const config: Config = {
       },
       fontFamily: {
         sans: ["var(--font-sans)", "system-ui", "sans-serif"],
+      },
+      boxShadow: {
+        card: "var(--shadow-card)",
+        elevated: "var(--shadow-elevated)",
+      },
+      maxWidth: {
+        content: "var(--content-wide)",
+        reading: "var(--content-reading)",
+      },
+      transitionDuration: {
+        fast: "var(--motion-fast)",
+        standard: "var(--motion-standard)",
       },
       keyframes: {
         "fade-up": {
