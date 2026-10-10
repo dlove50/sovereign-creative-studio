@@ -33,9 +33,13 @@ function makeTime(durationSeconds: number, limits?: MusicStatus["limits"]) {
 
 export type PlayTarget = "speakers" | "browser" | "none";
 
+// Every genre the songwriter recognises (music_compose.GENRE_HINTS), grouped by family.
 const GENRES = [
-  "Reggae", "Pop", "Rock", "Hip hop", "Country", "Jazz", "Lo-fi", "EDM", "Folk", "R&B", "Latin",
-  "Gospel", "Blues", "Metal", "Synthwave", "Ambient",
+  "Reggae", "Dancehall", "Dub", "Ska", "Soca", "Afrobeat",
+  "Hip hop", "Rap", "R&B", "Soul", "Funk", "Disco", "Gospel",
+  "Pop", "Rock", "Heavy metal", "Punk", "Blues", "Jazz", "Country", "Folk",
+  "Latin", "Salsa", "Bossa nova",
+  "House", "Techno", "EDM", "Lo-fi", "Synthwave", "Ambient", "Classical",
 ];
 /** The style tags with the chosen genre first (unless the style already names it). */
 function withGenre(style: string, genre: string | null): string {
