@@ -9,6 +9,7 @@ import {
 
 import { directorApi, type DirectorTemplate } from "@/lib/api/director";
 import { cn } from "@/lib/utils";
+import { useMotionPreference } from "@/components/motion/motion-provider";
 
 const ICONS: Record<string, LucideIcon> = {
   "short-film": Film,
@@ -36,8 +37,8 @@ export function useTemplates() {
     directorApi
       .templates()
       .then((data) => {
-        setTemplates(data.templates);
-        setCreditsPerClip(data.credits_per_clip);
+        setTemplates(Array.isArray(data?.templates) ? data.templates : []);
+        setCreditsPerClip(Number.isFinite(data?.credits_per_clip) ? data.credits_per_clip : 20);
       })
       .catch(() => setTemplates([]));
   }, []);
@@ -46,16 +47,23 @@ export function useTemplates() {
 
 function Tile({ template, wide }: { template: DirectorTemplate; wide: boolean }) {
   const Icon = templateIcon(template.id);
+  const [imageFailed, setImageFailed] = useState(false);
   return (
     <Link
       href={`/director/new?template=${template.id}`}
       className={cn(
-        "group relative block shrink-0 snap-start overflow-hidden rounded-2xl border border-border bg-card transition-transform duration-300 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        "group relative block shrink-0 snap-start overflow-hidden rounded-2xl border border-border/80 bg-card shadow-card transition-transform duration-standard hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         wide ? "w-full" : "w-[11.5rem] sm:w-[13rem]",
       )}
     >
       <div className="aspect-[4/5] overflow-hidden">
-        <img src={template.image} alt="" loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]" />
+        {imageFailed ? (
+          <span className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary/15 via-raised to-accent/10" aria-hidden="true">
+            <Icon className="h-10 w-10 text-primary/70" />
+          </span>
+        ) : (
+          <img src={template.image} alt="" loading="lazy" onError={() => setImageFailed(true)} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]" />
+        )}
       </div>
       <span className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" aria-hidden="true" />
       {template.badge ? (
@@ -77,15 +85,16 @@ function Tile({ template, wide }: { template: DirectorTemplate; wide: boolean })
 /** The "Direct your video" row: scrollable on Home, a wrapping grid on the Director page. */
 export function TemplateCarousel({ layout = "row" }: { layout?: "row" | "grid" }) {
   const { templates } = useTemplates();
+  const { motionEnabled } = useMotionPreference();
   const scroller = useRef<HTMLUListElement>(null);
 
-  const scrollBy = (direction: 1 | -1) => scroller.current?.scrollBy({ left: direction * 520, behavior: "smooth" });
+  const scrollBy = (direction: 1 | -1) => scroller.current?.scrollBy({ left: direction * 520, behavior: motionEnabled ? "smooth" : "auto" });
 
   if (templates === null) {
-    return <div className="h-64 animate-pulse rounded-2xl bg-card/50" aria-label="Loading templates" />;
+    return <div role="status" className="h-64 animate-pulse rounded-2xl border border-border/70 bg-card/50" aria-label="Loading templates"><span className="sr-only">Loading templates…</span></div>;
   }
   if (templates.length === 0) {
-    return <p className="text-sm text-muted-foreground">The Director templates could not be loaded. Is the backend running?</p>;
+    return <p role="status" className="rounded-xl border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">Director templates are unavailable right now. You can still start from the Video Agent.</p>;
   }
   if (layout === "grid") {
     return (
@@ -111,7 +120,7 @@ export function TemplateCarousel({ layout = "row" }: { layout?: "row" | "grid" }
         type="button"
         onClick={() => scrollBy(-1)}
         aria-label="Scroll templates left"
-        className="absolute -left-3 top-1/2 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-card/90 text-foreground shadow backdrop-blur hover:bg-raised md:flex"
+        className="absolute -left-3 top-1/2 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-card/95 text-foreground shadow-card backdrop-blur hover:bg-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:flex"
       >
         <ChevronLeft className="h-4 w-4" />
       </button>
@@ -119,7 +128,7 @@ export function TemplateCarousel({ layout = "row" }: { layout?: "row" | "grid" }
         type="button"
         onClick={() => scrollBy(1)}
         aria-label="Scroll templates right"
-        className="absolute -right-3 top-1/2 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-card/90 text-foreground shadow backdrop-blur hover:bg-raised md:flex"
+        className="absolute -right-3 top-1/2 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-card/95 text-foreground shadow-card backdrop-blur hover:bg-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:flex"
       >
         <ChevronRight className="h-4 w-4" />
       </button>

@@ -31,7 +31,7 @@ export function BlurWords({ text, className, delay = 0 }: { text: string; classN
   return (
     <span ref={root} className={className} aria-label={text}>
       {words.map((word, i) => (
-        <span key={`${word}-${i}`} data-word aria-hidden="true" className="inline-block">
+        <span key={`${word}-${i}`} data-word aria-hidden="true" className="inline-block max-w-full [overflow-wrap:anywhere]">
           {word}{i < words.length - 1 ? " " : ""}
         </span>
       ))}

@@ -188,7 +188,7 @@ export function DotGrid({
   }, [build, draw, maxSpeed, motionEnabled, speedTrigger, proximity, resistance, returnDuration, shockRadius, shockStrength]);
 
   return (
-    <div ref={wrapper} className={`relative h-full w-full ${className}`} aria-hidden="true">
+    <div ref={wrapper} data-motion-decoration className={`relative h-full w-full ${className}`} aria-hidden="true">
       <canvas ref={canvas} className="pointer-events-none absolute inset-0 h-full w-full" />
     </div>
   );

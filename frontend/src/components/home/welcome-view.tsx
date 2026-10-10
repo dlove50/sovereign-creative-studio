@@ -54,7 +54,7 @@ function useSetupData() {
 function StepCard({ step, index, current }: { step: Step; index: number; current: boolean }) {
   const Icon = step.icon;
   const action = (
-    <Link href={step.action.href} className={actionClass(current)}>
+    <Link href={step.action.href} data-primary-action={current ? "true" : undefined} className={actionClass(current)}>
       {step.action.label} <ChevronRight className="h-4 w-4 transition-transform duration-200 motion-safe:group-hover:translate-x-0.5" />
     </Link>
   );
@@ -62,7 +62,7 @@ function StepCard({ step, index, current }: { step: Step; index: number; current
     <li
       data-spotlight
       className={cn(
-        "spotlight flex flex-col rounded-2xl border bg-card/80 p-4",
+        "spotlight flex min-w-0 flex-col rounded-2xl border bg-card/80 p-4 shadow-card",
         current ? "border-primary shadow-[0_0_0_1px_hsl(var(--primary)),0_0_32px_hsl(var(--primary)/0.18)]" : "border-border",
       )}
     >
@@ -108,7 +108,7 @@ function VoiceChip({ voice }: { voice: VoiceOption }) {
     }
   }
   return (
-    <button type="button" onClick={toggle} aria-label={`${playing ? "Stop" : "Play"} ${cleanVoiceLabel(voice)}`} className="flex w-full items-center gap-2 rounded-full bg-raised px-3 py-1.5 text-left text-xs font-medium hover:bg-raised/70">
+    <button type="button" onClick={toggle} aria-label={`${playing ? "Stop" : "Play"} ${cleanVoiceLabel(voice)}`} className="flex min-h-11 w-full items-center gap-2 rounded-full bg-raised px-3 py-2 text-left text-xs font-medium hover:bg-raised/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
       {playing ? <Pause className="h-3.5 w-3.5 text-primary" /> : <Play className="h-3.5 w-3.5 text-primary" />}
       <span className="truncate">{cleanVoiceLabel(voice)}</span>
     </button>
@@ -117,7 +117,7 @@ function VoiceChip({ voice }: { voice: VoiceOption }) {
 
 function actionClass(current: boolean) {
   return cn(
-    "group inline-flex w-full items-center justify-center gap-1 rounded-xl px-3 py-2 text-sm font-semibold transition duration-200 motion-safe:active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+    "group inline-flex min-h-11 w-full items-center justify-center gap-1 rounded-xl px-3 py-2 text-sm font-semibold transition-colors duration-fast motion-safe:active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
     current
       ? "bg-primary text-primary-foreground hover:bg-primary/90 hover:shadow-[0_6px_20px_-6px_hsl(var(--primary)/0.55)]"
       : "bg-raised text-foreground hover:bg-raised/70",
@@ -160,13 +160,14 @@ export function WelcomeView() {
   useSpotlight(page);
 
   return (
-    <div ref={page} className="mx-auto max-w-[1000px]">
-      <section className="relative isolate pb-10 pt-6 text-center">
+    <div ref={page} className="mx-auto max-w-[1120px]">
+      <section className="relative isolate pb-10 pt-5 text-center sm:pb-12 sm:pt-8">
         <div className="welcome-glow pointer-events-none absolute inset-x-0 -top-16 -z-10 h-72" aria-hidden="true" />
         <div className="pointer-events-none absolute inset-x-0 -top-6 bottom-0 -z-10 opacity-80 [mask-image:radial-gradient(ellipse_at_center,black_20%,transparent_72%)]" aria-hidden="true">
           <DotGrid />
         </div>
-        <h1 className="text-4xl font-extrabold tracking-[-0.03em] sm:text-5xl">
+        <p className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-primary">Your local creative command center</p>
+        <h1 className="break-words text-4xl font-extrabold tracking-[-0.04em] [overflow-wrap:anywhere] sm:text-5xl lg:text-6xl">
           <BlurWords text="Welcome" />
           {data?.name ? (
             <>
@@ -175,22 +176,62 @@ export function WelcomeView() {
             </>
           ) : null}
         </h1>
+        <p className="mx-auto mt-4 max-w-2xl text-sm leading-relaxed text-muted-foreground sm:text-base">
+          Build your on-camera identity, direct polished videos, and keep every creative asset in one private studio.
+        </p>
       </section>
 
-      <section aria-labelledby="setup-heading" className="rounded-3xl border border-border bg-card/40 p-4 sm:p-5">
-        {data?.failed ? (
+      <section aria-label="Studio setup" className="rounded-3xl border border-border/80 bg-card/55 p-4 shadow-card sm:p-6">
+        {data === null ? (
+          <div role="status" aria-label="Loading setup" className="space-y-4">
+            <div className="h-5 w-48 animate-pulse rounded-lg bg-raised/70" />
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {Array.from({ length: 4 }, (_, index) => (
+                <div key={index} className="h-52 animate-pulse rounded-2xl border border-border/70 bg-raised/35" />
+              ))}
+            </div>
+            <span className="sr-only">Loading setup progress…</span>
+          </div>
+        ) : data.failed ? (
           <LoadError what="your setup progress" message="Some of your information did not load." onRetry={() => window.location.reload()} />
         ) : (
           <>
-            <h2 id="setup-heading" className="mb-4 flex items-center gap-2 text-sm font-medium text-foreground/90">
-              <UserRound className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-              Finish your setup · {doneCount}/{steps.length}
-            </h2>
+            <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Studio readiness</p>
+                <h2 id="setup-heading" className="mt-1 flex items-center gap-2 text-lg font-semibold tracking-[-0.015em]">
+                  <UserRound className="h-5 w-5 text-primary" aria-hidden="true" />
+                  {doneCount === steps.length ? "Setup complete" : "Finish your setup"}
+                </h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {doneCount === steps.length ? "Your studio is ready for production." : `${doneCount} of ${steps.length} essentials complete`}
+                </p>
+              </div>
+              <div className="w-full sm:max-w-56">
+                <div className="mb-1.5 flex items-center justify-between text-xs text-muted-foreground">
+                  <span>Progress</span><span className="tabular font-semibold text-foreground">{Math.round((doneCount / steps.length) * 100)}%</span>
+                </div>
+                <div role="progressbar" aria-label="Setup progress" aria-valuenow={Math.round((doneCount / steps.length) * 100)} aria-valuemin={0} aria-valuemax={100} className="h-2 overflow-hidden rounded-full bg-muted">
+                  <div className="h-full rounded-full bg-gradient-to-r from-primary to-accent transition-[width] duration-standard" style={{ width: `${(doneCount / steps.length) * 100}%` }} />
+                </div>
+              </div>
+            </div>
             <ol ref={stepList} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               {steps.map((step, i) => (
                 <StepCard key={step.id} step={step} index={i} current={i === currentIndex} />
               ))}
             </ol>
+            {doneCount === steps.length ? (
+              <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-primary/25 bg-primary/10 p-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="font-semibold">Ready for your next production</p>
+                  <p className="mt-0.5 text-sm text-muted-foreground">Turn an idea into a polished video with your avatar and voice.</p>
+                </div>
+                <Link href="/video-agent" data-primary-action="true" className="inline-flex min-h-11 shrink-0 items-center justify-center gap-1 rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                  Create a video <ChevronRight className="h-4 w-4" aria-hidden="true" />
+                </Link>
+              </div>
+            ) : null}
           </>
         )}
       </section>

@@ -137,3 +137,89 @@ test.describe("application shell", () => {
     await expect(trigger).toBeFocused();
   });
 });
+
+test.describe("home experience", () => {
+  const readiness = {
+    ffmpeg: true,
+    piper: true,
+    ready: true,
+    detail: "ready",
+    piper_detail: "ready",
+    default_voice: null,
+    voices: [],
+  };
+
+  async function routeHome(page: import("@playwright/test").Page, state: {
+    name?: string;
+    avatars?: unknown[];
+    voices?: unknown[];
+    jobs?: unknown[];
+    failAvatars?: boolean;
+    delaySetup?: boolean;
+  } = {}) {
+    const respond = async (route: import("@playwright/test").Route, body: unknown, fail = false) => {
+      if (state.delaySetup) await new Promise((resolve) => setTimeout(resolve, 2_500));
+      await route.fulfill({
+        status: fail ? 503 : 200,
+        contentType: "application/json",
+        body: JSON.stringify(fail ? { detail: "Avatar service unavailable" } : body),
+      });
+    };
+    await page.route("**/api/auth/me", (route) => respond(route, { name: state.name ?? "Studio Owner", role: "owner_admin", credits: 120 }));
+    await page.route("**/api/avatars", (route) => respond(route, state.avatars ?? [], state.failAvatars));
+    await page.route("**/api/audio-merge/readiness", (route) => respond(route, { ...readiness, voices: state.voices ?? [] }));
+    await page.route("**/api/avatar-jobs", (route) => respond(route, state.jobs ?? []));
+    await page.route("**/api/director/templates", (route) => route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        credits_per_clip: 20,
+        templates: [{ id: "promo-video", label: "Promo video", tagline: "Launch with clarity", image: "/missing-template.jpg", badge: "Popular" }],
+      }),
+    }));
+  }
+
+  test("shows an honest loading state before setup data resolves", async ({ page }) => {
+    await routeHome(page, { delaySetup: true });
+    await page.goto("/", { waitUntil: "domcontentloaded", timeout: 15_000 });
+    await expect(page.getByRole("status", { name: "Loading setup" })).toBeVisible({ timeout: 1_000 });
+  });
+
+  test("shows a partial failure instead of false zero progress", async ({ page }) => {
+    await routeHome(page, { failAvatars: true });
+    await page.goto("/", { waitUntil: "domcontentloaded", timeout: 15_000 });
+    const alert = page.getByRole("alert").filter({ hasText: "Couldn't load your setup progress" });
+    await expect(alert).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByRole("progressbar", { name: "Setup progress" })).toHaveCount(0);
+  });
+
+  test("zero progress and long names preserve hierarchy, one primary action, and mobile width", async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+    await routeHome(page, { name: "AveryExtraordinarilyLongUnbrokenStudioOwnerName" });
+    await page.goto("/", { waitUntil: "domcontentloaded", timeout: 15_000 });
+
+    await expect(page.getByRole("progressbar", { name: "Setup progress" })).toHaveAttribute("aria-valuenow", "0");
+    await expect(page.locator('[data-primary-action="true"]')).toHaveCount(1);
+    await expect(page.locator('[data-primary-action="true"]')).toHaveAttribute("href", "/avatars/new");
+    await page.locator('[data-primary-action="true"]').focus();
+    await expect(page.locator('[data-primary-action="true"]')).toBeFocused();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(375);
+  });
+
+  test("completed setup presents one professional next action", async ({ page }) => {
+    await routeHome(page, {
+      avatars: [
+        { id: "a1", group_id: null, default_voice_id: "vibevoice:owner", name: "Owner" },
+        { id: "a2", group_id: "looks", name: "Studio look" },
+      ],
+      voices: [{ id: "vibevoice:owner", label: "Owner (VibeVoice clone)", language: "en", quality: "clone", is_default: true, ready: true }],
+      jobs: [{ id: "j1", status: "completed", created_at: "2026-10-10T10:00:00Z" }],
+    });
+    await page.goto("/", { waitUntil: "domcontentloaded", timeout: 15_000 });
+
+    await expect(page.getByRole("progressbar", { name: "Setup progress" })).toHaveAttribute("aria-valuenow", "100");
+    await expect(page.getByText("Setup complete", { exact: true })).toBeVisible();
+    await expect(page.locator('[data-primary-action="true"]')).toHaveCount(1);
+    await expect(page.locator('[data-primary-action="true"]')).toHaveAttribute("href", "/video-agent");
+  });
+});
