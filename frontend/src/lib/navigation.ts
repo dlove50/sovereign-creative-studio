@@ -52,6 +52,7 @@ export const CREATOR_NAV: NavigationItem[] = [
   { href: "/ocr-studio", label: "OCR Studio", icon: ScanText },
   { href: "/create", label: "Image Studio", icon: ImageIcon },
   { href: "/music-lab", label: "Music Lab", icon: Music2 },
+  { href: "/voice-studio", label: "Voice Studio", icon: Mic },
   { href: "/inspiration", label: "Inspiration", icon: Sparkle },
   { href: "/avatars", label: "Avatars & Voices", icon: PersonStanding },
   { href: "/assets-library", label: "Assets", icon: Archive },

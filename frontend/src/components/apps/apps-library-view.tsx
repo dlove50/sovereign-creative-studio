@@ -42,6 +42,7 @@ const APPS: AppEntry[] = [
   { name: "AI video generator", blurb: "Turn a photo and a prompt into a short video clip.", icon: Video, category: "create", href: "/videos" },
   { name: "Image studio", blurb: "Make or edit images from a text prompt.", icon: ImageIcon, category: "create", href: "/create" },
   { name: "Director", blurb: "Pick a format (short film, ad, trailer, micro drama) and get a finished video with voice and music.", icon: Clapperboard, category: "create", href: "/director" },
+  { name: "Voice Studio", blurb: "Scripts to speech with up to four cloned voices, or instant preset voices, locally with VibeVoice.", icon: Mic, category: "create", href: "/voice-studio" },
   { name: "Music Lab", blurb: "Make a full song from an idea or your own lyrics, locally with YuE2.", icon: Music2, category: "create", href: "/music-lab" },
   { name: "Film studio", blurb: "Longer cinematic sequences from your clips.", icon: Film, category: "create", href: "/film-studio" },
   { name: "Video agent", blurb: "Describe a video and let local AI write and build it.", icon: Sparkles, category: "create", href: "/video-agent" },

@@ -403,6 +403,9 @@ def _run_job(job_id: str, params: dict[str, Any]) -> None:
             from .music_compose import unload_models  # local import: music_compose depends on this module
 
             unload_models()  # the songwriting chat keeps its model loaded; YuE2 needs that graphics memory
+            from .voice_studio import stop_if_running  # the voice engine holds most of the card too
+
+            stop_if_running()
             _update_job(job_id, status="running", stage="generating", message="Composing your song...")
             builder = params.get("build_workflow")
             workflow = builder(job_id, params) if builder else build_workflow(
