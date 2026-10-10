@@ -58,9 +58,7 @@ body::before {
     radial-gradient(26rem 14rem at 62% 45%, hsl(262 70% 66% / 0.16), transparent 70%);
   filter: blur(8px);
 }
-@media (prefers-reduced-motion: no-preference) {
-  .welcome-glow { animation: glow-drift 14s ease-in-out infinite alternate; }
-}
+[data-motion="on"] .welcome-glow { animation: glow-drift 14s ease-in-out infinite alternate; }
 @keyframes glow-drift {
   from { transform: translate3d(-2%, 0, 0) scale(1); }
   to { transform: translate3d(2%, 2%, 0) scale(1.06); }
@@ -106,21 +104,18 @@ html.lenis, html.lenis body { height: auto; }
 
 /* A soft light follows the pointer across cards marked data-spotlight (see useSpotlight). Hover devices only. */
 .spotlight { --mx: -999px; --my: -999px; }
-@media (hover: hover) and (prefers-reduced-motion: no-preference) {
-  .spotlight:hover {
+@media (hover: hover) {
+  [data-motion="on"] .spotlight:hover {
     background-image: radial-gradient(240px circle at var(--mx) var(--my), hsl(var(--primary) / 0.16), transparent 70%);
   }
 }
 
-/* Motion phase 2: page transition, dialog easing and a shimmer on running jobs. Transform and opacity only; off for reduced motion. */
-@media (prefers-reduced-motion: no-preference) {
+/* Motion phase 2: root preference controls every CSS animation, including an explicit OS override. */
+[data-motion="on"] {
   .page-enter { animation: page-in 0.35s cubic-bezier(0.22, 1, 0.36, 1) both; }
-  @keyframes page-in { from { opacity: 0; transform: translate3d(0, 10px, 0); } to { opacity: 1; transform: none; } }
 
   [role="dialog"][aria-modal="true"].fixed { animation: dialog-fade 0.2s ease-out both; }
   [role="dialog"][aria-modal="true"].fixed > * { animation: dialog-rise 0.28s cubic-bezier(0.22, 1, 0.36, 1) both; }
-  @keyframes dialog-fade { from { opacity: 0; } to { opacity: 1; } }
-  @keyframes dialog-rise { from { opacity: 0; transform: translate3d(0, 14px, 0) scale(0.98); } to { opacity: 1; transform: none; } }
 
   .job-shimmer { position: relative; overflow: hidden; }
   .job-shimmer::after {
@@ -128,5 +123,15 @@ html.lenis, html.lenis body { height: auto; }
     background: linear-gradient(100deg, transparent 30%, hsl(var(--primary) / 0.18) 50%, transparent 70%);
     transform: translate3d(-100%, 0, 0); animation: job-sweep 1.8s ease-in-out infinite;
   }
-  @keyframes job-sweep { to { transform: translate3d(100%, 0, 0); } }
 }
+
+[data-motion="off"] *, [data-motion="off"] *::before, [data-motion="off"] *::after {
+  animation: none !important;
+  scroll-behavior: auto !important;
+  transition: none !important;
+}
+
+@keyframes page-in { from { opacity: 0; transform: translate3d(0, 10px, 0); } to { opacity: 1; transform: none; } }
+@keyframes dialog-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes dialog-rise { from { opacity: 0; transform: translate3d(0, 14px, 0) scale(0.98); } to { opacity: 1; transform: none; } }
+@keyframes job-sweep { to { transform: translate3d(100%, 0, 0); } }

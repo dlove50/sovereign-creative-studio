@@ -3,14 +3,16 @@
 import { useRef, useState } from "react";
 import { UserRound } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useMotionPreference } from "@/components/motion/motion-provider";
 
 /** Play actual preview footage only; still images never masquerade as animation. */
 export function AvatarPreview({ image, video, label, className }: { image?: string | null; video?: string | null; label: string; className?: string }) {
+  const { motionEnabled } = useMotionPreference();
   const clip = useRef<HTMLVideoElement>(null);
   const [failed, setFailed] = useState(false);
   const [playing, setPlaying] = useState(false);
   function play() {
-    if (!video || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (!video || !motionEnabled) return;
     void clip.current?.play().then(() => setPlaying(true)).catch(() => setPlaying(false));
   }
   function stop() {

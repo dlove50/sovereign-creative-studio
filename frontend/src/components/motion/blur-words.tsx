@@ -4,6 +4,8 @@ import { useRef } from "react";
 import { gsap } from "gsap";
 import { useGSAP } from "@gsap/react";
 
+import { useMotionPreference } from "./motion-provider";
+
 gsap.registerPlugin(useGSAP);
 
 /**
@@ -13,19 +15,18 @@ gsap.registerPlugin(useGSAP);
  */
 export function BlurWords({ text, className, delay = 0 }: { text: string; className?: string; delay?: number }) {
   const root = useRef<HTMLSpanElement>(null);
+  const { motionEnabled } = useMotionPreference();
   const words = text.split(/\s+/).filter(Boolean);
 
   useGSAP(() => {
-    const mm = gsap.matchMedia();
-    mm.add("(prefers-reduced-motion: no-preference)", () => {
-      gsap.fromTo(
-        root.current!.querySelectorAll("[data-word]"),
-        { opacity: 0, filter: "blur(12px)", y: 14 },
-        { opacity: 1, filter: "blur(0px)", y: 0, duration: 0.7, ease: "power3.out", stagger: 0.09, delay, clearProps: "filter,transform" },
-      );
-    });
-    return () => mm.revert();
-  }, { scope: root, dependencies: [text] });
+    if (!motionEnabled || !root.current) return;
+    const tween = gsap.fromTo(
+      root.current.querySelectorAll("[data-word]"),
+      { opacity: 0, filter: "blur(12px)", y: 14 },
+      { opacity: 1, filter: "blur(0px)", y: 0, duration: 0.7, ease: "power3.out", stagger: 0.09, delay, clearProps: "filter,transform" },
+    );
+    return () => tween.revert();
+  }, { scope: root, dependencies: [text, motionEnabled] });
 
   return (
     <span ref={root} className={className} aria-label={text}>

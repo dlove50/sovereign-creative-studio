@@ -9,6 +9,8 @@ import { useCallback, useEffect, useRef } from "react";
 import { gsap } from "gsap";
 import { InertiaPlugin } from "gsap/InertiaPlugin";
 
+import { useMotionPreference } from "./motion-provider";
+
 gsap.registerPlugin(InertiaPlugin);
 
 type Dot = { cx: number; cy: number; xOffset: number; yOffset: number; busy: boolean };
@@ -37,6 +39,7 @@ export function DotGrid({
   dotSize = 3, gap = 26, baseColor = "#454c5a", activeColor = "#22b8f0", proximity = 120, speedTrigger = 100,
   shockRadius = 200, shockStrength = 4, maxSpeed = 5000, resistance = 750, returnDuration = 1.4, className = "",
 }: DotGridProps) {
+  const { motionEnabled } = useMotionPreference();
   const wrapper = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const dots = useRef<Dot[]>([]);
@@ -101,8 +104,7 @@ export function DotGrid({
     const resize = new ResizeObserver(() => { build(); draw(); });
     resize.observe(wrap);
 
-    const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (still) return () => resize.disconnect(); // a quiet, still grid
+    if (!motionEnabled) return () => resize.disconnect(); // a quiet, still grid
 
     // Redraw only when something changed, and never while hidden or scrolled away.
     const onTick = () => {
@@ -183,7 +185,7 @@ export function DotGrid({
       window.removeEventListener("click", onClick);
       dots.current.forEach((dot) => gsap.killTweensOf(dot));
     };
-  }, [build, draw, maxSpeed, speedTrigger, proximity, resistance, returnDuration, shockRadius, shockStrength]);
+  }, [build, draw, maxSpeed, motionEnabled, speedTrigger, proximity, resistance, returnDuration, shockRadius, shockStrength]);
 
   return (
     <div ref={wrapper} className={`relative h-full w-full ${className}`} aria-hidden="true">

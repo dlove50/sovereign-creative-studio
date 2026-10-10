@@ -46,3 +46,39 @@ test.describe("motion preference contract", () => {
     }
   });
 });
+
+test.describe("motion runtime", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+  });
+
+  test("forced-on motion runs even when the operating system requests reduced motion", async ({ page }) => {
+    await page.addInitScript(
+      ({ key }) => localStorage.setItem(key, "on"),
+      { key: MOTION_STORAGE_KEY },
+    );
+    await page.goto("/", { waitUntil: "domcontentloaded", timeout: 15_000 });
+
+    await expect(page.locator("html")).toHaveAttribute("data-motion", "on", { timeout: 5_000 });
+    await expect(page.locator("html")).toHaveClass(/lenis/);
+    await expect(page.locator(".page-enter")).toHaveCSS("animation-name", "page-in");
+  });
+
+  test("forced-off motion remains still and updates without a reload", async ({ page }) => {
+    await page.addInitScript(
+      ({ key }) => localStorage.setItem(key, "on"),
+      { key: MOTION_STORAGE_KEY },
+    );
+    await page.goto("/", { waitUntil: "domcontentloaded", timeout: 15_000 });
+    await expect(page.locator("html")).toHaveAttribute("data-motion", "on", { timeout: 5_000 });
+
+    await page.evaluate(({ key }) => {
+      localStorage.setItem(key, "off");
+      window.dispatchEvent(new StorageEvent("storage", { key, newValue: "off" }));
+    }, { key: MOTION_STORAGE_KEY });
+
+    await expect(page.locator("html")).toHaveAttribute("data-motion", "off", { timeout: 5_000 });
+    await expect(page.locator("html")).not.toHaveClass(/lenis/);
+    await expect(page.locator(".page-enter")).toHaveCSS("animation-name", "none");
+  });
+});

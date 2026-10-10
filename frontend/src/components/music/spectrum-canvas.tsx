@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 
 import { cn } from "@/lib/utils";
+import { useMotionPreference } from "@/components/motion/motion-provider";
 
 export type VisualStyle = "bars" | "radial" | "wave";
 
@@ -40,6 +41,7 @@ function levelsAt(frames: Uint8Array, bands: number, fps: number, position: numb
 }
 
 export function SpectrumCanvas({ frames, bands, fps, getPosition, active, visual, className }: Props) {
+  const { motionEnabled } = useMotionPreference();
   const ref = useRef<HTMLCanvasElement>(null);
   const live = useRef({ frames, bands, fps, getPosition, active, visual });
   live.current = { frames, bands, fps, getPosition, active, visual };
@@ -49,7 +51,6 @@ export function SpectrumCanvas({ frames, bands, fps, getPosition, active, visual
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     let raf = 0;
     let width = 0;
     let height = 0;
@@ -81,21 +82,22 @@ export function SpectrumCanvas({ frames, bands, fps, getPosition, active, visual
         for (let i = 0; i < n; i++) raw[i] = 0.06 + 0.04 * Math.sin(now / 900 + i * 0.7);
       }
       for (let i = 0; i < n; i++) {
-        const target = reduced ? raw[i] * 0.6 : raw[i];
+        const target = motionEnabled ? raw[i] : raw[i] * 0.6;
         smooth[i] += (target - smooth[i]) * (target > smooth[i] ? 0.55 : 0.18);
         peaks[i] = Math.max(smooth[i], peaks[i] - 0.012);
       }
       if (s.visual === "radial") drawRadial(ctx, width, height, smooth, n, now);
       else if (s.visual === "wave") drawWave(ctx, width, height, smooth, n, now);
       else drawBars(ctx, width, height, smooth, peaks, n);
-      raf = requestAnimationFrame(draw);
+      if (motionEnabled) raf = requestAnimationFrame(draw);
     };
-    raf = requestAnimationFrame(draw);
+    if (motionEnabled) raf = requestAnimationFrame(draw);
+    else draw(0);
     return () => {
       cancelAnimationFrame(raf);
       observer.disconnect();
     };
-  }, []);
+  }, [motionEnabled]);
 
   return <canvas ref={ref} className={cn("block h-full w-full", className)} aria-hidden="true" />;
 }
