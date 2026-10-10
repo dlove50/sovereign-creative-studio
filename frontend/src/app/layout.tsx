@@ -34,7 +34,7 @@ export default function RootLayout({
             <AppRail />
             <div className="flex min-w-0 flex-1 flex-col">
               <Topbar />
-              <main id="main-content" tabIndex={-1} className="flex-1 px-6 py-8 focus:outline-none md:px-10">{children}</main>
+              <main id="main-content" tabIndex={-1} className="mx-auto w-full max-w-content flex-1 px-4 py-6 focus:outline-none sm:px-6 md:px-8 md:py-8 lg:px-10">{children}</main>
             </div>
           </div>
           <ConfirmHost />

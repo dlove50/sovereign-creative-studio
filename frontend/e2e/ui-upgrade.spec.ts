@@ -31,7 +31,9 @@ test.describe("shared UI contract", () => {
     });
     expect(tokens.every(Boolean)).toBe(true);
 
-    await page.unroute("**/api/**");
+  });
+
+  test("shared inputs retain the same sizing and styling on library screens", async ({ page }) => {
     await page.route("**/api/**", (route) =>
       route.fulfill({ status: 200, contentType: "application/json", body: "[]" }),
     );
@@ -58,5 +60,80 @@ test.describe("shared UI contract", () => {
     await expect(card).toBeVisible({ timeout: 5_000 });
     expect(await card.evaluate((node) => parseFloat(getComputedStyle(node).borderRadius))).toBeGreaterThanOrEqual(10);
     expect(await card.evaluate((node) => getComputedStyle(node).boxShadow)).not.toBe("none");
+  });
+});
+
+test.describe("application shell", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.route("**/api/**", (route) =>
+      route.fulfill({ status: 200, contentType: "application/json", body: "[]" }),
+    );
+    await page.route("**/api/auth/me", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ name: "Studio Owner", role: "owner_admin", credits: 120 }),
+      }),
+    );
+  });
+
+  test("desktop rail and account menu are keyboard-safe and expose all motion modes", async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.goto("/projects", { waitUntil: "domcontentloaded", timeout: 15_000 });
+    await expect(page.locator("html")).toHaveAttribute("data-motion", /on|off/, { timeout: 5_000 });
+
+    const mainNav = page.getByRole("navigation", { name: "Main" });
+    await expect(mainNav.getByRole("link", { name: "Projects" })).toHaveAttribute("aria-current", "page");
+
+    const create = page.getByRole("button", { name: "Create" });
+    await create.focus();
+    await expect(create).toBeFocused();
+    await create.press("Enter");
+    await expect(create).toHaveAttribute("aria-expanded", "true", { timeout: 5_000 });
+    await expect(page.getByRole("navigation", { name: "Create" })).toBeVisible({ timeout: 5_000 });
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("navigation", { name: "Create" })).toBeHidden({ timeout: 5_000 });
+
+    const account = page.getByRole("button", { name: "Account menu" });
+    expect((await account.boundingBox())?.height ?? 0).toBeGreaterThan(43.9);
+    await account.click();
+    const motion = page.getByRole("radiogroup", { name: "Motion" });
+    await expect(motion).toBeVisible({ timeout: 5_000 });
+
+    await motion.getByRole("radio", { name: "Always on" }).click();
+    await expect(page.locator("html")).toHaveAttribute("data-motion", "on");
+    await motion.getByRole("radio", { name: "Off", exact: true }).click();
+    await expect(page.locator("html")).toHaveAttribute("data-motion", "off");
+    await motion.getByRole("radio", { name: "Follow system" }).click();
+    await expect(page.locator("html")).toHaveAttribute("data-motion", "off");
+
+    await page.keyboard.press("Escape");
+    await expect(motion).toBeHidden({ timeout: 5_000 });
+    await expect(account).toBeFocused();
+
+    await account.click();
+    await page.locator("main").click({ position: { x: 10, y: 10 } });
+    await expect(motion).toBeHidden({ timeout: 5_000 });
+  });
+
+  test("mobile navigation has 44px targets, traps focus, and closes with Escape", async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.goto("/projects", { waitUntil: "domcontentloaded", timeout: 15_000 });
+    await expect(page.locator("html")).toHaveAttribute("data-motion", /on|off/, { timeout: 5_000 });
+
+    const trigger = page.getByRole("button", { name: "Open navigation" });
+    expect((await trigger.boundingBox())?.height ?? 0).toBeGreaterThan(43.9);
+    await trigger.click();
+
+    const dialog = page.getByRole("dialog", { name: "Studio navigation" });
+    await expect(dialog).toBeVisible({ timeout: 5_000 });
+    const projects = dialog.getByRole("link", { name: "My Projects", exact: true });
+    await expect(projects).toHaveAttribute("aria-current", "page");
+    await expect(projects).toHaveCSS("min-height", "44px");
+
+    await page.keyboard.press("Escape");
+    await expect(dialog).toBeHidden({ timeout: 5_000 });
+    await expect(trigger).toBeFocused();
   });
 });

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, Sparkles, X } from "lucide-react";
 
-import { ADMIN_NAV, CREATOR_NAV, type NavigationItem } from "@/lib/navigation";
+import { ADMIN_NAV, CREATOR_NAV, isNavigationActive, type NavigationItem } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
 
 function MobileNavLink({ item, pathname, onNavigate }: {
@@ -13,9 +13,7 @@ function MobileNavLink({ item, pathname, onNavigate }: {
   pathname: string;
   onNavigate: () => void;
 }) {
-  const active = item.href === "/" || item.href === "/admin"
-    ? pathname === item.href
-    : pathname.startsWith(item.href);
+  const active = isNavigationActive(item.href, pathname);
   const Icon = item.icon;
   return (
     <Link
@@ -23,7 +21,7 @@ function MobileNavLink({ item, pathname, onNavigate }: {
       onClick={onNavigate}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors",
+        "flex min-h-11 items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         active
           ? "bg-primary/15 text-primary"
           : "text-muted-foreground hover:bg-muted hover:text-foreground",
@@ -41,8 +39,12 @@ export function MobileNavigation({ isAdmin }: { isAdmin: boolean }) {
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
+  const previousPathname = useRef(pathname);
 
-  useEffect(() => setOpen(false), [pathname]);
+  useEffect(() => {
+    if (previousPathname.current !== pathname) setOpen(false);
+    previousPathname.current = pathname;
+  }, [pathname]);
 
   useEffect(() => {
     if (!open) return;
@@ -85,7 +87,7 @@ export function MobileNavigation({ isAdmin }: { isAdmin: boolean }) {
         aria-expanded={open}
         aria-controls="mobile-navigation"
         onClick={() => setOpen(true)}
-        className="flex h-9 w-9 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-muted hover:text-foreground md:hidden"
+        className="flex h-11 w-11 items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:hidden"
       >
         <Menu className="h-5 w-5" aria-hidden="true" />
       </button>
@@ -120,7 +122,7 @@ export function MobileNavigation({ isAdmin }: { isAdmin: boolean }) {
                   setOpen(false);
                   triggerRef.current?.focus();
                 }}
-                className="flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+                className="flex h-11 w-11 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <X className="h-5 w-5" aria-hidden="true" />
               </button>

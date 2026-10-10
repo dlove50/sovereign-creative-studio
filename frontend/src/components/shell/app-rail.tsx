@@ -8,15 +8,11 @@ import { Coins, ShieldCheck, Sparkles } from "lucide-react";
 import { GemIcon } from "@/components/gem-icon";
 import { api } from "@/lib/api";
 import type { AvatarJob } from "@/lib/types";
-import { AVATAR_NAV, CREATE_NAV, RAIL_NAV, type NavigationItem } from "@/lib/navigation";
+import { AVATAR_NAV, CREATE_NAV, RAIL_NAV, isNavigationActive, type NavigationItem } from "@/lib/navigation";
 import { isAuthRoute } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 
 const RECENTS_LIMIT = 10;
-
-function isActive(href: string, pathname: string) {
-  return href === "/" || href === "/admin" ? pathname === href : pathname.startsWith(href);
-}
 
 function timeAgo(iso: string) {
   const minutes = Math.max(1, Math.round((Date.now() - new Date(iso + (iso.endsWith("Z") ? "" : "Z")).getTime()) / 60000));
@@ -28,7 +24,7 @@ function timeAgo(iso: string) {
 }
 
 function RailItem({ item, pathname, onHover }: { item: NavigationItem; pathname: string; onHover?: () => void }) {
-  const active = isActive(item.href, pathname);
+  const active = isNavigationActive(item.href, pathname);
   const Icon = item.icon;
   return (
     <Link
@@ -36,11 +32,11 @@ function RailItem({ item, pathname, onHover }: { item: NavigationItem; pathname:
       aria-current={active ? "page" : undefined}
       onMouseEnter={onHover}
       onFocus={onHover}
-      className="group flex flex-col items-center gap-1 py-1.5 text-[11px] font-medium focus-visible:outline-none"
+      className="group flex min-h-11 flex-col items-center justify-center gap-1 rounded-xl py-1 text-[11px] font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       <span
         className={cn(
-          "flex h-10 w-10 items-center justify-center rounded-xl transition-colors group-focus-visible:ring-2 group-focus-visible:ring-ring",
+          "flex h-10 w-11 items-center justify-center rounded-xl transition-colors",
           active ? "relative bg-raised text-foreground before:absolute before:-left-3 before:top-2.5 before:h-5 before:w-[3px] before:rounded-full before:bg-primary" : "text-muted-foreground group-hover:bg-raised group-hover:text-foreground",
         )}
       >
@@ -59,7 +55,9 @@ export function AppRail() {
   const [panel, setPanel] = useState<"create" | "avatars" | null>(null);
   const open = panel === "create";
   const [recents, setRecents] = useState<AvatarJob[]>([]);
-  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const createRef = useRef<HTMLButtonElement>(null);
+  const previousPathname = useRef(pathname);
 
   useEffect(() => {
     api
@@ -71,7 +69,28 @@ export function AppRail() {
       .catch(() => setIsAdmin(false));
   }, [pathname]);
 
-  useEffect(() => setPanel(null), [pathname]);
+  useEffect(() => {
+    if (previousPathname.current !== pathname) setPanel(null);
+    previousPathname.current = pathname;
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!panel) return;
+    function onPointerDown(event: PointerEvent) {
+      if (rootRef.current && !rootRef.current.contains(event.target as Node)) setPanel(null);
+    }
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key !== "Escape") return;
+      setPanel(null);
+      createRef.current?.focus();
+    }
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [panel]);
 
   useEffect(() => {
     if (!open) return;
@@ -84,22 +103,30 @@ export function AppRail() {
   if (isAuthRoute(pathname)) return null;
 
   function show(which: "create" | "avatars" = "create") {
-    if (closeTimer.current) clearTimeout(closeTimer.current);
     setPanel(which);
   }
-  function hideSoon() {
-    closeTimer.current = setTimeout(() => setPanel(null), 180);
+  function toggleCreate() {
+    setPanel((value) => (value === "create" ? null : "create"));
   }
 
   return (
-    <div className="relative hidden shrink-0 md:block" onMouseLeave={hideSoon}>
-      <aside className="sticky top-0 flex h-screen w-[76px] flex-col items-center gap-2 border-r border-border bg-card/60 py-4">
+    <div ref={rootRef} className="relative hidden shrink-0 md:block">
+      <aside className="sticky top-0 flex h-screen w-[76px] flex-col items-center gap-2 border-r border-border/80 bg-card/75 py-4 backdrop-blur-xl">
         <button
+          ref={createRef}
           type="button"
-          onMouseEnter={() => show("create")}
-          onFocus={() => show("create")}
-          onClick={() => setPanel((v) => (v === "create" ? null : "create"))}
+          onKeyDown={(event) => {
+            if (event.key !== "Enter" && event.key !== " ") return;
+            event.preventDefault();
+            if (open) setPanel(null);
+            else show("create");
+          }}
+          onClick={(event) => {
+            if (event.detail === 0) return;
+            toggleCreate();
+          }}
           aria-expanded={open}
+          aria-controls="rail-create-panel"
           aria-label="Create"
           className="mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-400 via-primary to-violet-500 text-primary-foreground shadow-[0_0_24px_hsl(197_87%_54%/0.35)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
@@ -116,7 +143,7 @@ export function AppRail() {
           <Link
             href="/profile"
             aria-label="Profile"
-            className="mt-1 flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-emerald-400 to-teal-600 text-sm font-semibold text-white ring-2 ring-border focus-visible:outline-none focus-visible:ring-ring"
+            className="mt-1 flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-emerald-400 to-teal-600 text-sm font-semibold text-white ring-2 ring-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             {initial}
           </Link>
@@ -126,7 +153,7 @@ export function AppRail() {
       {panel === "avatars" ? (
         <div
           onMouseEnter={() => show("avatars")}
-          className="absolute left-[76px] top-0 z-40 flex h-screen w-[248px] flex-col border-r border-border bg-card shadow-2xl shadow-black/40"
+          className="absolute left-[76px] top-0 z-40 flex h-screen w-[272px] flex-col border-r border-border bg-card/95 shadow-elevated backdrop-blur-xl"
         >
           <p className="px-5 pb-2 pt-5 text-xs font-medium text-muted-foreground">Manage avatars</p>
           <nav className="flex flex-col gap-0.5 px-3" aria-label="Manage avatars">
@@ -139,7 +166,7 @@ export function AppRail() {
                   href={item.href}
                   aria-current={active ? "page" : undefined}
                   className={cn(
-                    "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                    "flex min-h-11 items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                     active ? "bg-raised text-foreground" : "text-foreground/85 hover:bg-raised",
                   )}
                 >
@@ -154,20 +181,22 @@ export function AppRail() {
 
       {open ? (
         <div
+          id="rail-create-panel"
           onMouseEnter={() => show("create")}
-          className="absolute left-[76px] top-0 z-40 flex h-screen w-[248px] flex-col border-r border-border bg-card shadow-2xl shadow-black/40"
+          className="absolute left-[76px] top-0 z-40 flex h-screen w-[272px] flex-col border-r border-border bg-card/95 shadow-elevated backdrop-blur-xl"
         >
           <p className="px-5 pb-2 pt-5 text-xs font-medium text-muted-foreground">Create</p>
           <nav className="flex flex-col gap-0.5 px-3" aria-label="Create">
             {CREATE_NAV.map((item) => {
               const Icon = item.icon;
-              const active = isActive(item.href, pathname);
+              const active = isNavigationActive(item.href, pathname);
               return (
                 <Link
                   key={item.label}
                   href={item.href}
+                  aria-current={active ? "page" : undefined}
                   className={cn(
-                    "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                    "flex min-h-11 items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                     active ? "bg-raised text-foreground" : "text-foreground/85 hover:bg-raised",
                   )}
                 >

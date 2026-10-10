@@ -42,6 +42,10 @@ export type NavigationItem = {
   icon: LucideIcon;
 };
 
+export function isNavigationActive(href: string, pathname: string) {
+  return href === "/" || href === "/admin" ? pathname === href : pathname.startsWith(href);
+}
+
 // The everyday creator path stays short and task-oriented.
 export const CREATOR_NAV: NavigationItem[] = [
   { href: "/", label: "Home", icon: Home },
