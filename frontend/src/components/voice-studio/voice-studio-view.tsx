@@ -18,6 +18,13 @@ import { cn } from "@/lib/utils";
 type Tab = "conversation" | "realtime" | "library";
 
 const fmt = (seconds: number) => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, "0")}`;
+/** "en-Alice_woman" becomes "Alice, woman (English)". */
+const LANGUAGES: Record<string, string> = { en: "English", zh: "Chinese", in: "Indian English" };
+function voiceLabel(name: string) {
+  const m = name.match(/^([a-z]{2})-([A-Za-z]+)_(man|woman)(?:_bgm)?$/);
+  if (!m) return name;
+  return `${m[2]}, ${m[3]} (${LANGUAGES[m[1]] ?? m[1]})${name.endsWith("_bgm") ? ", with music" : ""}`;
+}
 const errorText = (e: unknown, fallback: string) => (e instanceof Error ? e.message : fallback);
 
 /** Play, pause, stop and download for one finished clip. */
@@ -272,6 +279,13 @@ export function VoiceStudioView() {
     setScript((s) => `${s}${s && !s.endsWith("\n") ? "\n" : ""}Speaker ${n}: `);
   }
 
+  function loadExample(index: number) {
+    const pick = examples[index];
+    if (!pick) return;
+    setCount(Math.min(4, Math.max(1, pick.num_speakers)));
+    setScript(pick.script);
+  }
+
   function randomExample() {
     if (!examples.length) return;
     const pick = examples[Math.floor(Math.random() * examples.length)];
@@ -354,7 +368,8 @@ export function VoiceStudioView() {
         <div className="grid gap-6 lg:grid-cols-[minmax(280px,360px)_1fr]">
           <section className="space-y-5 rounded-2xl border border-border bg-card/60 p-4" aria-label="Speakers and settings">
             <div>
-              <Label className="flex items-center gap-2"><Users className="h-4 w-4" aria-hidden="true" /> Speakers</Label>
+              <h2 className="text-sm font-semibold">Podcast settings</h2>
+              <Label className="mt-3 flex items-center gap-2"><Users className="h-4 w-4" aria-hidden="true" /> Number of speakers</Label>
               <div className="mt-2 flex gap-2">
                 {[1, 2, 3, 4].map((n) => (
                   <button key={n} type="button" aria-pressed={count === n} onClick={() => setCount(n)}
@@ -373,7 +388,12 @@ export function VoiceStudioView() {
                     onChange={(e) => setSpeakers((s) => s.map((v, j) => (j === i ? e.target.value : v)))}
                     className="h-10 min-w-0 flex-1 rounded-md border border-input bg-background/40 px-2 text-sm"
                   >
-                    {voiceNames.map((n) => <option key={n} value={n}>{n}</option>)}
+                    <optgroup label="Your recordings">
+                      {voices.voices.filter((v) => !v.preset).map((v) => <option key={v.name} value={v.name}>{v.name}</option>)}
+                    </optgroup>
+                    <optgroup label="Built-in voices">
+                      {voices.voices.filter((v) => v.preset).map((v) => <option key={v.name} value={v.name}>{voiceLabel(v.name)}</option>)}
+                    </optgroup>
                     {!voiceNames.includes(speakers[i]) ? <option value={speakers[i]}>{speakers[i]}</option> : null}
                   </select>
                   <Button size="icon" variant="outline" aria-label={`Preview ${speakers[i]}`} onClick={() => previewVoice(speakers[i])}>
@@ -414,6 +434,16 @@ export function VoiceStudioView() {
 
           <section className="space-y-4" aria-label="Script and result">
             <div className="space-y-2">
+              <Label htmlFor="vs-example">Example scripts</Label>
+              <select
+                id="vs-example" value="" onChange={(e) => loadExample(Number(e.target.value))} disabled={!examples.length}
+                className="h-10 w-full rounded-md border border-input bg-background/40 px-2 text-sm"
+              >
+                <option value="">{examples.length ? "Pick an example podcast to load it…" : "Examples appear when the engine is ready"}</option>
+                {examples.map((ex, i) => (
+                  <option key={i} value={i}>{`${ex.name ?? `Example ${i + 1}`} · ${ex.num_speakers} speaker${ex.num_speakers === 1 ? "" : "s"}`}</option>
+                ))}
+              </select>
               <Label htmlFor="vs-script">Script</Label>
               <Textarea
                 id="vs-script" value={script} onChange={(e) => setScript(e.target.value)} rows={12} maxLength={60000}

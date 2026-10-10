@@ -14,7 +14,7 @@ export type VoiceEngine = {
 export type VoiceModel = { label: string; kind: "full" | "realtime" };
 export type VoiceSample = { name: string; file: string; preset: boolean };
 export type VoiceList = { voices: VoiceSample[]; realtime: string[] };
-export type VoiceExample = { num_speakers: number; script: string };
+export type VoiceExample = { name?: string; num_speakers: number; script: string };
 
 export type VoiceClip = {
   id: string;
