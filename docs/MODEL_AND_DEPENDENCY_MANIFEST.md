@@ -186,7 +186,7 @@ All model files live inside the ComfyUI shared models directory.
 
 | Model file                          | Used for                  | Size (approx) |
 |-------------------------------------|---------------------------|---------------|
-| `krea2_turbo_fp8.safetensors`       | Krea 2 — **Quick Chain**  | ~8 GB         |
+| `krea2_turbo_fp8_scaled.safetensors` | Krea 2 — **Quick Chain** | ~13.1 GB      |
 | `flux1-dev-fp8.safetensors`         | FLUX.1 Dev (fallback)     | ~8 GB         |
 | `flux2-klein-4b.safetensors`        | FLUX.2 Klein 4B           | ~4 GB         |
 | `anything-v3.0.safetensors` or similar | SDXL / Illustrious XL | ~2-7 GB       |
@@ -198,7 +198,7 @@ All model files live inside the ComfyUI shared models directory.
 
 | File                    | Used for              |
 |-------------------------|-----------------------|
-| `krea2_ae.safetensors`  | Krea 2 VAE            |
+| `qwen_image_vae.safetensors` | Krea 2 / Qwen Image VAE |
 | `ae.safetensors`        | FLUX.1 Dev VAE        |
 
 ### Video Models
@@ -222,6 +222,7 @@ All model files live inside the ComfyUI shared models directory.
 | `clip_l.safetensors`         | FLUX.1, Krea 2       |
 | `t5xxl_fp8_e4m3fn.safetensors` | FLUX.1, Krea 2     |
 | `qwen_3_4b.safetensors`      | Z-Image Turbo / Lumina 2 |
+| `qwen3vl_4b_fp8_scaled.safetensors` | Krea 2 Turbo |
 | `umt5_xxl_fp8_e4m3fn_scaled.safetensors` | Wan 2.1 video |
 
 ### Wan Video VAE

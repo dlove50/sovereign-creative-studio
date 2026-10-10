@@ -4,7 +4,7 @@
 
 Sovereign now has a consistent responsive shell, a persisted three-state motion preference, strengthened shared UI primitives, and polished home, library, status, and creation surfaces. Existing routes, API contracts, workflow payloads, authentication, credits, and backend behavior were preserved.
 
-The production frontend was rebuilt into `.next-cinematic-fixed`, launched on port 3000, and verified against the existing backend on port 8002.
+The production frontend was rebuilt into `.next-cinematic-fixed`, launched on port 3000, and verified against the existing backend on port 8002 and ComfyUI on port 8001.
 
 ## Animation regression root cause
 
@@ -52,6 +52,7 @@ Verified commands:
 npm run typecheck
 npm run lint
 NEXT_DIST_DIR=.next-cinematic-fixed BACKEND_ORIGIN=http://127.0.0.1:8002 npm run build
+python -m pytest tests/test_comfyui_video.py -q
 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3000 npx playwright test e2e/motion-preference.spec.ts e2e/ui-upgrade.spec.ts e2e/visual-acceptance.spec.ts --project=chromium
 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3000 npx playwright test --project=chromium
 ```
@@ -61,8 +62,19 @@ Results at delivery:
 - TypeScript: pass.
 - ESLint: pass with existing optimization/hook warnings; no lint errors.
 - Next.js production build: pass, 70 routes generated.
+- ComfyUI video adapter regression suite: 39/39 pass.
 - Upgrade and acceptance matrix: 26/26 pass.
-- Complete frontend suite: 39/41 deterministic and browser checks pass. The two live Quick Chain generation scenarios reached the UI correctly but could not advance because the selected `krea2_turbo_fp8` model reports `Setup required`; this is an external model-readiness limitation, not a UI regression.
+- Krea 2 preset readiness: `ready=true`, with no missing model files.
+- Live Quick Chain: both Chromium scenarios pass against production. The hardened path completed Krea 2 image generation, Wan 2.1 image-to-video, Piper preview/merge, Whisper transcription, local summary, downloads, and Asset Library verification. The second scenario completed the optional-skip path.
+- Complete frontend suite: 41/41 checks pass in Chromium with one worker against the production frontend.
+
+Installed Krea 2 artifacts were verified byte-for-byte with SHA-256:
+
+- `diffusion_models/krea2_turbo_fp8_scaled.safetensors`: `eb4dd8c612cfd10f64f25b057e6e6bbcb5737c94a7372177e456dbf7579502f1`
+- `text_encoders/qwen3vl_4b_fp8_scaled.safetensors`: `54bd5144df0bbc25dd6ccadfcb826b521445a1b06ae5a42570bdd2974ca87094`
+- `vae/qwen_image_vae.safetensors`: `a70580f0213e67967ee9c95f05bb400e8fb08307e017a924bf3441223e023d1f`
+
+Quick Chain now selects the installed local Wan provider for image-to-video. Its workflow applies the installed LightX2V four-step LoRA and the selected quality preset's dimensions, bringing local rendering inside the backend timeout. Video upscale remains explicitly optional and is skipped by capability-aware tests when the separate LTX upscaler is not installed.
 
 ## Independent final review
 
@@ -76,7 +88,7 @@ A fresh read-only whole-branch review found no Critical issues and four reproduc
 ## Known limitations
 
 - Existing `<img>` optimization warnings and two pre-existing hook dependency warnings remain outside this UI-only scope.
-- Live Quick Chain generation requires its selected ComfyUI image model to be installed and ready. The interface reports that generation is unavailable rather than falsely advancing.
+- LTX-only video extension and spatial-upscale modes still require their separate LTX model files. Quick Chain remains fully usable because upscale is optional and the installed Wan path handles image-to-video.
 - Generated screenshot artifacts are intentionally test output rather than source-controlled binaries.
 
 ## Rollback

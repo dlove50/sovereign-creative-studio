@@ -150,11 +150,14 @@ export function useQuickChain() {
       const created = await api.createVideo({
         project_id: projectId,
         source_image_url: state.image.file_url,
-        prompt: prompt.trim() || "",
+        prompt: prompt.trim() || "Subtle breathing, gentle motion, no camera movement",
         motion_preset: "subtle_breathing",
         duration_seconds: 3,
         mode: "image_to_video",
-        provider: "local_ltx",
+        // Quick Chain uses the installed local Wan I2V path. LTX remains the
+        // provider for its dedicated extension/upscale workflows, but it is
+        // not required for the core Image -> Video chain.
+        provider: "local_wan",
         quality_preset: "standard_local",
       });
       const done = await poll(() => api.getVideo(created.id));

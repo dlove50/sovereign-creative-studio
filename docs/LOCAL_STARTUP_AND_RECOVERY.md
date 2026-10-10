@@ -69,10 +69,12 @@ The Quick Chain uses **Krea 2 Turbo FP8** for image generation.
 **Symptom:** The image model dropdown shows "Setup required" next to Krea 2.
 
 **Fix:**
-1. Make sure the Krea 2 model file `krea2_turbo_fp8.safetensors` is present in your
-   ComfyUI checkpoints directory.
-2. Make sure ComfyUI is running on port 8001.
-3. Restart ComfyUI if you recently added the model file.
+1. Make sure the Krea 2 diffusion model `krea2_turbo_fp8_scaled.safetensors` is
+   present in ComfyUI's `diffusion_models` directory.
+2. Make sure `qwen3vl_4b_fp8_scaled.safetensors` is present in `text_encoders`
+   and `qwen_image_vae.safetensors` is present in `vae`.
+3. Make sure ComfyUI is running on port 8001.
+4. Restart ComfyUI after adding any of these files so its loader lists refresh.
 
 See `docs/MODEL_AND_DEPENDENCY_MANIFEST.md` for exact file names and locations.
 
@@ -244,8 +246,9 @@ After cloning, the following must be installed separately:
   match the new machine's directory layout.
 
 ### Krea 2 Model Files
-- `krea2_turbo_fp8.safetensors` — in ComfyUI checkpoints directory
-- `krea2_ae.safetensors` — in ComfyUI VAE directory
+- `krea2_turbo_fp8_scaled.safetensors` — in ComfyUI `diffusion_models`
+- `qwen3vl_4b_fp8_scaled.safetensors` — in ComfyUI `text_encoders`
+- `qwen_image_vae.safetensors` — in ComfyUI `vae`
 - Exact paths are described in `docs/MODEL_AND_DEPENDENCY_MANIFEST.md`
 
 ### Other Image Models (optional)

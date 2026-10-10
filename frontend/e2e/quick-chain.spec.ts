@@ -2,7 +2,7 @@
  * Quick Chain browser UI smoke test (Phase 2.2 hardened).
  *
  * Full flow:
- *   Image (Krea 2) → Video → Upscale → Voice select → Preview Voice
+ *   Image (Krea 2) → Video → optional Upscale → Voice select → Preview Voice
  *   → Add Voice → Transcribe → Summarize → Download
  *
  * Narration is kept short ("Sovereign Piper voice test.") so it fits inside
@@ -27,8 +27,25 @@ async function waitForWorking(page: Page) {
   await expect(page.locator('[data-testid="running"]')).toBeVisible({ timeout: 8_000 });
 }
 
+async function completeOptionalUpscale(page: Page): Promise<boolean> {
+  const response = await page.request.get("/api/videos/modes");
+  expect(response.ok()).toBeTruthy();
+  const modes = (await response.json()) as Array<{ id: string; available: boolean }>;
+  const upscaleReady = modes.find((mode) => mode.id === "video_upscale")?.available === true;
+
+  if (upscaleReady) {
+    await page.locator("button", { hasText: /upscale video/i }).click();
+    await waitForWorking(page);
+  } else {
+    await page.locator("button", { hasText: /skip upscale/i }).click();
+  }
+
+  await expect(page.locator("h2", { hasText: /voice/i })).toBeVisible({ timeout: 240_000 });
+  return upscaleReady;
+}
+
 // ── Full flow: voice select + preview + summarize + download ─────────────────
-test("Quick Chain: image → video → upscale → voice select → preview → add voice → transcribe → summarize → download", async ({ page }) => {
+test("Quick Chain: image → video → optional upscale → voice select → preview → add voice → transcribe → summarize → download", async ({ page }) => {
   // ── 1. Load /chain ───────────────────────────────────────────────────────
   await page.goto("/chain", { waitUntil: "domcontentloaded" });
   await expect(page.locator("h1")).toContainText("Quick Chain");
@@ -64,12 +81,10 @@ test("Quick Chain: image → video → upscale → voice select → preview → 
   const videoSrc = await page.locator("video").first().getAttribute("src");
   console.log(`[QC] ✓ Video: ${videoSrc}`);
 
-  // ── 6. Upscale ────────────────────────────────────────────────────────────
-  await page.locator("button", { hasText: /upscale video/i }).click();
-  await waitForWorking(page);
+  // ── 6. Optional upscale ───────────────────────────────────────────────────
   console.log("[QC] Waiting for Step 4 (Audio)...");
-  await expect(page.locator("h2", { hasText: /voice/i })).toBeVisible({ timeout: 240_000 });
-  console.log("[QC] ✓ Upscale done.");
+  const upscaleReady = await completeOptionalUpscale(page);
+  console.log(upscaleReady ? "[QC] ✓ Upscale done." : "[QC] ✓ Upscale unavailable; optional step skipped.");
 
   // ── 7. Piper readiness ────────────────────────────────────────────────────
   await expect(page.locator("text=Voice generation not yet configured")).not.toBeVisible({ timeout: 5_000 });
@@ -168,10 +183,10 @@ test("Quick Chain: image → video → upscale → voice select → preview → 
   // ── 17. Output rows ───────────────────────────────────────────────────────
   await expect(page.locator("text=Image").first()).toBeVisible();
   await expect(page.locator("text=Video").first()).toBeVisible();
-  await expect(page.locator("text=Upscaled video")).toBeVisible();
+  if (upscaleReady) await expect(page.locator("text=Upscaled video")).toBeVisible();
   await expect(page.locator("text=Video with voice").first()).toBeVisible();
   await expect(page.locator("text=Transcript").first()).toBeVisible();
-  console.log("[QC] ✓ All 5 output rows visible.");
+  console.log(`[QC] ✓ All ${upscaleReady ? 5 : 4} available output rows visible.`);
 
   // ── 18. Individual download buttons ──────────────────────────────────────
   // Each OutputRow renders a <button aria-label="Download {label}">. The "Download Outputs"
@@ -179,7 +194,7 @@ test("Quick Chain: image → video → upscale → voice select → preview → 
   const dlBtns = page.locator('button[aria-label^="Download "]');
   const btnCount = await dlBtns.count();
   console.log(`[QC] Download buttons: ${btnCount}`);
-  expect(btnCount).toBeGreaterThanOrEqual(5); // image, video, upscaled, audio, transcript
+  expect(btnCount).toBeGreaterThanOrEqual(upscaleReady ? 5 : 4); // image, video, optional upscale, audio, transcript
 
   // ── 19. Transcript download fires a download event ────────────────────────
   // The Transcript row uses an <a href="/api/transcriptions/{id}/download"> link,
@@ -221,7 +236,7 @@ test("Quick Chain: image → video → upscale → voice select → preview → 
 });
 
 // ── Regression: skip audio + skip transcription ──────────────────────────────
-test("Quick Chain regression: image → video → upscale → skip audio → skip transcription → download", async ({ page }) => {
+test("Quick Chain regression: image → video → optional upscale → skip audio → skip transcription → download", async ({ page }) => {
   await page.goto("/chain", { waitUntil: "domcontentloaded" });
   await expect(page.locator("h1")).toContainText("Quick Chain");
 
@@ -242,10 +257,8 @@ test("Quick Chain regression: image → video → upscale → skip audio → ski
   await expect(page.locator("h2", { hasText: /upscale/i })).toBeVisible({ timeout: 240_000 });
   console.log("[REGR] ✓ Video done");
 
-  await page.locator("button", { hasText: /upscale video/i }).click();
-  await waitForWorking(page);
-  await expect(page.locator("h2", { hasText: /voice/i })).toBeVisible({ timeout: 240_000 });
-  console.log("[REGR] ✓ Upscale done");
+  const upscaleReady = await completeOptionalUpscale(page);
+  console.log(upscaleReady ? "[REGR] ✓ Upscale done" : "[REGR] ✓ Upscale unavailable; optional step skipped");
 
   await page.locator("button", { hasText: /skip audio/i }).click();
   await expect(page.locator("h2", { hasText: /transcribe/i })).toBeVisible({ timeout: 5_000 });
@@ -257,7 +270,7 @@ test("Quick Chain regression: image → video → upscale → skip audio → ski
 
   await expect(page.locator("text=Image").first()).toBeVisible();
   await expect(page.locator("text=Video").first()).toBeVisible();
-  await expect(page.locator("text=Upscaled video")).toBeVisible();
+  if (upscaleReady) await expect(page.locator("text=Upscaled video")).toBeVisible();
   console.log("[REGR] ✓ Download step OK");
 
   console.log("\n✓ Quick Chain REGRESSION test PASSED");

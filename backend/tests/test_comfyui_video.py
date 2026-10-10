@@ -1023,6 +1023,35 @@ def test_video_factory_routes_wan_provider_to_wan_assets(monkeypatch):
     assert generator.model_name == "wan.safetensors"
 
 
+def test_wan_image_to_video_uses_installed_four_step_lora_and_quality_size():
+    wan_workflow = (
+        Path(__file__).resolve().parent.parent / "workflows" / "image_to_video_wan.json"
+    )
+    generator = ComfyUIVideoGenerator(
+        "http://comfy.local:8188",
+        str(wan_workflow),
+        "wan2.1_i2v_480p_14B_fp8_scaled.safetensors",
+    )
+
+    workflow = generator._build_workflow(
+        prompt="gentle motion",
+        motion_preset="subtle_breathing",
+        duration_seconds=3,
+        image_name="source.png",
+        quality_preset="standard_local",
+    )
+
+    assert workflow["12"]["class_type"] == "LoraLoaderModelOnly"
+    assert workflow["12"]["inputs"]["lora_name"] == (
+        "lightx2v_I2V_14B_480p_cfg_step_distill_rank64_bf16.safetensors"
+    )
+    assert workflow["8"]["inputs"]["model"] == ["12", 0]
+    assert workflow["8"]["inputs"]["steps"] == 4
+    assert workflow["8"]["inputs"]["cfg"] == 1.0
+    assert workflow["7"]["inputs"]["width"] == 512
+    assert workflow["7"]["inputs"]["height"] == 320
+
+
 def test_video_factory_falls_back_to_mock(monkeypatch):
     monkeypatch.setattr(video_generators, "VIDEO_BACKEND", "mock")
     assert isinstance(video_generators.get_video_generator(), MockVideoGenerator)

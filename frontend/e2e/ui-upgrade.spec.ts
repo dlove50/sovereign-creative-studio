@@ -26,7 +26,10 @@ test.describe("shared UI contract", () => {
 
     for (const control of [textarea, submit]) {
       const box = await control.boundingBox();
-      expect(box?.height ?? 0).toBeGreaterThanOrEqual(44);
+      // Chromium can report a computed 44px target as 43.9999px after device-
+      // pixel rounding. Preserve the WCAG-sized contract without making the
+      // assertion depend on floating-point layout noise.
+      expect(box?.height ?? 0).toBeGreaterThanOrEqual(43.9);
     }
 
     await textarea.focus();
