@@ -1,16 +1,19 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { AudioLines, CircleDot, Waves } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
+import type { Song } from "@/lib/api/music";
 import { cn } from "@/lib/utils";
 
 import { SongArt } from "./song-art";
 import { SpectrumCanvas, type VisualStyle } from "./spectrum-canvas";
+import { TimedLyrics } from "./timed-lyrics";
 import { SeekBar, TransportButtons } from "./transport";
 import type { MusicPlayer } from "./use-music-player";
 import { useViz } from "./use-viz";
+import { VocalsPanel } from "./vocals-panel";
 
 const VISUALS: { id: VisualStyle; label: string; icon: typeof AudioLines }[] = [
   { id: "bars", label: "Spectrum", icon: AudioLines },
@@ -32,8 +35,13 @@ function parseSections(lyrics: string): { tag: string; lines: string[] }[] {
   return sections;
 }
 
-export function StagePanel({ player }: { player: MusicPlayer }) {
+export function StagePanel({ player, onSongsChanged }: { player: MusicPlayer; onSongsChanged: () => void }) {
   const [visual, setVisual] = useState<VisualStyle>("bars");
+  const { replaceSong } = player;
+  const onSongChanged = useCallback((next: Song) => {
+    replaceSong(next);
+    onSongsChanged();
+  }, [replaceSong, onSongsChanged]);
   const { song } = player;
   const viz = useViz(song?.id ?? null);
   const sections = useMemo(() => (song ? parseSections(song.lyrics) : []), [song]);
@@ -103,8 +111,18 @@ export function StagePanel({ player }: { player: MusicPlayer }) {
         <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Lyrics</h3>
         {!song ? (
           <p className="text-sm text-muted-foreground">Lyrics appear here while a song plays.</p>
+        ) : song.lyric_lines?.length ? (
+          <TimedLyrics
+            song={song}
+            position={player.position}
+            playing={player.source !== null}
+            onSeek={(s) => void player.seek(s)}
+            onSaved={onSongChanged}
+          />
         ) : song.instrumental ? (
           <p className="text-sm text-muted-foreground">Instrumental, no lyrics.</p>
+        ) : !song.lyrics.trim() ? (
+          <p className="text-sm text-muted-foreground">No lyrics yet. Use Write down the lyrics below and they will follow the song here.</p>
         ) : (
           <div className="space-y-4">
             {sections.map((section, si) => (
@@ -132,6 +150,10 @@ export function StagePanel({ player }: { player: MusicPlayer }) {
           </div>
         )}
       </aside>
+
+      <div className="lg:col-span-2">
+        <VocalsPanel player={player} onSongChanged={onSongChanged} />
+      </div>
     </div>
   );
 }

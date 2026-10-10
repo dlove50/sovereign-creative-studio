@@ -1,8 +1,8 @@
 "use client";
 import { confirmDialog } from "@/components/ui/confirm-host";
 
-import { useMemo, useState } from "react";
-import { Download, Loader2, Monitor, Music, Pencil, Play, Search, Speaker, Star, Trash2 } from "lucide-react";
+import { useMemo, useRef, useState } from "react";
+import { Download, Loader2, Mic, Monitor, Music, Pencil, Play, Search, Speaker, Star, Trash2, Upload } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,11 +14,14 @@ import { cn } from "@/lib/utils";
 import { SongArt } from "./song-art";
 import type { MusicPlayer } from "./use-music-player";
 
-type Filter = "all" | "favorites" | "vocals" | "instrumental";
+type Filter = "all" | "favorites" | "imported" | "vocals" | "instrumental";
+
+const IMPORT_ACCEPT = ".mp3,.wav,.m4a,.flac,.ogg,.aac,.opus,.wma,audio/*";
 
 const FILTERS: { id: Filter; label: string }[] = [
   { id: "all", label: "All" },
   { id: "favorites", label: "Favorites" },
+  { id: "imported", label: "Imported" },
   { id: "vocals", label: "With vocals" },
   { id: "instrumental", label: "Instrumental" },
 ];
@@ -28,12 +31,17 @@ export function LibraryPanel({
   loading,
   player,
   onChanged,
+  onOpenStage,
 }: {
   songs: Song[];
   loading: boolean;
   player: MusicPlayer;
   onChanged: () => void;
+  onOpenStage: () => void;
 }) {
+  const fileInput = useRef<HTMLInputElement | null>(null);
+  const [importing, setImporting] = useState<number | null>(null);
+  const [imported, setImported] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
   const [renaming, setRenaming] = useState<string | null>(null);
@@ -45,6 +53,7 @@ export function LibraryPanel({
     const q = query.trim().toLowerCase();
     return songs.filter((s) => {
       if (filter === "favorites" && !s.favorite) return false;
+      if (filter === "imported" && s.provider !== "imported") return false;
       if (filter === "vocals" && s.instrumental) return false;
       if (filter === "instrumental" && !s.instrumental) return false;
       return !q || `${s.title} ${s.style} ${s.lyrics}`.toLowerCase().includes(q);
@@ -62,6 +71,32 @@ export function LibraryPanel({
     } finally {
       setBusyId(null);
     }
+  };
+
+  const importFiles = async (files: File[]) => {
+    if (!files.length) return;
+    setImporting(files.length);
+    setImported(null);
+    setError(null);
+    try {
+      const result = await musicApi.importSongs(files);
+      onChanged();
+      const added = result.songs.length;
+      setImported(added ? `Imported ${added} song${added === 1 ? "" : "s"}.` : null);
+      if (result.errors.length) {
+        setError(result.errors.map((e) => `${e.filename}: ${e.error}`).join(" "));
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "The import did not work.");
+    } finally {
+      setImporting(null);
+      if (fileInput.current) fileInput.current.value = "";
+    }
+  };
+
+  const openVocals = async (song: Song) => {
+    await player.playInBrowser(song);
+    onOpenStage();
   };
 
   const commitRename = (song: Song) => {
@@ -105,7 +140,25 @@ export function LibraryPanel({
             </button>
           ))}
         </div>
+        <input
+          ref={fileInput}
+          type="file"
+          multiple
+          accept={IMPORT_ACCEPT}
+          className="hidden"
+          onChange={(e) => void importFiles(Array.from(e.target.files ?? []))}
+        />
+        <Button onClick={() => fileInput.current?.click()} disabled={importing !== null}>
+          {importing !== null ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Upload className="h-4 w-4" aria-hidden="true" />}
+          {importing !== null ? `Importing ${importing}…` : "Import songs"}
+        </Button>
       </div>
+
+      {imported ? (
+        <p role="status" className="rounded-lg border border-primary/30 bg-primary/10 px-4 py-2 text-sm text-primary">
+          {imported} Open one with Vocals &amp; lyrics to hear the singing alone and write down the words.
+        </p>
+      ) : null}
 
       {error ? (
         <p role="alert" className="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-2 text-sm text-destructive">
@@ -123,7 +176,7 @@ export function LibraryPanel({
           <p className="font-medium">{songs.length === 0 ? "No songs yet" : "Nothing matches"}</p>
           <p className="max-w-sm text-sm text-muted-foreground">
             {songs.length === 0
-              ? "Make your first song on the Create tab, or tell Jarvis to make one."
+              ? "Make your first song on the Create tab, import your own with Import songs, or tell Jarvis to make one."
               : "Try a different search or filter."}
           </p>
         </div>
@@ -183,9 +236,10 @@ export function LibraryPanel({
                   </div>
                   <p className="line-clamp-2 text-sm text-muted-foreground">{song.style}</p>
                   <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                    {song.provider === "imported" ? <Badge variant="default">Imported</Badge> : null}
                     {song.instrumental ? <Badge variant="muted">Instrumental</Badge> : <Badge variant="default">Vocals</Badge>}
                     <span>{new Date(song.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}</span>
-                    <span>· made in {Math.round(song.generation_seconds)}s</span>
+                    {song.provider === "imported" ? null : <span>· made in {Math.round(song.generation_seconds)}s</span>}
                   </div>
                   <div className="flex flex-wrap items-center gap-1.5 pt-1">
                     <Button size="sm" variant="outline" onClick={() => void player.playInBrowser(song)}>
@@ -193,6 +247,9 @@ export function LibraryPanel({
                     </Button>
                     <Button size="sm" variant="outline" onClick={() => run(song.id, () => player.playOnSpeakers(song))} disabled={busy}>
                       <Speaker className="h-4 w-4" aria-hidden="true" /> Speakers
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => void openVocals(song)}>
+                      <Mic className="h-4 w-4" aria-hidden="true" /> Vocals &amp; lyrics
                     </Button>
                     <a
                       href={assetUrl(song.audio_url) ?? song.audio_url}

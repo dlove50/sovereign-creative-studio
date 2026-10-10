@@ -3,9 +3,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { assetUrl } from "@/lib/api/core";
-import { musicApi, type NowPlaying, type Song } from "@/lib/api/music";
+import { musicApi, type NowPlaying, type Song, type SongVersion } from "@/lib/api/music";
 
 export type PlaySource = "browser" | "speakers";
+
+/** The full mix, or one side of the split (the vocal alone, or the music without it). */
+function versionUrl(song: Song, version: SongVersion): string {
+  return version === "full" ? song.audio_url : musicApi.stemUrl(song.id, version);
+}
 
 const POLL_MS = 1500;
 
@@ -21,14 +26,17 @@ export function useMusicPlayer() {
   const [paused, setPaused] = useState(false);
   const [position, setPosition] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [version, setVersionState] = useState<SongVersion>("full");
   const server = useRef({ position: 0, fetchedAt: 0 });
   const sourceRef = useRef<PlaySource | null>(null);
   sourceRef.current = source;
   const lastOutput = useRef<PlaySource>("speakers");
   const pausedRef = useRef(false);
+  const versionRef = useRef<SongVersion>("full");
   const songRef = useRef<Song | null>(null);
   songRef.current = song;
   pausedRef.current = paused;
+  versionRef.current = version;
 
   // Browser audio element
   useEffect(() => {
@@ -103,12 +111,14 @@ export function useMusicPlayer() {
     return audio.current?.currentTime ?? 0;
   }, []);
 
-  const playInBrowser = useCallback(async (next: Song) => {
+  const playInBrowser = useCallback(async (next: Song, nextVersion: SongVersion = "full") => {
     const el = audio.current;
     if (!el) return;
     await musicApi.stop().catch(() => undefined);
-    el.src = assetUrl(next.audio_url) ?? next.audio_url;
+    const url = versionUrl(next, nextVersion);
+    el.src = assetUrl(url) ?? url;
     lastOutput.current = "browser";
+    setVersionState(nextVersion);
     setSong(next);
     setSource("browser");
     setPaused(false);
@@ -123,6 +133,7 @@ export function useMusicPlayer() {
 
   const playOnSpeakers = useCallback(async (next: Song) => {
     audio.current?.pause();
+    setVersionState("full"); // the speakers always play the full mix
     const state = await musicApi.play(next.id);
     lastOutput.current = "speakers";
     server.current = { position: state.position, fetchedAt: performance.now() };
@@ -163,7 +174,7 @@ export function useMusicPlayer() {
     }
     const current = songRef.current;
     if (!current) return;
-    if (lastOutput.current === "browser") await playInBrowser(current);
+    if (lastOutput.current === "browser") await playInBrowser(current, versionRef.current);
     else await playOnSpeakers(current);
   }, [togglePause, playInBrowser, playOnSpeakers]);
 
@@ -201,8 +212,49 @@ export function useMusicPlayer() {
     }
   }, [applySpeakerState]);
 
+  /**
+   * Switch between the full song, the vocal alone and the music alone without losing the place.
+   * The split sides play in this browser tab (the speakers only play full songs).
+   */
+  const setVersion = useCallback(async (next: SongVersion) => {
+    const el = audio.current;
+    const current = songRef.current;
+    if (!el || !current || next === versionRef.current) return;
+    const onSpeakers = sourceRef.current === "speakers";
+    const at = onSpeakers ? getPosition() : el.currentTime;
+    const wasPlaying = sourceRef.current !== null && !pausedRef.current;
+    if (onSpeakers) await musicApi.stop().catch(() => undefined);
+    const url = versionUrl(current, next);
+    el.addEventListener("loadedmetadata", () => {
+      el.currentTime = Math.min(at, Number.isFinite(el.duration) ? el.duration : at);
+      setPosition(el.currentTime);
+    }, { once: true });
+    el.src = assetUrl(url) ?? url;
+    lastOutput.current = "browser";
+    setVersionState(next);
+    if (!wasPlaying) {
+      if (sourceRef.current !== null) {
+        setSource("browser");
+        setPaused(true);
+      }
+      return;
+    }
+    setSource("browser");
+    setPaused(false);
+    try {
+      await el.play();
+    } catch {
+      setPaused(true);
+    }
+  }, [getPosition]);
+
+  /** Show an updated copy of the current song (new lyrics) without interrupting playback. */
+  const replaceSong = useCallback((next: Song) => {
+    setSong((current) => (current?.id === next.id ? next : current));
+  }, []);
+
   return {
-    song, source, paused, position, duration, getPosition,
+    song, source, paused, position, duration, getPosition, version, setVersion, replaceSong,
     playInBrowser, playOnSpeakers, play, togglePause, stop, seek, setRate,
     playing: source !== null && !paused,
   };

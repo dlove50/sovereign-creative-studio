@@ -1,4 +1,4 @@
-import { request } from "./core";
+import { formRequest, request } from "./core";
 
 export type MusicProviderId = "yue2" | "elevenlabs";
 
@@ -49,7 +49,29 @@ export type Song = {
   generation_seconds: number;
   created_at: string;
   audio_url: string;
+  /** Timed lyric lines written down from the isolated vocal (imported or transcribed songs). */
+  lyric_lines?: LyricLine[];
+  lyrics_source?: "whisper" | "edited";
+  source_filename?: string;
 };
+
+export type LyricLine = { start: number; end: number; text: string };
+
+export type ImportResult = { songs: Song[]; errors: { filename: string; error: string }[] };
+
+export type VocalWaveform = { has_stems: boolean; duration: number; peaks: string | null };
+
+export type LyricsJob = {
+  id: string;
+  song_id: string;
+  status: "queued" | "running" | "done" | "error";
+  stage: "queued" | "splitting" | "transcribing" | "done" | "error";
+  message: string;
+  error: string | null;
+  song: Song | null;
+};
+
+export type SongVersion = "full" | "vocals" | "instrumental";
 
 export type MusicJob = {
   id: string;
@@ -172,6 +194,17 @@ export const musicApi = {
   dubRender: (id: string, params: DubParams) => post<{ songs: Song[] }>(`/api/music/songs/${id}/dub/render`, params),
   dubSpecial: (id: string, body: { text: string; sound_name: string }) => post<MusicJob>(`/api/music/songs/${id}/dub/special`, body),
   splitStems: (id: string) => post<{ has_stems: boolean }>(`/api/music/songs/${id}/stems`),
+  stemUrl: (id: string, name: "vocals" | "instrumental") => `/api/music/songs/${id}/stems/${name}`,
+  importSongs: (files: File[]) => {
+    const form = new FormData();
+    files.forEach((file) => form.append("files", file));
+    return formRequest<ImportResult>("/api/music/import", form);
+  },
+  vocals: (id: string) => request<VocalWaveform>(`/api/music/songs/${id}/vocals`),
+  transcribe: (id: string) => post<LyricsJob>(`/api/music/songs/${id}/transcribe`),
+  lyricsJob: (jobId: string) => request<LyricsJob>(`/api/music/lyrics-jobs/${jobId}`),
+  saveLyricLines: (id: string, lines: LyricLine[]) =>
+    request<Song>(`/api/music/songs/${id}/lyric-lines`, { method: "PUT", body: JSON.stringify({ lines }) }),
   dubVoices: () => request<DubVoices>("/api/music/dub/voices"),
   viz: (id: string) => request<VizData>(`/api/music/songs/${id}/viz`),
 };

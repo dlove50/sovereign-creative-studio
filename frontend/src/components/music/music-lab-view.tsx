@@ -104,7 +104,7 @@ export function MusicLabView() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <PageHeader
           title="Music Lab"
-          description="Turn an idea or your own lyrics into a complete song with the local YuE2 engine."
+          description="Turn an idea or your own lyrics into a complete song with the local YuE2 engine, or import your own music."
         />
         <Badge aria-live="polite" variant={engine?.ready ? "success" : engine?.online ? "default" : "muted"} className="mt-1">
           {engine?.ready ? "YuE2 ready" : engine?.online ? "YuE2 needs attention" : "YuE2 offline"}
@@ -141,9 +141,9 @@ export function MusicLabView() {
           <CreatePanel status={status} onSongReady={onSongReady} />
         </div>
         {tab === "library" ? (
-          <LibraryPanel songs={songs} loading={loadingSongs} player={player} onChanged={refreshSongs} />
+          <LibraryPanel songs={songs} loading={loadingSongs} player={player} onChanged={refreshSongs} onOpenStage={() => setTab("stage")} />
         ) : null}
-        {tab === "stage" ? <StagePanel player={player} /> : null}
+        {tab === "stage" ? <StagePanel player={player} onSongsChanged={refreshSongs} /> : null}
         {tab === "dub" ? (
           <DubStudio songs={songs} player={player} onSongsChanged={refreshSongs} onOpenLibrary={() => setTab("library")} />
         ) : null}

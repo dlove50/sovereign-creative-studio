@@ -448,6 +448,8 @@ MUSIC_DIR = Path(os.getenv("MUSIC_DIR", str(STORAGE_DIR / "music")))
 MUSIC_LYRICS_MODEL = os.getenv("MUSIC_LYRICS_MODEL", "gemma4:e4b")
 # The songwriting chat uses a stronger model than the one-shot lyric writer; it falls back to the lyric model.
 MUSIC_CHAT_MODEL = os.getenv("MUSIC_CHAT_MODEL", "") or MUSIC_LYRICS_MODEL
+# Whisper size for writing down the lyrics of imported songs; sung words need more than the "base" model.
+MUSIC_LYRICS_WHISPER_MODEL = os.getenv("MUSIC_LYRICS_WHISPER_MODEL", "small")
 # Speaker volume for songs played by Sovereign/Jarvis (0-100).
 MUSIC_PLAYER_VOLUME = int(os.getenv("MUSIC_PLAYER_VOLUME", "100"))
 # Isolated Python (reuses ComfyUI's PyTorch) with Demucs, used to split vocals from the instrumental.

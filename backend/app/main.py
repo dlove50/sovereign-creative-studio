@@ -14,6 +14,7 @@ from .services.private_storage import PublicStorage
 from .routers import cloud_media
 from .routers import music as music_router
 from .routers import music_dub as music_dub_router
+from .routers import music_import as music_import_router
 from .routers import director as director_router
 from .routers import motion_studio as motion_studio_router
 from .routers import (
@@ -138,6 +139,7 @@ app.mount("/storage", PublicStorage(directory=STORAGE_DIR), name="storage")
 app.include_router(cloud_media.router)
 app.include_router(music_router.router)
 app.include_router(music_dub_router.router)
+app.include_router(music_import_router.router)
 app.include_router(director_router.router)
 app.include_router(motion_studio_router.router)
 
