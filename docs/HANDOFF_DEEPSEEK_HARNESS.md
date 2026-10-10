@@ -88,11 +88,27 @@ Ideas not done: per-shot "redo this shot" and editing the plan before filming; r
 ## 3b. Laptop transfer kit (built 2026-10-07)
 
 David is moving Sovereign to a Lenovo Legion (RTX 4070 laptop GPU, **8 GB** graphics memory, 32 GB RAM). Everything for that lives in `tools/transfer/` and `docs/LAPTOP_TRANSFER_HANDOFF.md`:
+- Final kit on `G:\Sovereign-Transfer` (3.74 GB, verified): `code.tar`, `data.tar`, `comfyui.tar` (tar because the stick writes small files at under 1 MB/s), `MANIFEST.json`, `START_HERE.md`, `tools\`, `locks\`, `extras\agent-music-tools\`. It leaves out the Ollama and YuE2 models (the laptop has them) and the generated videos (video features stay). It was test-installed from the stick into `D:\SovereignTrial3` (98 tests passed, readiness OK; the `D:\SovereignTrial*` folders can be deleted).
 - `export-to-drive.ps1` builds `G:\Sovereign-Transfer` (code, DB snapshot, settings, storage without backups, music engine + YuE2/SheetSage models, Ollama gemma4:e4b + qwen3:4b, lock files,
   `MANIFEST.json` with SHA256, `START_HERE.md`). `-DryRun` shows sizes. Optional `-IncludeVideoModels`, `-IncludeBackups`, `-SkipOllama`.
 - `setup-laptop.ps1` (run on the laptop) verifies, installs tools (`-InstallPrereqs`), copies, rewrites paths in `backend\.env`, builds the venvs, the front end, Demucs, imports Ollama models, writes launchers, runs tests, runs `check-readiness.ps1`.
 - Repo changes made for portability: `tools/local_launcher.py` reads `SOVEREIGN_COMFY_*` environment variables (defaults unchanged); `backend/requirements.txt` gained `piper-tts` and `numpy`.
 - The handoff text that the laptop's AI reads is `docs/LAPTOP_TRANSFER_HANDOFF.md` (the export prepends a header and saves it as `START_HERE.md`).
+
+## 3c. Lenovo UI merge and Voice Studio (2026-10-10)
+
+David's Lenovo copy of Sovereign looked richer than this PC's (a flatter redesign had been applied here by another session). Merged on 2026-10-10:
+- **UI**: the Lenovo's `frontend/src`, `public` and `tailwind.config.ts` (copied to `I:\Lenovo-UI`) were three-way merged against the kit snapshot (`D:\SovereignTrial3`). 92 files applied; originals are in
+  `C:\Users\David\Documents\Codex\sovereign-backups\lenovo-ui-merge-2026-10-10` (and `\phase2`). Kept from this PC: Motion Studio (`/motion-studio`), `/apps`, the Director/Music nav items. New dependency: `@gsap/react`.
+  Not taken: the Lenovo's `ocr-studio-view.tsx` (it expects an `/api/ocr` proxy this backend does not have; the desktop view talks to the OCR service directly).
+- **Voice Studio** (`/voice-studio`): VibeVoice Studio embedded. Backend `services/voice_studio.py` + `routers/voice_studio.py` drive the standalone engine in
+  `vibevoice-app` (port **8011** when Sovereign starts it; it reuses a copy already running on 8010). Clips are kept in `backend/storage/voice-studio`. The 7B and 1.5B full models work; the **Realtime 0.5B model is not installed**
+  (not downloaded), so the Realtime tab explains that and live streaming/stop-while-running are not available.
+- **Prompt helpers** (`/api/prompt-assist/*`), **lyric chat** (`/api/music/lyrics-chat`), **studio assistant** (`/api/assistant/chat`), **developer API list** (`/api/developers/endpoints`), **screen recorder**
+  (`/api/recordings`, page `/record`), **document brief** (`/api/slides/document-brief`) were added to the backend so the Lenovo screens work here. Tests: `tests/test_voice_studio.py` (15).
+- **Gotchas**: bash `python` is the system Python without the backend's packages; run tests with `backend\.venv\Scripts\python.exe -m pytest`. The live frontend (3000) and backend (8002) were started from an
+  **elevated** process and cannot be stopped by a normal session, so the new code needs David to restart them as administrator. Known unrelated failures: `tests/test_vibevoice_voice.py::test_clone_speech_writes_wav_and_hands_gpu_back`
+  (call order, failed before this work), `tests/test_z_integrations.py` (the new `fal` provider note lacks the words "may cost money"), `tests/test_motion_studio.py` (needs `fal_client`).
 
 ## 4. Other open items
 

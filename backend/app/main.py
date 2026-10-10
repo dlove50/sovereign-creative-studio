@@ -15,6 +15,7 @@ from .routers import cloud_media
 from .routers import music as music_router
 from .routers import music_dub as music_dub_router
 from .routers import director as director_router
+from .routers import motion_studio as motion_studio_router
 from .routers import (
     admin,
     assets,
@@ -116,6 +117,8 @@ async def lifespan(_: FastAPI):
         _recover_interrupted_jobs(db)
     from .services.cloud_media import recover as recover_cloud_jobs
     recover_cloud_jobs()
+    from .services.motion_studio import recover as recover_motion_jobs
+    recover_motion_jobs()
     yield
 
 
@@ -136,6 +139,7 @@ app.include_router(cloud_media.router)
 app.include_router(music_router.router)
 app.include_router(music_dub_router.router)
 app.include_router(director_router.router)
+app.include_router(motion_studio_router.router)
 
 app.include_router(auth.router)
 app.include_router(users.router)

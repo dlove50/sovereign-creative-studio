@@ -9,6 +9,8 @@ venv/
 node_modules/
 .next/
 .next-dev/
+frontend/.next-motion-release/
+frontend/.next-motion-qa/
 out/
 *.tsbuildinfo
 next-env.d.ts
@@ -49,6 +51,13 @@ playwright-report/
 .codex-*.err.log
 .codex-*.out.log
 .tmp-*.json
+work/creative-vendor/
+work/motion-qa/
+work/motion-transfer-backup/
+work/ui-polish/
+frontend/.next-ui-polish/
+frontend/.next-ui-pro/
+frontend/.next-ui-final/
 tmp*/
 
 # Pytest basetemp artifacts produced from flattened Windows absolute paths.

@@ -48,6 +48,8 @@ export function isNavigationActive(href: string, pathname: string) {
 
 // The everyday creator path stays short and task-oriented.
 export const CREATOR_NAV: NavigationItem[] = [
+  { href: "/motion-studio", label: "Motion Studio", icon: Film },
+  { href: "/apps", label: "App library", icon: LayoutGrid },
   { href: "/", label: "Home", icon: Home },
   { href: "/chain", label: "Quick Chain", icon: Wand2 },
   { href: "/movies", label: "Scene by scene", icon: Clapperboard },
@@ -108,6 +110,8 @@ export const AVATAR_NAV: NavigationItem[] = [
 ];
 
 export const CREATE_NAV: NavigationItem[] = [
+  { href: "/apps", label: "App library", icon: LayoutGrid },
+  { href: "/motion-studio", label: "Motion Studio", icon: Film },
   { href: "/", label: "Home", icon: Home },
   { href: "/video-agent", label: "Video agent", icon: Sparkle },
   { href: "/movies", label: "Scene by scene", icon: Clapperboard },

@@ -50,7 +50,7 @@ SERVICES = {
     "backend": {
         "label": "Backend",
         "port": 8002,
-        "health": "http://127.0.0.1:8002/api/generations/presets",
+        "health": "http://127.0.0.1:8002/api/health",
     },
     "frontend": {
         "label": "Frontend",
@@ -124,14 +124,17 @@ def _fetch_json(url: str, timeout: float = 5.0) -> dict | list | None:
 
 def _is_sovereign_backend() -> bool:
     """Return True only if port 8002 serves the Sovereign backend."""
-    body = _fetch_json(f"http://127.0.0.1:{BACKEND_PORT}/api/generations/presets")
-    return bool(body and "quality_presets" in body and "image_modes" in body)
+    body = _fetch_json(f"http://127.0.0.1:{BACKEND_PORT}/api/health")
+    if not isinstance(body, dict) or body.get("status") != "ok":
+        return False
+    schema = _fetch_json(f"http://127.0.0.1:{BACKEND_PORT}/openapi.json")
+    return bool(isinstance(schema, dict) and schema.get("info", {}).get("title") == "Sovereign Creative Studio API")
 
 
 def _check_proxy() -> bool:
     """Return True if the frontend proxy correctly forwards to backend port 8002."""
-    body = _fetch_json("http://localhost:3000/api/generations/presets")
-    return bool(body and "quality_presets" in body)
+    body = _fetch_json("http://localhost:3000/api/health")
+    return bool(isinstance(body, dict) and body.get("status") == "ok" and _is_sovereign_backend())
 
 
 def port_pids(port: int) -> list[int]:

@@ -34,6 +34,7 @@ const FEATURED = [
 // Apps without an href are planned; they are listed so the roadmap is visible,
 // but never rendered as links.
 const APPS: AppEntry[] = [
+  { name: "Motion Studio", blurb: "Replace characters, review drafts and finish the approved take in 1080p.", icon: Film, category: "edit", href: "/motion-studio" },
   { name: "AI Studio", blurb: "Start with a template or build an avatar video scene by scene.", icon: Clapperboard, category: "create", href: "/movies" },
   { name: "Cinematic planner", blurb: "Plan characters, locations and shots, then assemble completed clips.", icon: Film, category: "create", href: "/cinematic-planner" },
   { name: "Cloud studio", blurb: "HeyGen profiles and ElevenLabs speech, sounds, transcription and dubbing.", icon: Sparkles, category: "create", href: "/cloud-studio" },
@@ -56,6 +57,7 @@ const APPS: AppEntry[] = [
   { name: "Transcribe video", blurb: "Get a text transcript and summary of any video.", icon: Type, category: "edit", href: "/video-to-text" },
   { name: "OCR studio", blurb: "Pull text out of images and scanned pages.", icon: ScanText, category: "edit", href: "/ocr-studio" },
   { name: "Auto clips", blurb: "Find the best moments in a long video and cut shorts.", icon: Scissors, category: "edit", href: "/auto-clips" },
+  { name: "Screen recorder", blurb: "Record your screen and voice, then use the clip in videos and lessons.", icon: Video, category: "interactive", href: "/record" },
   { name: "Interactive video", blurb: "Videos with choices that branch to different scenes.", icon: MousePointerClick, category: "interactive", href: "/interactive" },
   { name: "Screen recorder", blurb: "Record your screen and voice, then use the clip in videos and lessons.", icon: Video, category: "interactive", href: "/record" },
 ];

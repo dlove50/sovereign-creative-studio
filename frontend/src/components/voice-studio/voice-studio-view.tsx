@@ -350,7 +350,7 @@ export function VoiceStudioView() {
           {models.map((m) => <option key={m.label} value={m.label}>{m.label}</option>)}
         </select>
         {switching ? <Loader2 className="h-4 w-4 animate-spin text-primary" aria-label="Switching model" /> : null}
-        <span className="text-xs text-muted-foreground">Only one model fits on the 8 GB card at a time.</span>
+        <span className="text-xs text-muted-foreground">One model is loaded at a time. Switching takes a minute for the 7B model.</span>
       </div>
 
       <div className="inline-flex rounded-lg border border-border bg-background/40 p-0.5" role="tablist" aria-label="Voice Studio sections">
@@ -500,7 +500,7 @@ export function VoiceStudioView() {
           <p className="text-sm text-muted-foreground">One speaker, instant, with the preset voices. No cloning. This needs the Realtime 0.5B model.</p>
           {engine?.ready && !isRealtime ? (
             <div className="flex flex-wrap items-center gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
-              The loaded model is not the Realtime one.
+              Real-time speech needs the VibeVoice Realtime 0.5B model. It is not installed on this PC yet, so conversations use the 7B and 1.5B models.
               {models.find((m) => m.kind === "realtime") ? (
                 <Button size="sm" onClick={() => void pickModel(models.find((m) => m.kind === "realtime")!.label)} disabled={switching || busy}>Switch to Realtime 0.5B</Button>
               ) : null}
@@ -536,10 +536,10 @@ export function VoiceStudioView() {
         <section className="space-y-3 rounded-2xl border border-border bg-card/40 p-4 text-sm" aria-label="Tips and limitations">
           <h2 className="text-sm font-semibold">Usage tips</h2>
           <ul className="list-disc space-y-1 pl-5 text-muted-foreground">
-            <li>Press <strong>Generate voices</strong> to start. Audio plays live as it is made, and the complete file appears with a download button when it finishes.</li>
-            <li><strong>Stop</strong> interrupts a generation at any time.</li>
+            <li>Press <strong>Generate voices</strong> to start. The finished clip appears with play, pause and download buttons, and is kept in the Library.</li>
+            <li>A render that is still waiting in the queue can be cancelled. Once it has started it finishes as one piece.</li>
             <li>Not happy with it? Generate again, or change the CFG scale or seed in Advanced settings.</li>
-            <li>The 7B model clones your recorded voices best. The Realtime 0.5B model is fastest but uses preset voices only.</li>
+            <li>The 7B model clones your recorded voices best; the 1.5B model is quicker. Real-time speech (Realtime 0.5B) can be added later.</li>
           </ul>
           <h2 className="pt-2 text-sm font-semibold">Risks and limitations</h2>
           <p className="text-muted-foreground">

@@ -1,336 +1,469 @@
-"""Voice Studio: Sovereign's front door to VibeVoice.
+"""Voice Studio: VibeVoice text-to-speech and voice cloning, driven from inside Sovereign.
 
-The engine is F:\\AI\\VibeVoice\\sovereign_voice_service.py, a small service that reuses the VibeVoice demo's own engine
-class, so every capability of the original app is kept (three models, 1 to 4 cloned speakers, voice upload, streaming,
-stop, realtime preset voices, examples). This module starts and stops that service on demand, frees the graphics card
-for it, forwards calls to it, and keeps finished clips in Sovereign's own library.
+VibeVoice runs as its own small local service (the "VibeVoice Studio" app, port 8010). This module starts and
+stops that service, forwards requests to it, and keeps the finished clips in Sovereign's own storage so the
+history survives restarts of either program. Nothing leaves this machine.
 """
 from __future__ import annotations
 
 import json
-import os
+import re
+import shutil
 import subprocess
+import threading
 import time
-import urllib.error
-import urllib.request
-import uuid
+import wave
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+import httpx
+
 from .. import config
 
-VV_ROOT = Path(os.getenv("VIBEVOICE_ROOT", r"F:\AI\VibeVoice"))
-VV_PYTHON = VV_ROOT / ".venv" / "Scripts" / "python.exe"
-VV_SCRIPT = VV_ROOT / "sovereign_voice_service.py"
-VV_PIDFILE = VV_ROOT / "vibevoice.pid"  # the Gradio demo's pid file (Start-VibeVoice-Studio.ps1)
-VV_PORT = int(os.getenv("VOICE_STUDIO_PORT", "7861"))
-VV_URL = f"http://127.0.0.1:{VV_PORT}"
-BOOT_TIMEOUT = 300.0
+CLIP_ID_RE = re.compile(r"^[a-f0-9]{12}$")
+VOICE_NAME_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
+SAMPLE_RATE = 24000
+REQUEST_TIMEOUT = 15.0
+MAX_UPLOAD_BYTES = 60 * 1024 * 1024
+JOB_STATUS = {"queued": "running", "running": "running", "done": "done", "failed": "error", "cancelled": "stopped"}
+
+_start_lock = threading.Lock()
+_started_process: subprocess.Popen | None = None
 
 
-class VoiceStudioError(Exception):
-    pass
+class VoiceStudioError(RuntimeError):
+    """A reason the voice studio cannot do what was asked, in words fit to show."""
+
+    def __init__(self, message: str, status: int = 503) -> None:
+        super().__init__(message)
+        self.status = status
+
+
+def _app_dir() -> Path:
+    return Path(config.VIBEVOICE_APP_DIR)
+
+
+def _python() -> Path:
+    return _app_dir() / ".venv" / "Scripts" / "python.exe"
+
+
+LEGACY_PORT = 8010  # where the standalone VibeVoice Studio shortcut puts it (port 8010 is also the OCR service's)
+
+
+def _looks_like_vibevoice(port: int) -> bool:
+    try:
+        response = httpx.get(f"http://127.0.0.1:{port}/api/status", timeout=1.2)
+        return response.status_code == 200 and "modelState" in response.json()
+    except (httpx.HTTPError, ValueError):
+        return False
+
+
+def _port() -> int:
+    """Use a VibeVoice Studio that is already running (for example started from its desktop shortcut); otherwise ours."""
+    if config.VIBEVOICE_PORT != LEGACY_PORT and _looks_like_vibevoice(LEGACY_PORT):
+        return LEGACY_PORT
+    return config.VIBEVOICE_PORT
+
+
+def _base() -> str:
+    return f"http://127.0.0.1:{_port()}"
+
+
+def _outputs_dir() -> Path:
+    return _app_dir() / "outputs"
 
 
 def _clips_dir() -> Path:
-    path = Path(config.STORAGE_DIR) / "voice_studio"
+    path = config.STORAGE_DIR / "voice-studio"
     path.mkdir(parents=True, exist_ok=True)
     return path
 
 
 def installed() -> bool:
-    return VV_PYTHON.is_file() and VV_SCRIPT.is_file()
+    return _python().is_file() and (_app_dir() / "backend" / "app.py").is_file()
 
 
-# --- talking to the engine service ----------------------------------------------------------------
-
-def call(method: str, path: str, body: dict | None = None, timeout: float = 30.0) -> Any:
-    data = json.dumps(body).encode("utf-8") if body is not None else None
-    request = urllib.request.Request(VV_URL + path, data=data, method=method, headers={"Content-Type": "application/json"})
+def _request(method: str, path: str, **kwargs: Any) -> httpx.Response:
     try:
-        with urllib.request.urlopen(request, timeout=timeout) as response:
-            raw = response.read()
-            return json.loads(raw) if raw else {}
-    except urllib.error.HTTPError as exc:
-        detail = exc.read().decode("utf-8", "replace")
+        response = httpx.request(method, _base() + path, timeout=kwargs.pop("timeout", REQUEST_TIMEOUT), **kwargs)
+    except httpx.HTTPError as exc:
+        raise VoiceStudioError("The voice engine is not running. Start it from Voice Studio.") from exc
+    if response.status_code >= 400:
         try:
-            detail = json.loads(detail).get("detail", detail)
+            detail = response.json().get("detail", response.text)
         except ValueError:
-            pass
-        raise VoiceStudioError(str(detail)[:400]) from exc
-    except (urllib.error.URLError, OSError) as exc:
-        raise VoiceStudioError("The voice engine is not running.") from exc
+            detail = response.text
+        raise VoiceStudioError(str(detail)[:400], status=response.status_code if response.status_code < 500 else 502)
+    return response
 
 
-def fetch_bytes(path: str, timeout: float = 60.0) -> bytes:
+def _json(method: str, path: str, **kwargs: Any) -> Any:
+    return _request(method, path, **kwargs).json()
+
+
+def is_online() -> bool:
     try:
-        with urllib.request.urlopen(VV_URL + path, timeout=timeout) as response:
-            return response.read()
-    except (urllib.error.URLError, OSError) as exc:
-        raise VoiceStudioError("The voice engine is not running.") from exc
-
-
-def upload_voice(filename: str, content: bytes) -> dict:
-    boundary = "----sovereign" + uuid.uuid4().hex
-    head = (f"--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"{filename}\"\r\n"
-            "Content-Type: application/octet-stream\r\n\r\n").encode("utf-8")
-    payload = head + content + f"\r\n--{boundary}--\r\n".encode("utf-8")
-    request = urllib.request.Request(VV_URL + "/voices", data=payload, method="POST",
-                                     headers={"Content-Type": f"multipart/form-data; boundary={boundary}"})
-    try:
-        with urllib.request.urlopen(request, timeout=120) as response:
-            return json.loads(response.read())
-    except urllib.error.HTTPError as exc:
-        detail = exc.read().decode("utf-8", "replace")
-        try:
-            detail = json.loads(detail).get("detail", detail)
-        except ValueError:
-            pass
-        raise VoiceStudioError(str(detail)[:400]) from exc
-    except (urllib.error.URLError, OSError) as exc:
-        raise VoiceStudioError("The voice engine is not running.") from exc
-
-
-def engine_status() -> dict[str, Any]:
-    """{installed, online, ready, loading, model, kind, generating, voices}. Never raises."""
-    base: dict[str, Any] = {"installed": installed(), "online": False, "ready": False, "loading": None, "model": None,
-                            "kind": None, "generating": False, "voices": 0}
-    if not base["installed"]:
-        return base
-    try:
-        live = call("GET", "/status", timeout=2.0)
-    except VoiceStudioError:
-        return base
-    return {**base, **live, "online": True}
-
-
-# --- graphics memory: one heavy engine at a time on the 8 GB card -----------------------------------
-
-def _free_comfy(base_url: str) -> None:
-    """Ask an idle ComfyUI to unload its models. A busy one is left alone and the caller is told."""
-    base = base_url.rstrip("/")
-    try:
-        with urllib.request.urlopen(base + "/queue", timeout=4.0) as response:
-            queue = json.load(response)
-    except Exception:  # noqa: BLE001 - any failure to ask means there is nothing running to free
-        return  # not running: holds nothing
-    if isinstance(queue, dict) and (queue.get("queue_running") or queue.get("queue_pending")):
-        raise VoiceStudioError("The image, video or music engine is busy rendering. Wait for it to finish, then start the voice engine.")
-    try:
-        request = urllib.request.Request(base + "/free", data=json.dumps({"unload_models": True, "free_memory": True}).encode("utf-8"),
-                                         headers={"Content-Type": "application/json"})
-        urllib.request.urlopen(request, timeout=10.0).close()
-    except Exception:  # noqa: BLE001 - freeing is best effort
-        pass
-
-
-def stop_gradio_demo() -> bool:
-    """Stop the original Gradio VibeVoice app if it is running (same as the Stop VibeVoice Studio icon)."""
-    try:
-        pid = int(VV_PIDFILE.read_text().strip())
-    except (OSError, ValueError):
+        return httpx.get(_base() + "/api/status", timeout=1.5).status_code == 200
+    except httpx.HTTPError:
         return False
-    result = subprocess.run(["taskkill", "/F", "/PID", str(pid)], capture_output=True, text=True)
+
+
+def _model_kind(_name: str | None) -> str | None:
+    # The installed checkpoints (7B and 1.5B) are the full multi-speaker models. A streaming "realtime"
+    # model would be reported here as "realtime" if one were installed.
+    return "full" if _name else None
+
+
+# ---- Engine process -------------------------------------------------------------------------------------------
+
+def status() -> dict[str, Any]:
+    out: dict[str, Any] = {"installed": installed(), "online": False, "ready": False, "loading": None, "model": None,
+                           "kind": None, "generating": False, "voices": 0}
+    if not out["installed"] or not is_online():
+        return out
+    out["online"] = True
     try:
-        VV_PIDFILE.unlink()
-    except OSError:
+        data = _json("GET", "/api/status")
+        out["ready"] = data.get("modelState") == "ready"
+        loaded = data.get("loadedModel")
+        out["model"] = loaded
+        out["kind"] = _model_kind(loaded)
+        if data.get("modelState") == "loading":
+            out["loading"] = loaded or "model"
+        out["generating"] = bool(data.get("queueDepth")) or any(
+            j.get("status") == "running" for j in _json("GET", "/api/jobs").get("jobs", []))
+        out["voices"] = len(_json("GET", "/api/voices").get("voices", []))
+    except VoiceStudioError:
         pass
-    return result.returncode == 0
+    return out
 
 
-def free_graphics_card() -> None:
-    from .music import _release_main_engine  # lazy: music imports are heavy and optional here
-    from . import music_compose
-
-    _free_comfy(config.COMFYUI_BASE_URL)
-    _free_comfy(config.MUSIC_COMFYUI_URL)
-    music_compose.unload_models()
-    try:
-        _release_main_engine()
-    except Exception as exc:  # noqa: BLE001 - a busy render engine is an expected, explainable refusal, not a crash
-        raise VoiceStudioError(str(exc) or "The image and video engine is busy. Try again when it finishes.") from exc
-
-
-def start(model_label: str | None = None) -> dict[str, Any]:
-    """Start the engine service if it is not running; returns immediately (the model loads in the background)."""
+def start(model: str | None = None) -> dict[str, Any]:
+    global _started_process
     if not installed():
-        raise VoiceStudioError("VibeVoice is not installed where Sovereign expects it (F:\\AI\\VibeVoice).")
-    current = engine_status()
-    if current["online"]:
-        return {"started": False, **current}
-    stop_gradio_demo()
-    free_graphics_card()
-    env = {**os.environ, "HF_HOME": r"F:\AI\HuggingFaceCache", "HF_HUB_DISABLE_TELEMETRY": "1", "PYTHONUTF8": "1",
-           "PYTHONIOENCODING": "utf-8"}
-    ffmpeg_dir = VV_ROOT / "tools" / "ffmpeg" / "ffmpeg-8.1.1-essentials_build" / "bin"
-    env["PATH"] = f"{ffmpeg_dir};{env.get('PATH', '')}"
-    command = [str(VV_PYTHON), str(VV_SCRIPT), "--port", str(VV_PORT)]
-    if model_label:
-        command += ["--model", model_label]
-    flags = 0x08000000 | 0x00000008  # CREATE_NO_WINDOW | DETACHED_PROCESS
-    log = open(VV_ROOT / "sovereign-voice-service.log", "ab")
-    process = subprocess.Popen(command, cwd=str(VV_ROOT), env=env, stdout=log, stderr=log, creationflags=flags)
-    from .process_power import disable_power_throttling_tree
+        raise VoiceStudioError(f"VibeVoice Studio was not found at {_app_dir()}. Set VIBEVOICE_APP_DIR.", 404)
+    with _start_lock:
+        started = False
+        if not is_online():
+            env = None
+            if model:
+                import os
+                env = {**os.environ, "VIBEVOICE_MODEL": _safe_model(model)}
+            flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+            _started_process = subprocess.Popen(
+                [str(_python()), "-m", "uvicorn", "backend.app:app", "--host", "127.0.0.1", "--port", str(config.VIBEVOICE_PORT)],
+                cwd=str(_app_dir()), env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, creationflags=flags)
+            started = True
+            for _ in range(60):
+                if is_online():
+                    break
+                time.sleep(0.5)
+        elif model:
+            switch_model(model)
+    return {**status(), "started": started}
 
-    disable_power_throttling_tree(process.pid)  # Windows otherwise runs the hidden engine far slower
-    return {"started": True, "pid": process.pid, **engine_status()}
+
+def stop() -> dict[str, bool]:
+    global _started_process
+    stopped = False
+    if _started_process is not None and _started_process.poll() is None:
+        _started_process.terminate()
+        stopped = True
+    _started_process = None
+    # Also stop an instance that was started by hand on the same port (this user's own local service).
+    script = (f"Get-NetTCPConnection -LocalPort {int(_port())} -State Listen -ErrorAction SilentlyContinue | "
+              "ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }")
+    subprocess.run(["powershell", "-NoProfile", "-Command", script], capture_output=True, timeout=30,
+                   creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+    time.sleep(0.5)
+    return {"stopped": stopped or not is_online()}
 
 
-def stop() -> bool:
-    """Shut the engine down and give the card back."""
+# ---- Models, voices, examples -----------------------------------------------------------------------------------
+
+def _present_models() -> list[dict[str, Any]]:
+    data = _json("GET", "/api/models")
+    return [m for m in data.get("models", []) if m.get("present")]
+
+
+def _safe_model(name: str) -> str:
+    if not re.fullmatch(r"[A-Za-z0-9_.\-]{1,64}", name or ""):
+        raise VoiceStudioError("That is not a model name.", 400)
+    return name
+
+
+def models() -> dict[str, Any]:
+    present = _present_models()
+    st = _json("GET", "/api/status")
+    return {"current": st.get("loadedModel"),
+            "models": [{"label": m["name"], "kind": "full", "title": m.get("label"), "note": m.get("note")} for m in present]}
+
+
+def switch_model(name: str) -> dict[str, Any]:
+    _json("POST", f"/api/models/{_safe_model(name)}/select")
+    return {"message": f"Switching to {name}. Large models take a minute to load.", "current": name, "kind": "full"}
+
+
+def voices() -> dict[str, Any]:
+    items = _json("GET", "/api/voices").get("voices", [])
+    return {"voices": [{"name": v["name"], "file": v["name"] + ".wav", "preset": bool(v.get("preset"))} for v in items],
+            "realtime": []}
+
+
+def voice_audio(name: str) -> bytes:
+    if not VOICE_NAME_RE.match(name):
+        raise VoiceStudioError("Unknown voice.", 404)
+    return _request("GET", f"/api/voices/{name}/preview").content
+
+
+def add_voice(filename: str, data: bytes) -> dict[str, Any]:
+    if len(data) > MAX_UPLOAD_BYTES:
+        raise VoiceStudioError("That file is too large (60 MB limit). A 30 second clean sample is enough.", 413)
+    stem = re.sub(r"[^A-Za-z0-9_-]+", "-", Path(filename or "voice").stem).strip("-")[:64]
+    if not stem:
+        raise VoiceStudioError("Give the file a name with letters or numbers.", 400)
+    response = _request("POST", "/api/voices", params={"name": stem}, files={"file": (filename or "voice.wav", data)}, timeout=120)
+    added = response.json().get("name", stem)
+    return {"added": added, "voices": [v["name"] for v in voices()["voices"]]}
+
+
+def delete_voice(name: str) -> dict[str, Any]:
+    if not VOICE_NAME_RE.match(name):
+        raise VoiceStudioError("Unknown voice.", 404)
+    return _json("DELETE", f"/api/voices/{name}")
+
+
+def examples() -> dict[str, Any]:
+    out = []
+    for item in _json("GET", "/api/examples").get("examples", []):
+        try:
+            script = _json("GET", f"/api/examples/{item['id']}").get("script", "")
+        except VoiceStudioError:
+            continue
+        out.append({"name": item.get("title") or item["id"], "num_speakers": item.get("speakers", 2), "script": script,
+                    "minutes": item.get("minutes")})
+    return {"examples": out}
+
+
+# ---- Generating ----------------------------------------------------------------------------------------------------
+
+_pending: dict[str, dict[str, Any]] = {}
+_pending_lock = threading.Lock()
+
+
+def generate(script: str, num_speakers: int, speakers: list[str], cfg_scale: float, inference_steps: int, seed: int,
+             disable_voice_cloning: bool) -> dict[str, str]:
+    if not script.strip():
+        raise VoiceStudioError("Write a script first.", 400)
+    names = [s for s in speakers[:max(1, num_speakers)] if VOICE_NAME_RE.match(s)]
+    if not names:
+        raise VoiceStudioError("Choose a voice for each speaker.", 400)
+    body = {"script": script, "voices": names, "cfgScale": cfg_scale, "inferenceSteps": inference_steps,
+            "seed": seed, "cloneVoices": not disable_voice_cloning}
+    job = _json("POST", "/api/generate", json=body)
+    with _pending_lock:
+        _pending[job["id"]] = {"script": script, "speakers": names, "cfg_scale": cfg_scale,
+                               "inference_steps": inference_steps, "seed": seed}
+    return {"id": job["id"]}
+
+
+def _wav_seconds(path: Path) -> float:
     try:
-        call("POST", "/shutdown", {}, timeout=5.0)
-        return True
-    except VoiceStudioError:
-        return False
+        with wave.open(str(path), "rb") as w:
+            return round(w.getnframes() / float(w.getframerate()), 1)
+    except (wave.Error, OSError):
+        return 0.0
 
 
-def stop_if_running() -> None:
-    """Called before songs and renders so they get the whole card."""
-    if engine_status()["online"]:
-        stop()
-        deadline = time.time() + 15
-        while time.time() < deadline and engine_status()["online"]:
-            time.sleep(0.5)
+def _clip_meta(clip_id: str) -> dict[str, Any] | None:
+    meta = _clips_dir() / f"{clip_id}.json"
+    return json.loads(meta.read_text(encoding="utf-8")) if meta.exists() else None
 
 
-# --- the clip library -----------------------------------------------------------------------------
-
-_saved_jobs: dict[str, str] = {}  # engine job id -> clip id
-
-
-def _meta_path(clip_id: str) -> Path:
-    return _clips_dir() / f"{clip_id}.json"
-
-
-def save_clip(job_id: str, job: dict[str, Any], script: str | None) -> dict[str, Any]:
-    """Copy a finished engine job into Sovereign's library (once)."""
-    if job_id in _saved_jobs:
-        return get_clip(_saved_jobs[job_id])  # type: ignore[return-value]
-    audio = fetch_bytes(f"/jobs/{job_id}/audio", timeout=120)
-    clip_id = uuid.uuid4().hex[:12]
-    (_clips_dir() / f"{clip_id}.wav").write_bytes(audio)
-    seconds = max(0.0, (len(audio) - 44) / 2 / 24000)
-    meta = {
-        "id": clip_id, "kind": job.get("kind"), "script": (script or "")[:60000], "duration_seconds": round(seconds, 1),
-        "created_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"), "render_seconds": job.get("elapsed"), **(job.get("meta") or {}),
-    }
-    _meta_path(clip_id).write_text(json.dumps(meta, indent=2), encoding="utf-8")
-    _saved_jobs[job_id] = clip_id
-    return meta
-
-
-def get_clip(clip_id: str) -> dict[str, Any] | None:
-    if not clip_id.isalnum() or not _meta_path(clip_id).exists() or not (_clips_dir() / f"{clip_id}.wav").exists():
+def _save_clip(job: dict[str, Any]) -> dict[str, Any] | None:
+    """Copy a finished render into Sovereign's storage with its settings, once."""
+    clip_id = job["id"]
+    existing = _clip_meta(clip_id)
+    if existing:
+        return existing
+    source = _outputs_dir() / f"{clip_id}.wav"
+    if not source.is_file():
         return None
-    return json.loads(_meta_path(clip_id).read_text(encoding="utf-8"))
+    with _pending_lock:
+        request = _pending.pop(clip_id, {})
+    target = _clips_dir() / f"{clip_id}.wav"
+    shutil.copyfile(source, target)
+    clip = {
+        "id": clip_id, "kind": "podcast", "script": request.get("script", ""),
+        "duration_seconds": job.get("audioSeconds") or _wav_seconds(target),
+        "created_at": datetime.fromtimestamp(job.get("createdAt") or time.time(), timezone.utc).isoformat(timespec="seconds"),
+        "render_seconds": job.get("elapsedSeconds"), "model": job.get("model"),
+        "speakers": request.get("speakers") or job.get("voices") or [], "cfg_scale": request.get("cfg_scale"),
+        "inference_steps": request.get("inference_steps"), "seed": request.get("seed"),
+    }
+    (_clips_dir() / f"{clip_id}.json").write_text(json.dumps(clip, indent=2), encoding="utf-8")
+    return clip
 
 
-def list_clips() -> list[dict[str, Any]]:
-    clips = []
-    for meta in _clips_dir().glob("*.json"):
-        clip = get_clip(meta.stem)
+def job(job_id: str) -> dict[str, Any]:
+    if not CLIP_ID_RE.match(job_id):
+        raise VoiceStudioError("Unknown job.", 404)
+    data = _json("GET", f"/api/jobs/{job_id}")
+    status_text = JOB_STATUS.get(data.get("status"), "running")
+    out: dict[str, Any] = {
+        "id": job_id, "kind": "podcast", "status": status_text, "log": "\n".join(data.get("log") or []),
+        "error": data.get("error"), "chunk_count": 0, "streamed_seconds": 0.0,
+        "elapsed": data.get("elapsedSeconds") or 0.0, "has_audio": status_text == "done",
+    }
+    if status_text == "done":
+        clip = _save_clip(data)
         if clip:
-            clips.append(clip)
-    clips.sort(key=lambda c: c.get("created_at", ""), reverse=True)
-    return clips
+            out["clip"] = clip
+    return out
 
 
-def clip_audio_path(clip_id: str) -> Path | None:
-    return _clips_dir() / f"{clip_id}.wav" if get_clip(clip_id) else None
+def chunks(job_id: str, after: int) -> dict[str, Any]:
+    """Full-quality models render a whole clip at once, so there are no live chunks to stream."""
+    current = job(job_id)
+    return {"sample_rate": SAMPLE_RATE, "next": after, "chunks": [], "status": current["status"]}
+
+
+def stop_job(job_id: str) -> dict[str, bool]:
+    if not CLIP_ID_RE.match(job_id):
+        raise VoiceStudioError("Unknown job.", 404)
+    try:
+        _json("POST", f"/api/jobs/{job_id}/cancel")
+    except VoiceStudioError as exc:
+        raise VoiceStudioError(
+            "This render has already started and runs as one piece, so it cannot be interrupted. "
+            "It will finish in a moment; queued renders can be cancelled.", 409) from exc
+    return {"stopping": True}
+
+
+def realtime(*_args: Any, **_kwargs: Any) -> dict[str, str]:
+    raise VoiceStudioError(
+        "Real-time speech needs the VibeVoice Realtime model, which is not installed on this PC yet. "
+        "Conversation and podcast voices work with the 7B and 1.5B models.", 409)
+
+
+# ---- Saved clips -----------------------------------------------------------------------------------------------------
+
+def clips() -> list[dict[str, Any]]:
+    items: dict[str, dict[str, Any]] = {}
+    for meta in _clips_dir().glob("*.json"):
+        if CLIP_ID_RE.match(meta.stem) and (_clips_dir() / f"{meta.stem}.wav").exists():
+            try:
+                items[meta.stem] = json.loads(meta.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                continue
+    # Renders made earlier in the standalone VibeVoice Studio show up too, once, with what is known about them.
+    outputs = _outputs_dir()
+    if outputs.is_dir():
+        for wav in outputs.glob("*.wav"):
+            if CLIP_ID_RE.match(wav.stem) and wav.stem not in items and not (_clips_dir() / f"{wav.stem}.deleted").exists():
+                target = _clips_dir() / f"{wav.stem}.wav"
+                if not target.exists():
+                    shutil.copyfile(wav, target)
+                clip = {"id": wav.stem, "kind": "podcast", "script": "(rendered earlier in VibeVoice Studio)",
+                        "duration_seconds": _wav_seconds(target),
+                        "created_at": datetime.fromtimestamp(wav.stat().st_mtime, timezone.utc).isoformat(timespec="seconds"),
+                        "speakers": []}
+                (_clips_dir() / f"{wav.stem}.json").write_text(json.dumps(clip, indent=2), encoding="utf-8")
+                items[wav.stem] = clip
+    ordered = sorted(items.values(), key=lambda c: c.get("created_at", ""), reverse=True)
+    return [{**c, "audio_url": f"/api/voice-studio/clips/{c['id']}/audio"} for c in ordered]
+
+
+def clip_audio_path(clip_id: str) -> Path:
+    if not CLIP_ID_RE.match(clip_id):
+        raise VoiceStudioError("Unknown clip.", 404)
+    path = _clips_dir() / f"{clip_id}.wav"
+    if not path.is_file():
+        raise VoiceStudioError("Clip not found.", 404)
+    return path
 
 
 def delete_clip(clip_id: str) -> bool:
-    """Soft delete: moves the clip into storage/trash/voice_studio so it can be restored."""
-    if not get_clip(clip_id):
-        return False
-    trash = Path(config.STORAGE_DIR) / "trash" / "voice_studio"
-    trash.mkdir(parents=True, exist_ok=True)
-    for suffix in (".wav", ".json"):
-        source = _clips_dir() / f"{clip_id}{suffix}"
-        if source.exists():
-            source.replace(trash / source.name)
-    return True
+    if not CLIP_ID_RE.match(clip_id):
+        raise VoiceStudioError("Unknown clip.", 404)
+    found = False
+    for path in (_clips_dir() / f"{clip_id}.wav", _clips_dir() / f"{clip_id}.json"):
+        if path.exists():
+            path.unlink()
+            found = True
+    # Remember the deletion so an earlier render from the standalone app (which is left untouched) is not re-imported.
+    (_clips_dir() / f"{clip_id}.deleted").write_text("", encoding="utf-8")
+    return found
 
 
-# --- the recorded-voice folder and on-demand start (used by avatars, movies, translate, slides, the Voices page) ---
-
-_AUDIO_SUFFIXES = {".wav", ".mp3", ".flac", ".ogg", ".m4a", ".aac"}
+# --- helpers the rest of Sovereign uses (voice list, voice cloning, songs freeing the card) ---------
+# vibevoice-app keeps its built-in voices in voices/*.wav and cloned ones in voices/custom/*.wav, so these work
+# straight from the folders even while the engine sleeps.
+BOOT_TIMEOUT = 300.0
 
 
 def voices_dir() -> Path:
-    return VV_ROOT / "demo" / "voices"
-
-
-def _is_builtin(name: str) -> bool:
-    import re
-
-    return bool(re.match(r"^(en|in|zh)-", name))
+    return _app_dir() / "voices"
 
 
 def list_voice_names() -> list[tuple[str, bool]]:
-    """(name, is_builtin_preset) for every recorded voice, straight from the folder, so voices are listed even
-    while the engine sleeps. Names match what the engine itself reports."""
-    folder = voices_dir()
-    if not installed() or not folder.is_dir():
+    """(name, is_builtin_preset) for every recorded voice, presets first, as the engine lists them."""
+    if not installed():
         return []
-    names = sorted(p.stem for p in folder.iterdir() if p.is_file() and p.suffix.lower() in _AUDIO_SUFFIXES)
-    return [(n, _is_builtin(n)) for n in names]
+    presets = [(p.stem, True) for p in sorted(voices_dir().glob("*.wav"))]
+    custom = [(p.stem, False) for p in sorted((voices_dir() / "custom").glob("*.wav"))]
+    return presets + custom
 
 
 def voice_file(name: str) -> Path | None:
-    folder = voices_dir()
-    if not installed() or not folder.is_dir():
+    if not installed() or not VOICE_NAME_RE.match(name):
         return None
-    for path in folder.iterdir():
-        if path.is_file() and path.stem == name and path.suffix.lower() in _AUDIO_SUFFIXES:
+    for path in (voices_dir() / "custom" / f"{name}.wav", voices_dir() / f"{name}.wav"):
+        if path.is_file():
             return path
     return None
 
 
 def add_voice_file(name: str, sample: Path) -> str:
-    """Save a clean sample into the voice folder as <name>.wav (used while the engine sleeps)."""
-    import re
-
-    stem = re.sub(r"[^A-Za-z0-9_-]+", "-", name).strip("-")
+    """Save a recording as a cloned voice (24 kHz mono WAV in voices/custom). Returns the voice name."""
+    stem = re.sub(r"[^A-Za-z0-9_-]+", "-", name).strip("-")[:64]
     if not stem:
-        raise VoiceStudioError("Give the voice a name.")
+        raise VoiceStudioError("Give the voice a name.", 400)
     if voice_file(stem) is not None:
-        raise VoiceStudioError(f"A cloned voice named {stem} already exists. Pick a different name.")
-    voices_dir().mkdir(parents=True, exist_ok=True)
-    destination = voices_dir() / f"{stem}.wav"
-    subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(sample), "-ac", "1", "-ar", "24000", str(destination)],
+        raise VoiceStudioError(f"A voice named {stem} already exists. Pick a different name.", 409)
+    destination = voices_dir() / "custom" / f"{stem}.wav"
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(sample), "-ac", "1", "-ar", str(SAMPLE_RATE), str(destination)],
                    capture_output=True, check=False)
     if not destination.is_file() or destination.stat().st_size == 0:
-        raise VoiceStudioError("Could not read that recording.")
+        raise VoiceStudioError("Could not read that recording.", 400)
     return stem
 
 
 def remove_voice_file(name: str) -> bool:
-    """Move a cloned voice aside (never erased). Built-in voices cannot be removed."""
+    """Move a cloned voice aside into voices/custom/_removed (never erased). Built-in voices are not removed."""
     path = voice_file(name)
-    if path is None or _is_builtin(name):
+    if path is None or path.parent != voices_dir() / "custom":
         return False
-    removed = voices_dir() / "_removed"
-    removed.mkdir(parents=True, exist_ok=True)
+    removed = path.parent / "_removed"
+    removed.mkdir(exist_ok=True)
     path.replace(removed / path.name)
     return True
 
 
 def ensure_ready(timeout: float = BOOT_TIMEOUT) -> None:
-    """Start the engine if needed and wait until a voice-cloning model is loaded."""
-    if not engine_status()["online"]:
+    """Start the engine if needed and wait until its model has loaded (it loads one on start)."""
+    if not status()["online"]:
         start()
     deadline = time.time() + timeout
-    state = engine_status()
-    while not state["ready"]:
-        if time.time() > deadline:
+    while not status()["ready"]:
+        if time.time() >= deadline:
             raise VoiceStudioError("The voice engine did not finish loading in time.")
         time.sleep(2)
-        state = engine_status()
-    if state.get("kind") != "full":  # Realtime 0.5B cannot clone: swap to the best cloning model
-        models = call("GET", "/models")["models"]
-        full = next((m["label"] for m in models if m["kind"] == "full"), None)
-        if full is None:
-            raise VoiceStudioError("No voice-cloning model is installed.")
-        call("POST", "/model", {"label": full}, timeout=600.0)
+
+
+def stop_if_running() -> None:
+    """Called before songs and renders so they get the whole graphics card."""
+    if is_online():
+        stop()

@@ -345,7 +345,7 @@ VOICE_MODEL_DIR = Path(os.getenv("VOICE_MODEL_DIR", str(STORAGE_DIR / "models" /
 VOICE_MODEL_PATH = os.getenv("VOICE_MODEL_PATH", "")
 # Optional cloned voices from the separate local VibeVoice Studio app. Its voices
 # are listed as "vibevoice:<name>" when the app is running; Piper stays the default.
-VIBEVOICE_BASE_URL = os.getenv("VIBEVOICE_BASE_URL", "http://127.0.0.1:7861")  # the Voice Studio engine service
+VIBEVOICE_BASE_URL = os.getenv("VIBEVOICE_BASE_URL", "http://127.0.0.1:8011")  # vibevoice-app, started by Voice Studio on VIBEVOICE_PORT
 VIBEVOICE_TIMEOUT_SECONDS = int(os.getenv("VIBEVOICE_TIMEOUT_SECONDS", "1800"))
 
 # --- Avatar animation (Phase 16A foundation) ---------------------------------
@@ -456,3 +456,8 @@ MUSIC_STEMS_PYTHON = os.getenv(
 )
 # Fast story planner for the Director (a small model; the full planner model can take several minutes).
 DIRECTOR_FAST_PLANNER_MODEL = os.getenv("DIRECTOR_FAST_PLANNER_MODEL", "gemma4:e4b")
+# VibeVoice Studio (text-to-speech and voice cloning) is embedded as Sovereign's Voice Studio.
+VIBEVOICE_APP_DIR = Path(os.getenv("VIBEVOICE_APP_DIR", r"C:\Users\David\Documents\Codex\2026-05-21\vibevoice-app"))
+VIBEVOICE_PORT = int(os.getenv("VIBEVOICE_PORT", "8011"))
+# The local writing model behind the prompt helpers (clean it up / write it for me / plan a film).
+PROMPT_ASSIST_MODEL = os.getenv("PROMPT_ASSIST_MODEL", MUSIC_LYRICS_MODEL)
