@@ -15,6 +15,7 @@ import { PublicAvatars } from "./public-avatars";
 import { AvatarPreview } from "./avatar-preview";
 import { CategoryAvatars } from "./category-avatars";
 import { LOOK_CATEGORIES } from "@/lib/look-templates";
+import { PageHeader } from "@/components/page-header";
 
 export type AvatarGroup = { base: AvatarAsset; looks: AvatarAsset[] };
 
@@ -67,7 +68,7 @@ function NewAvatarButton() {
   return (
     <Link
       href="/avatars/new"
-      className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       <UserPlus className="h-4 w-4" />
       New avatar
@@ -97,6 +98,7 @@ export function AvatarGalleryView() {
 
   return (
     <div className="mx-auto max-w-[1120px]">
+      <PageHeader title="Avatars" description="Manage your digital presenters, reusable looks, and public avatar collections." />
       <div className="flex flex-wrap items-end justify-between gap-4 border-b border-border">
         <div role="tablist" aria-label="Avatar collections" className="flex gap-6">
           {(["mine", "public"] as const).map((id) => (
@@ -107,7 +109,7 @@ export function AvatarGalleryView() {
               aria-selected={tab === id}
               onClick={() => setTab(id)}
               className={cn(
-                "-mb-px border-b-[3px] pb-2.5 text-[15px] font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                "-mb-px min-h-11 border-b-[3px] px-1 pb-2.5 text-[15px] font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                 tab === id ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground",
               )}
             >
@@ -121,21 +123,21 @@ export function AvatarGalleryView() {
       {tab === "mine" ? (
         <>
           <div className="mt-5 flex items-center gap-3">
-            <label className="flex flex-1 items-center gap-2 rounded-full border border-border bg-card/60 px-4 py-2">
+            <label className="flex min-h-11 flex-1 items-center gap-2 rounded-xl border border-border bg-card/60 px-4 py-2 focus-within:ring-2 focus-within:ring-ring">
               <Search className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
               <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search" aria-label="Search avatars" className="w-full bg-transparent text-sm placeholder:text-muted-foreground focus:outline-none" />
             </label>
             <div className="flex rounded-full border border-border bg-card/60 p-1" role="group" aria-label="Layout">
-              <button type="button" onClick={() => setList(false)} aria-pressed={!list} className={cn("flex items-center gap-1.5 rounded-full px-3 py-1 text-xs", !list ? "bg-raised text-foreground" : "text-muted-foreground")}>
+              <button type="button" onClick={() => setList(false)} aria-pressed={!list} className={cn("flex min-h-11 items-center gap-1.5 rounded-full px-3 py-1 text-xs", !list ? "bg-raised text-foreground" : "text-muted-foreground")}>
                 <LayoutGrid className="h-3.5 w-3.5" /> Grid
               </button>
-              <button type="button" onClick={() => setList(true)} aria-pressed={list} className={cn("flex items-center gap-1.5 rounded-full px-3 py-1 text-xs", list ? "bg-raised text-foreground" : "text-muted-foreground")}>
+              <button type="button" onClick={() => setList(true)} aria-pressed={list} className={cn("flex min-h-11 items-center gap-1.5 rounded-full px-3 py-1 text-xs", list ? "bg-raised text-foreground" : "text-muted-foreground")}>
                 <List className="h-3.5 w-3.5" /> List
               </button>
             </div>
           </div>
           <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label="Avatar styles">
-            {["All", "Look Packs", ...LOOK_CATEGORIES].map(c => <button key={c} type="button" aria-pressed={category === c} onClick={() => setCategory(c)} className={cn("rounded-full border px-3 py-1.5 text-sm focus-visible:ring-2 focus-visible:ring-ring", category === c ? "border-primary bg-primary/15 text-foreground" : "border-border bg-card text-foreground hover:bg-raised")}>{c}</button>)}
+            {["All", "Look Packs", ...LOOK_CATEGORIES].map(c => <button key={c} type="button" aria-pressed={category === c} onClick={() => setCategory(c)} className={cn("min-h-11 rounded-full border px-3 py-1.5 text-sm focus-visible:ring-2 focus-visible:ring-ring", category === c ? "border-primary bg-primary/15 text-foreground" : "border-border bg-card text-foreground hover:bg-raised")}>{c}</button>)}
           </div>
           {category !== "All" && category !== "Look Packs" ? <CategoryAvatars category={category} query={query} /> : avatars === null ? (
             <SkeletonGrid count={8} aspect="aspect-[3/4]" className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4" />

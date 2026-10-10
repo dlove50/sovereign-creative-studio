@@ -3,7 +3,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import {
-  AlertTriangle,
   CheckCircle2,
   Coins,
   Loader2,
@@ -19,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { confirmDialog } from "@/components/ui/confirm-host";
+import { LoadError } from "@/components/ui/load-error";
 
 export function AdminDashboardView() {
   const [dashboard, setDashboard] = useState<AdminDashboard | null>(null);
@@ -158,7 +158,7 @@ export function AdminDashboardView() {
 
   if (loading && !dashboard) {
     return (
-      <Card className="max-w-2xl">
+      <Card role="status" aria-label="Loading admin dashboard" className="max-w-2xl">
         <CardContent className="flex items-center gap-3 p-5">
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
           <p className="text-sm text-muted-foreground">Loading private admin status...</p>
@@ -168,14 +168,7 @@ export function AdminDashboardView() {
   }
 
   if (error && !dashboard) {
-    return (
-      <Card className="max-w-2xl">
-        <CardContent className="flex items-center gap-3 p-5">
-          <AlertTriangle className="h-5 w-5 text-destructive" />
-          <p className="text-sm text-muted-foreground">{error}</p>
-        </CardContent>
-      </Card>
-    );
+    return <LoadError what="the admin dashboard" message={error} onRetry={load} />;
   }
 
   if (!dashboard) return null;

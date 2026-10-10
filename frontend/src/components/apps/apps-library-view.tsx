@@ -12,6 +12,7 @@ import { api } from "@/lib/api";
 import { useSpotlight, useStaggerIn } from "@/components/motion/use-motion";
 import { ADMIN_NAV, CREATOR_NAV } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
+import { PageHeader } from "@/components/page-header";
 
 type Category = "create" | "enhance" | "edit" | "interactive";
 type AppEntry = { name: string; blurb: string; icon: LucideIcon; category: Category; href?: string };
@@ -67,15 +68,15 @@ function AppRow({ app }: { app: AppEntry }) {
         <Icon className="h-5 w-5" aria-hidden="true" />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="flex items-center gap-2 text-sm font-semibold">
+        <span className="flex flex-wrap items-center gap-2 text-sm font-semibold">
           {app.name}
           {app.href ? null : <span className="rounded-full bg-raised px-2 py-0.5 text-[10px] font-medium text-muted-foreground">Coming next</span>}
         </span>
-        <span className="block truncate text-[13px] text-muted-foreground">{app.blurb}</span>
+        <span className="mt-0.5 block text-[13px] leading-relaxed text-muted-foreground">{app.blurb}</span>
       </span>
     </>
   );
-  const shell = "spotlight flex items-center gap-4 rounded-full border border-border bg-card/60 px-4 py-3";
+  const shell = "spotlight flex min-h-[76px] items-center gap-4 rounded-xl border border-border/80 bg-card/60 px-4 py-3 shadow-card";
   return app.href ? (
     <Link href={app.href} data-spotlight className={cn(shell, "transition-colors hover:border-primary/60 hover:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring")}>
       {body}
@@ -107,10 +108,9 @@ export function AppsLibraryView() {
 
   return (
     <div className="mx-auto max-w-[1040px]">
-      <h1 className="text-4xl font-extrabold tracking-[-0.03em]">App library</h1>
-      <p className="mt-1 text-sm text-muted-foreground">Explore your local tools and connected services.</p>
+      <PageHeader title="App library" description="Explore your local tools and connected services." />
 
-      <h2 className="mb-3 mt-8 text-base font-semibold">Featured apps</h2>
+      <h2 className="mb-3 mt-4 text-base font-semibold">Featured apps</h2>
       <ul className="grid gap-4 sm:grid-cols-3">
         {FEATURED.map((f) => (
           <li key={f.name}>
@@ -127,7 +127,7 @@ export function AppsLibraryView() {
       </ul>
 
       <div className="mt-10 flex flex-wrap items-end justify-between gap-4 border-b border-border">
-        <div role="tablist" aria-label="App categories" className="flex gap-6">
+        <div role="tablist" aria-label="App categories" className="flex max-w-full gap-6 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {TABS.map((t) => (
             <button
               key={t.id}
@@ -136,7 +136,7 @@ export function AppsLibraryView() {
               aria-selected={tab === t.id}
               onClick={() => setTab(t.id)}
               className={cn(
-                "-mb-px border-b-[3px] pb-2.5 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                "-mb-px min-h-11 border-b-[3px] px-1 pb-2.5 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                 tab === t.id ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground",
               )}
             >
@@ -144,7 +144,7 @@ export function AppsLibraryView() {
             </button>
           ))}
         </div>
-        <label className="mb-2 flex w-full items-center gap-2 rounded-full border border-border bg-card/60 px-4 py-2 sm:w-64">
+        <label className="mb-2 flex min-h-11 w-full items-center gap-2 rounded-xl border border-border bg-card/60 px-4 py-2 focus-within:ring-2 focus-within:ring-ring sm:w-64">
           <Search className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
           <input
             value={query}
@@ -168,12 +168,12 @@ export function AppsLibraryView() {
 
       <h2 className="mb-3 mt-12 text-base font-semibold">All studios</h2>
       <p className="mb-4 text-sm text-muted-foreground">Everything from the old sidebar, still here.</p>
-      <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+      <ul className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
         {studios.map((s) => {
           const Icon = s.icon;
           return (
             <li key={s.href}>
-              <Link href={s.href} className="flex items-center gap-2.5 rounded-xl border border-border bg-card/40 px-3 py-2.5 text-sm transition-colors hover:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              <Link href={s.href} className="flex min-h-11 items-center gap-2.5 rounded-xl border border-border bg-card/40 px-3 py-2.5 text-sm transition-colors hover:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                 <Icon className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
                 {s.label}
               </Link>

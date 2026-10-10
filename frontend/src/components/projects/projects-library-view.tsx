@@ -13,6 +13,7 @@ import { useStaggerIn } from "@/components/motion/use-motion";
 import { SkeletonGrid } from "@/components/ui/skeleton";
 import type { AvatarJob, Movie, Project, VideoGeneration } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { PageHeader } from "@/components/page-header";
 
 type Kind = "avatar" | "clip" | "movie" | "cinematic";
 type Item = { id: string; kind: Kind; title: string; url: string | null; status: string; createdAt: string };
@@ -150,12 +151,13 @@ export function ProjectsLibraryView() {
 
   return (
     <div className="mx-auto max-w-[1120px]">
+      <PageHeader title="Projects" description="Organize finished videos, active renders, and reusable production folders." />
       <div className="flex flex-wrap items-center gap-2">
-        <label className="flex min-w-[220px] flex-1 items-center gap-2 rounded-full border border-border bg-card/60 px-4 py-2">
+        <label className="flex min-h-11 min-w-[220px] flex-1 items-center gap-2 rounded-xl border border-border bg-card/60 px-4 py-2 focus-within:ring-2 focus-within:ring-ring">
           <Search className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
           <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search videos and folders" aria-label="Search videos and folders" className="w-full bg-transparent text-sm placeholder:text-muted-foreground focus:outline-none" />
         </label>
-        <label className="flex items-center gap-1.5 rounded-full border border-border bg-card/60 px-3 py-2 text-sm">
+        <label className="flex min-h-11 items-center gap-1.5 rounded-xl border border-border bg-card/60 px-3 py-2 text-sm">
           <ArrowDownWideNarrow className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
           <select value={sort} onChange={(e) => setSort(e.target.value as Sort)} aria-label="Sort" className="bg-transparent focus:outline-none">
             <option value="newest">Newest</option>
@@ -163,7 +165,7 @@ export function ProjectsLibraryView() {
             <option value="name">Name</option>
           </select>
         </label>
-        <label className="flex items-center gap-1.5 rounded-full border border-border bg-card/60 px-3 py-2 text-sm">
+        <label className="flex min-h-11 items-center gap-1.5 rounded-xl border border-border bg-card/60 px-3 py-2 text-sm">
           <Filter className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
           <select value={kind} onChange={(e) => setKind(e.target.value as "all" | Kind)} aria-label="Filter" className="bg-transparent focus:outline-none">
             <option value="all">All videos</option>
@@ -177,7 +179,7 @@ export function ProjectsLibraryView() {
 
       <div className="mt-8 flex items-center gap-2">
         <h2 className="text-base font-semibold">Folders</h2>
-        <button type="button" onClick={() => setNaming((v) => !v)} aria-label="New folder" className="flex h-7 w-7 items-center justify-center rounded-full border border-border hover:bg-raised">
+        <button type="button" onClick={() => setNaming((v) => !v)} aria-label="New folder" className="flex h-11 w-11 items-center justify-center rounded-full border border-border hover:bg-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
           <FolderPlus className="h-3.5 w-3.5" />
         </button>
       </div>
@@ -190,12 +192,12 @@ export function ProjectsLibraryView() {
             onKeyDown={(e) => e.key === "Enter" && createFolder()}
             placeholder="Folder name"
             aria-label="Folder name"
-            className="flex-1 rounded-full border border-input bg-background px-4 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="min-h-11 min-w-0 flex-1 rounded-xl border border-input bg-subdued px-4 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
-          <button type="button" onClick={createFolder} disabled={!folderName.trim()} className="rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60">Create folder</button>
+          <button type="button" onClick={createFolder} disabled={!folderName.trim()} className="min-h-11 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60">Create folder</button>
         </div>
       ) : null}
-      {error ? <p className="mt-2 text-sm text-destructive">{error}</p> : null}
+      {error ? <p role="alert" className="mt-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p> : null}
       {folders.length ? (
         <ul className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
           {folders.map((p) => (
@@ -213,11 +215,11 @@ export function ProjectsLibraryView() {
 
       <h2 className="mb-4 mt-10 text-base font-semibold">Videos</h2>
       {items === null ? (
-        <SkeletonGrid count={6} aspect="aspect-video" className="grid grid-cols-2 gap-x-4 gap-y-6 md:grid-cols-3" />
+        <SkeletonGrid count={6} aspect="aspect-video" className="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2 md:grid-cols-3" />
       ) : videos.length === 0 ? (
         q || kind !== "all" ? <EmptyState icon={Video} title="No videos match." body="Try another word or clear the filter." /> : <EmptyState icon={Video} title="No videos yet" body="Finished avatar videos, movies and clips collect here." action={{ label: "Make your first video", href: "/video-agent" }} />
       ) : (
-        <ul ref={grid} className="grid grid-cols-2 gap-x-4 gap-y-6 md:grid-cols-3">
+        <ul ref={grid} className="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2 md:grid-cols-3">
           {videos.map((item) => (
             <li key={item.id} className="group relative">
               <VideoCard item={item} onOpen={() => item.kind === "movie" ? router.push(`/movies/${item.id.slice(2)}`) : setOpen(item)} />

@@ -219,10 +219,11 @@ export function VideoAgentView() {
 
   return (
     <div className="mx-auto max-w-[1040px]">
-      <h1 className="pt-6 text-center text-4xl font-extrabold tracking-[-0.03em]">What do you want to create?</h1>
-      <p className="mt-3 text-center"><Link href="/cinematic-planner" className="text-primary underline underline-offset-4">Plan a cinematic story with characters and multiple shots</Link></p>
+      <h1 className="pt-4 text-center text-3xl font-extrabold tracking-[-0.035em] [overflow-wrap:anywhere] sm:pt-6 sm:text-4xl">What do you want to create?</h1>
+      <p className="mx-auto mt-3 max-w-2xl text-center text-sm text-muted-foreground">Describe the outcome and let Sovereign assemble the script, voice, and visual direction.</p>
+      <p className="mt-3 text-center"><Link href="/cinematic-planner" className="inline-flex min-h-11 items-center text-primary underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Plan a cinematic story with characters and multiple shots</Link></p>
 
-      <section className="mt-7 rounded-3xl border border-primary/40 bg-card/70 p-4 shadow-[0_0_40px_hsl(var(--primary)/0.12)]">
+      <section className="mt-7 rounded-3xl border border-primary/40 bg-card/70 p-4 shadow-elevated sm:p-5">
         <div className="flex flex-wrap gap-2">
           <Chip icon={UserRound} label="Avatar">
             <select value={avatarId} onChange={(e) => setAvatarId(e.target.value)} className={selectClass} aria-label="Avatar">
@@ -261,8 +262,8 @@ export function VideoAgentView() {
           </Chip>
         </div>
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          <input value={instructions} onChange={(e) => setInstructions(e.target.value.slice(0, 500))} aria-label="Instructions" placeholder="Instructions (optional): tone, must-include points, things to avoid" className="h-9 min-w-[240px] flex-1 rounded-full border border-border bg-background px-4 text-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
-          <button type="button" onClick={() => knowledgeInput.current?.click()} disabled={knowledge.length >= 3} className="inline-flex h-9 items-center gap-1.5 rounded-full border border-border px-3 text-xs hover:bg-raised disabled:opacity-50">
+          <input value={instructions} onChange={(e) => setInstructions(e.target.value.slice(0, 500))} aria-label="Instructions" placeholder="Instructions (optional): tone, must-include points, things to avoid" className="h-11 min-w-0 flex-1 rounded-xl border border-border bg-subdued px-4 text-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:min-w-[240px]" />
+          <button type="button" onClick={() => knowledgeInput.current?.click()} disabled={knowledge.length >= 3} className="inline-flex h-11 items-center gap-1.5 rounded-xl border border-border px-3 text-xs hover:bg-raised disabled:opacity-50">
             <Paperclip className="h-3.5 w-3.5" /> Add knowledge
           </button>
           <input ref={knowledgeInput} type="file" accept=".pdf,.pptx,.txt,.md" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) void addKnowledge(f); }} />
@@ -285,7 +286,7 @@ export function VideoAgentView() {
           className="mt-3 w-full resize-none bg-transparent text-[15px] placeholder:text-muted-foreground/70 focus:outline-none"
         />
         <div className="flex items-center justify-end gap-2">
-          <select value={mode} onChange={(e) => setMode(e.target.value as Mode)} aria-label="Mode" className="h-9 rounded-full border border-border bg-background px-3 text-xs">
+          <select value={mode} onChange={(e) => setMode(e.target.value as Mode)} aria-label="Mode" className="h-11 rounded-xl border border-border bg-subdued px-3 text-xs">
             <option value="review">Review script first</option>
             <option value="autopilot">Auto-pilot</option>
           </select>
@@ -293,7 +294,7 @@ export function VideoAgentView() {
             type="button"
             onClick={submit}
             disabled={busy || !prompt.trim()}
-            className="inline-flex h-9 items-center gap-2 rounded-full bg-primary px-5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+            className="inline-flex h-11 items-center gap-2 rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             {stage === "writing" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
             Submit

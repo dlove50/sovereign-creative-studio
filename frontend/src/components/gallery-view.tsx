@@ -27,7 +27,7 @@ export function GalleryView() {
   useEffect(load, []);
 
   if (generations === null) {
-    return <SkeletonGrid count={8} />;
+    return <SkeletonGrid count={8} className="grid grid-cols-1 gap-4 min-[420px]:grid-cols-2 sm:grid-cols-3 lg:grid-cols-4" />;
   }
 
   if (error) {
@@ -46,7 +46,7 @@ export function GalleryView() {
   }
 
   return (
-    <div ref={grid} className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+    <div ref={grid} className="grid grid-cols-1 gap-5 min-[420px]:grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
       {generations.map((g) => (
         <GenerationCard key={g.id} generation={g} onDeleted={(id) => setGenerations((all) => (all ?? []).filter((x) => x.id !== id))} />
       ))}

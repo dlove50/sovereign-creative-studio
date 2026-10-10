@@ -100,18 +100,18 @@ export function MusicLabView() {
   const dockOpen = player.source !== null;
 
   return (
-    <div className={cn("space-y-6", dockOpen && "pb-24")}>
+    <div className={cn("mx-auto max-w-[1120px] space-y-6", dockOpen && "pb-24")}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <PageHeader
           title="Music Lab"
           description="Turn an idea or your own lyrics into a complete song with the local YuE2 engine."
         />
-        <Badge variant={engine?.ready ? "success" : engine?.online ? "default" : "muted"} className="mt-1">
+        <Badge aria-live="polite" variant={engine?.ready ? "success" : engine?.online ? "default" : "muted"} className="mt-1">
           {engine?.ready ? "YuE2 ready" : engine?.online ? "YuE2 needs attention" : "YuE2 offline"}
         </Badge>
       </div>
 
-      <div className="flex gap-1 overflow-x-auto border-b border-border" role="tablist" aria-label="Music Lab sections">
+      <div className="flex gap-1 overflow-x-auto rounded-xl border border-border/80 bg-card/40 px-1" role="tablist" aria-label="Music Lab sections">
         {TABS.map((t) => (
           <button
             key={t.id}
@@ -120,7 +120,7 @@ export function MusicLabView() {
             aria-selected={tab === t.id}
             onClick={() => setTab(t.id)}
             className={cn(
-              "relative flex h-11 shrink-0 items-center gap-2 px-4 text-sm font-medium transition-colors",
+              "relative flex h-11 shrink-0 items-center gap-2 rounded-lg px-4 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
               tab === t.id ? "text-primary" : "text-muted-foreground hover:text-foreground",
             )}
           >
@@ -137,7 +137,7 @@ export function MusicLabView() {
 
       <div role="tabpanel">
         {/* Always mounted, only hidden: leaving this tab must not drop a running song's progress, the typed lyrics or the chat. */}
-        <div hidden={tab !== "create"} className="rounded-2xl border border-border bg-card p-5 md:p-6">
+        <div hidden={tab !== "create"} className="rounded-2xl border border-border/80 bg-card p-5 shadow-card md:p-6">
           <CreatePanel status={status} onSongReady={onSongReady} />
         </div>
         {tab === "library" ? (

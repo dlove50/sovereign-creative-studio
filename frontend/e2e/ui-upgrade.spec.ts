@@ -223,3 +223,71 @@ test.describe("home experience", () => {
     await expect(page.locator('[data-primary-action="true"]')).toHaveAttribute("href", "/video-agent");
   });
 });
+
+test.describe("primary workflow matrix", () => {
+  const routes = [
+    { path: "/gallery", heading: "Gallery", action: "Try again", role: "button" as const },
+    { path: "/projects", heading: "Projects", action: "Make your first video", role: "link" as const },
+    { path: "/avatars", heading: "Avatars", action: "New avatar", role: "link" as const },
+    { path: "/apps", heading: "App library", action: "AI video generator", role: "link" as const },
+    { path: "/video-agent", heading: "What do you want to create?", action: "Submit", role: "button" as const },
+    { path: "/music-lab", heading: "Music Lab", action: "Create", role: "tab" as const },
+    { path: "/credits", heading: "Credits", action: "Try again", role: "button" as const },
+    { path: "/admin", heading: "Admin Dashboard", action: "Try again", role: "button" as const },
+    { path: "/status", heading: "Status", action: "Refresh", role: "button" as const },
+  ];
+
+  test("high-traffic routes preserve hierarchy, actions, focus, and mobile width", async ({ browser }) => {
+    for (const routeCase of routes) {
+      const page = await browser.newPage({ viewport: { width: 375, height: 812 } });
+      await page.route("**/api/**", (route) => route.fulfill({
+        status: 503,
+        contentType: "application/json",
+        body: JSON.stringify({ detail: "Deliberately unavailable for UI-state verification" }),
+      }));
+      await page.route("**/api/auth/me", (route) => route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ name: "Owner", role: "owner_admin", credits: 120 }),
+      }));
+
+      await page.goto(routeCase.path, { waitUntil: "domcontentloaded", timeout: 15_000 });
+      await expect(page.locator("html")).toHaveAttribute("data-motion", /on|off/, { timeout: 5_000 });
+      await expect(page.getByRole("heading", { level: 1, name: routeCase.heading })).toBeVisible({ timeout: 5_000 });
+      const action = page.getByRole(routeCase.role, { name: routeCase.action }).first();
+      await expect(action).toBeVisible({ timeout: 5_000 });
+      const focusTarget = routeCase.path === "/video-agent" ? page.getByLabel("Describe your video") : action;
+      await focusTarget.focus();
+      await expect(focusTarget).toBeFocused({ timeout: 2_000 });
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(375);
+      await page.close();
+    }
+  });
+
+  test("avatar loading and project empty states remain explicit", async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.route("**/api/auth/me", (route) => route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ name: "Owner", role: "owner_admin", credits: 120 }),
+    }));
+    await page.route("**/api/avatars", async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 2_000));
+      await route.fulfill({ status: 200, contentType: "application/json", body: "[]" });
+    });
+    await page.goto("/avatars", { waitUntil: "domcontentloaded", timeout: 15_000 });
+    await expect(page.getByRole("status", { name: "Loading" })).toBeVisible({ timeout: 1_000 });
+
+    await page.unroute("**/api/avatars");
+    await page.route("**/api/**", (route) => route.fulfill({ status: 200, contentType: "application/json", body: "[]" }));
+    await page.route("**/api/projects", (route) => route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([{ id: "project-long", name: "An exceptionally long documentary production folder name that must remain contained" }]),
+    }));
+    await page.goto("/projects", { waitUntil: "domcontentloaded", timeout: 15_000 });
+    await expect(page.getByText("No videos yet", { exact: true })).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByText("An exceptionally long documentary production folder name that must remain contained", { exact: true })).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(375);
+  });
+});
