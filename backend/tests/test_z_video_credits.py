@@ -48,7 +48,7 @@ def _hdr(uid):
     return {HEADER: uid}
 
 
-def _make_video(client, uid, mode, *, duration=3):
+def _make_video(client, uid, mode, *, duration=3, provider="local_ltx"):
     pid = client.post(
         "/api/projects", json={"name": f"{mode}-proj", "description": None}, headers=_hdr(uid)
     ).json()["id"]
@@ -58,6 +58,7 @@ def _make_video(client, uid, mode, *, duration=3):
         "motion_preset": "slow_zoom",
         "duration_seconds": duration,
         "mode": mode,
+        "provider": provider,
     }
     if mode != "text_to_video":
         body["source_image_url"] = SOURCE
@@ -168,3 +169,19 @@ def test_admin_can_remove_credits_still_works(client):
         json={"user_id": u["id"], "amount": 25, "note": "admin correction"},
     )
     assert _balance(client, u["id"]) == 75
+
+
+def test_h3_is_the_default_for_text_and_image_to_video_and_costs_more():
+    """Without a provider the router picks MiniMax H3 for these modes, which costs CREDITS_PER_H3_VIDEO."""
+    from app import config
+
+    with TestClient(app) as client:
+        u = _user(client, "H3 default user")
+        start = _balance(client, u["id"])
+        pid = client.post("/api/projects", json={"name": "h3 default", "description": None}, headers=_hdr(u["id"])).json()["id"]
+        resp = client.post("/api/videos", json={"project_id": pid, "prompt": "calm sea", "motion_preset": "slow_zoom",
+                                                "duration_seconds": 3, "mode": "text_to_video"}, headers=_hdr(u["id"]))
+        assert resp.status_code == 201, resp.text
+        assert resp.json()["provider"] == "local_h3"
+        _wait(client, u["id"], resp.json()["id"], "completed")
+        assert _balance(client, u["id"]) == start - config.CREDITS_PER_H3_VIDEO

@@ -9,9 +9,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from .config import FRONTEND_ORIGIN, STORAGE_DIR
 from .database import SessionLocal
 from .db_migrate import upgrade_to_head
-from .models import AvatarJob, Movie, TranscriptionJob, VideoGeneration
+from .models import AvatarJob, Movie, TranscriptionJob, VideoGeneration, CinematicProduction
 from .services.private_storage import PublicStorage
 from .routers import cloud_media
+from .routers import music as music_router
+from .routers import music_dub as music_dub_router
+from .routers import director as director_router
+from .routers import voice_studio as voice_studio_router
+from .routers import prompt_assist as prompt_assist_router
+from .routers import studio_extras as studio_extras_router
+from .routers import motion_studio as motion_studio_router
 from .routers import (
     admin,
     assets,
@@ -40,6 +47,7 @@ from .routers import (
     transcriptions,
     users,
     auto_clips as auto_clips_router,
+    captions as captions_router,
     interactive as interactive_router,
     slides as slides_router,
     translate as translate_router,
@@ -73,6 +81,7 @@ def _recover_interrupted_jobs(db) -> None:
         (TranscriptionJob, ("running",)),
         (AvatarJob, ("queued", "running")),
         (Movie, ("rendering",)),
+        (CinematicProduction, ("assembling",)),
     )
     for model, statuses in stuck:
         rows = db.query(model).filter(model.status.in_(statuses)).all()
@@ -105,6 +114,8 @@ async def lifespan(_: FastAPI):
         _recover_interrupted_jobs(db)
     from .services.cloud_media import recover as recover_cloud_jobs
     recover_cloud_jobs()
+    from .services.motion_studio import recover as recover_motion_jobs
+    recover_motion_jobs()
     yield
 
 
@@ -122,6 +133,13 @@ app.add_middleware(
 
 app.mount("/storage", PublicStorage(directory=STORAGE_DIR), name="storage")
 app.include_router(cloud_media.router)
+app.include_router(music_router.router)
+app.include_router(music_dub_router.router)
+app.include_router(director_router.router)
+app.include_router(voice_studio_router.router)
+app.include_router(prompt_assist_router.router)
+app.include_router(studio_extras_router.router)
+app.include_router(motion_studio_router.router)
 
 app.include_router(auth.router)
 app.include_router(users.router)
@@ -141,6 +159,7 @@ app.include_router(movies_router.router)
 app.include_router(speech_cleanup_router.router)
 app.include_router(slides_router.router)
 app.include_router(interactive_router.router)
+app.include_router(captions_router.router)
 app.include_router(translate_router.router)
 app.include_router(voice_library_router.router)
 app.include_router(auto_clips_router.router)

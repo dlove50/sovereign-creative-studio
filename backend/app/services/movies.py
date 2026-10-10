@@ -6,6 +6,7 @@ scene exactly like single videos. One background thread renders movies in order.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import queue
@@ -25,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 ORIENTATION_PRESETS = {"portrait": "portrait_480p", "landscape": "landscape_480p"}
 MAX_SCENES = 30
-SCENE_FIELDS = ("id", "avatar_id", "tts_voice_id", "script")
+SCENE_FIELDS = ("id", "avatar_id", "tts_voice_id", "script", "slide_image_url")
 
 _queue: "queue.Queue[str]" = queue.Queue()
 _worker: threading.Thread | None = None
@@ -56,6 +57,30 @@ def clean_scene(raw: dict) -> dict:
 def cost_estimate(scenes: list[dict]) -> int:
     per_scene = config.CREDITS_PER_VOICE_GENERATION + config.CREDITS_PER_AVATAR_VIDEO
     return per_scene * sum(1 for s in scenes if s.get("script", "").strip())
+
+
+def scene_fingerprint(movie: Movie, scene: dict) -> str:
+    content = {key: scene.get(key) for key in SCENE_FIELDS}
+    content["orientation"] = movie.orientation
+    return hashlib.sha256(json.dumps(content, sort_keys=True).encode()).hexdigest()
+
+
+def completed_scene_clip(db: Session, movie: Movie, scene: dict) -> Path | None:
+    """Reuse only a durable owned result for exactly the same scene inputs."""
+    if scene.get("render_fingerprint") != scene_fingerprint(movie, scene):
+        return None
+    job = db.get(AvatarJob, scene.get("avatar_job_id") or "")
+    if (job is None or job.user_id != movie.user_id or job.status != "completed"
+            or job.avatar_id != scene.get("avatar_id") or job.script_text != scene.get("script")
+            or job.avatar_preset != ORIENTATION_PRESETS.get(movie.orientation, "portrait_480p")
+            or not job.output_video_path):
+        return None
+    path = config.STORAGE_DIR / "avatar_videos" / Path(job.output_video_path).name
+    return path if path.is_file() and path.stat().st_size > 0 else None
+
+
+def remaining_cost(db: Session, movie: Movie, scenes: list[dict]) -> int:
+    return cost_estimate([s for s in scenes if completed_scene_clip(db, movie, s) is None])
 
 
 def enqueue(movie_id: str) -> None:
@@ -115,8 +140,9 @@ def render_movie(movie_id: str) -> None:
         if user is None or not scenes:
             _fail(db, movie, "Add a script to at least one scene.")
             return
-        if user.credits < cost_estimate(scenes):
-            _fail(db, movie, f"Not enough credits: this video needs {cost_estimate(scenes)}.")
+        needed = remaining_cost(db, movie, scenes)
+        if user.credits < needed:
+            _fail(db, movie, f"Not enough credits: the remaining scenes need {needed}.")
             return
         save_scenes(movie, scenes)
         db.commit()
@@ -124,13 +150,19 @@ def render_movie(movie_id: str) -> None:
         preset = ORIENTATION_PRESETS.get(movie.orientation, "portrait_480p")
         clips: list[Path] = []
         for i, scene in enumerate(scenes):
+            completed = completed_scene_clip(db, movie, scene)
+            if completed is not None:
+                _set_scene(db, movie, i, status="completed", error=None)
+                clips.append(completed)
+                continue
             avatar = db.get(AvatarAsset, scene.get("avatar_id") or "")
             if avatar is None or avatar.deleted_at is not None or avatar.user_id != user.id or not avatar.source_file_path:
                 _set_scene(db, movie, i, status="failed", error="Pick an avatar look for this scene.")
                 _fail(db, movie, f"Scene {i + 1} has no avatar look.")
                 return
             try:
-                _set_scene(db, movie, i, status="voice", error=None)
+                _set_scene(db, movie, i, status="voice", error=None,
+                           render_fingerprint=scene_fingerprint(movie, scene))
                 voice = _voice_clip(db, user, scene["script"], scene.get("tts_voice_id"))
                 job = AvatarJob(
                     user_id=user.id, avatar_id=avatar.id, voice_id=voice.id, job_type="avatar_talking",
@@ -154,11 +186,23 @@ def render_movie(movie_id: str) -> None:
             clips.append(config.STORAGE_DIR / "avatar_videos" / Path(job.output_video_path).name)
 
         out = config.STORAGE_DIR / "avatar_videos" / f"movie_{movie.id}_{uuid.uuid4().hex[:8]}.mp4"
+        composed: list[Path] = []
         try:
+            from . import slide_visuals
+            for i, scene in enumerate(scenes):
+                if scene.get("slide_image_url"):
+                    image = slide_visuals.image_path(movie.id, scene["slide_image_url"])
+                    composite = out.with_name(f"slide_{uuid.uuid4().hex}.mp4")
+                    composed.append(composite)
+                    slide_visuals.compose(clips[i], image, composite, movie.orientation)
+                    clips[i] = composite
             join_clips(clips, out)
         except Exception as exc:  # noqa: BLE001
             _fail(db, movie, f"Joining the scenes failed: {exc}")
             return
+        finally:
+            for composite in composed:
+                composite.unlink(missing_ok=True)
         movie.output_video_path = f"/storage/avatar_videos/{out.name}"
         movie.status = "completed"
         movie.error_message = None
@@ -169,6 +213,9 @@ def join_clips(clips: list[Path], out: Path) -> None:
     """Concatenate scene videos (same size/fps from one preset) with their audio."""
     if len(clips) == 1:
         out.write_bytes(clips[0].read_bytes())
+        return
+    from .plex_worker import join_on_plex
+    if join_on_plex(clips, out):
         return
     inputs: list[str] = []
     for clip in clips:

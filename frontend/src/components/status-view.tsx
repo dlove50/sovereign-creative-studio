@@ -39,7 +39,7 @@ export function StatusView() {
   }, []);
 
   return (
-    <div className="max-w-2xl space-y-6">
+    <div className="max-w-3xl space-y-6">
       <div className="flex justify-end">
         <Button
           type="button"
@@ -58,7 +58,7 @@ export function StatusView() {
       </div>
 
       {/* Connection */}
-      <Card>
+      <Card role={conn === "error" ? "alert" : "status"} aria-live="polite">
         <CardContent className="flex items-center gap-4 p-5">
           {conn === "checking" ? (
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -67,7 +67,7 @@ export function StatusView() {
           ) : (
             <XCircle className="h-6 w-6 text-destructive" />
           )}
-          <div>
+          <div className="min-w-0">
             <p className="font-medium">
               {conn === "checking"
                 ? "Checking API connection…"
@@ -75,7 +75,7 @@ export function StatusView() {
                   ? "API connected"
                   : "API not reachable"}
             </p>
-            <p className="text-xs text-muted-foreground">
+            <p className="break-words text-xs leading-relaxed text-muted-foreground">
               {API_BASE}
               {conn === "error" && errorMsg ? ` — ${errorMsg}` : ""}
             </p>
@@ -259,9 +259,9 @@ function Row({
         ? "success"
         : "default";
   return (
-    <div className="flex items-center justify-between gap-4 p-4">
+    <div className="flex flex-col items-start justify-between gap-2 p-4 sm:flex-row sm:items-center sm:gap-4">
       <span className="text-sm text-muted-foreground">{label}</span>
-      <Badge variant={variant} className="font-mono text-xs">
+      <Badge variant={variant} className="max-w-full break-all text-left font-mono text-xs sm:max-w-[60%]">
         {value}
       </Badge>
     </div>

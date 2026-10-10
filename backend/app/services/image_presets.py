@@ -14,7 +14,7 @@ import httpx
 
 from .. import config
 
-DEFAULT_PRESET = "local_fast"
+DEFAULT_PRESET = config.IMAGE_QUALITY_PRESET
 
 
 def _workflow(rel: str) -> Path:
@@ -206,10 +206,10 @@ def workflow_for_preset(preset_id: str | None) -> Path:
 
 
 def _preset_missing(preset: dict, info: dict | None) -> list[str]:
-    if preset.get("always_available"):
-        return []
     if info is None:
         return ["ComfyUI is not reachable"]
+    if preset.get("always_available"):
+        return []
     missing: list[str] = []
     if not _workflow(preset["workflow"]).is_file():
         missing.append(f"workflow {preset['workflow']}")
@@ -224,8 +224,6 @@ def preset_ready(preset_id: str | None) -> bool:
     preset = _PRESET_BY_ID.get(preset_id or DEFAULT_PRESET)
     if preset is None:
         return False
-    if preset.get("always_available"):
-        return True
     return not _preset_missing(preset, _object_info())
 
 
@@ -242,7 +240,7 @@ def list_image_presets() -> list[dict]:
                 "label": preset["label"],
                 "description": preset["description"],
                 "recommended": preset["recommended"],
-                "is_default": preset["is_default"],
+                "is_default": preset["id"] == config.IMAGE_QUALITY_PRESET,
                 "ready": ready,
                 "missing": missing,
                 "detail": "Ready." if ready else detail,

@@ -47,7 +47,8 @@ export function VoiceClonePanel({ onCreated, onClose }: { onCreated: (voiceId: s
       rec.ondataavailable = (e) => chunks.current.push(e.data);
       rec.onstop = () => {
         stream.getTracks().forEach((t) => t.stop());
-        setFile(new File(chunks.current, "recording.webm", { type: "audio/webm" }));
+        const type = rec.mimeType || "audio/webm"; // Safari records MP4/AAC, not WebM
+        setFile(new File(chunks.current, `recording.${type.includes("mp4") ? "m4a" : type.includes("ogg") ? "ogg" : "webm"}`, { type }));
       };
       rec.start();
       recorder.current = rec;

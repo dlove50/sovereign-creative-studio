@@ -18,7 +18,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
 from app.services import cloud_media as cloud
 
 
-def import_archive(archive: Path) -> dict:
+def import_archive(archive: Path, *, source: str = "Official ElevenLabs browser history export") -> dict:
     imported, existing = [], []
     with zipfile.ZipFile(archive) as bundle:
         entries = [entry for entry in bundle.infolist() if not entry.is_dir() and Path(entry.filename).suffix.lower() in {".mp3", ".wav", ".flac", ".ogg", ".m4a"}]
@@ -45,7 +45,7 @@ def import_archive(archive: Path) -> dict:
                 "title": Path(entry.filename.replace("\\", "/")).stem[:120],
                 "status": "completed", "created_at": datetime.now(timezone.utc).isoformat(),
                 "remote_id": None, "files": [filename], "error": None,
-                "fingerprint": digest, "source": "Official ElevenLabs browser history export",
+                "fingerprint": digest, "source": source,
                 "original_filename": entry.filename, "sha256": digest,
             })
             imported.append(job_id)
@@ -55,4 +55,6 @@ def import_archive(archive: Path) -> dict:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("archive", type=Path)
-    print(json.dumps(import_archive(parser.parse_args().archive), indent=2))
+    parser.add_argument("--source", default="Official ElevenLabs browser history export", help="Provenance label for these downloaded recordings")
+    args = parser.parse_args()
+    print(json.dumps(import_archive(args.archive, source=args.source), indent=2))

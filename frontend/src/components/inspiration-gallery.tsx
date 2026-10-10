@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Heart, ImageIcon, Pause, Play, Sparkles } from "lucide-react";
+import { ImageIcon, Pause, Play, Sparkles } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -43,10 +43,9 @@ const IMAGE_TEMPLATES: Card[] = [
 ];
 
 const TABS = [
-  { id: "trending", label: "Trending on TikTok", cards: TRENDING },
+  { id: "trending", label: "Starter ideas", cards: TRENDING },
   { id: "video", label: "Video Templates", cards: VIDEO_TEMPLATES },
   { id: "image", label: "Image Templates", cards: IMAGE_TEMPLATES },
-  { id: "favorites", label: "Favorites", cards: [] as Card[] },
 ] as const;
 
 function ThumbCard({ card }: { card: Card }) {
@@ -108,13 +107,6 @@ function ThumbCard({ card }: { card: Card }) {
             {card.meta}
           </span>
         ) : null}
-        <button
-          type="button"
-          aria-label="Favorite"
-          className="absolute right-2 top-2 hidden rounded-full bg-background/70 p-1 text-muted-foreground hover:text-rose-500 group-hover:block"
-        >
-          <Heart className="h-4 w-4" />
-        </button>
       </div>
       <div className="p-3">
         <p className="truncate text-sm font-medium">{card.title}</p>
@@ -160,8 +152,7 @@ export function InspirationGallery({ preview = false }: { preview?: boolean }) {
       {current.cards.length === 0 ? (
         <div className="flex h-56 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border text-center text-sm text-muted-foreground">
           <Sparkles className="h-7 w-7" />
-          <p className="font-medium text-foreground">No favorites yet</p>
-          <p>Tap the heart on any template to save it here.</p>
+          <p className="font-medium text-foreground">Nothing here yet</p>
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">

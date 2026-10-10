@@ -17,10 +17,11 @@ def test_import_is_local_idempotent_and_does_not_extract_archive_paths(tmp_path,
     with zipfile.ZipFile(archive, "w") as output:
         output.writestr("../../outside.mp3", b"ID3-test-audio")
         output.writestr("readme.txt", "untrusted archive metadata")
-    result = importer.import_archive(archive)
+    result = importer.import_archive(archive, source="Official ElevenLabs Explore sound effects")
     assert len(result["imported"]) == 1
     job = cloud.read(result["imported"][0])
     assert job["operation"] == "imported-audio" and job["status"] == "completed"
+    assert job["source"] == "Official ElevenLabs Explore sound effects"
     assert (cloud.folder(job["id"]) / "output.mp3").read_bytes() == b"ID3-test-audio"
     assert not (tmp_path / "outside.mp3").exists()
     again = importer.import_archive(archive)

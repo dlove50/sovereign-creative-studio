@@ -6,6 +6,8 @@ import { AlertTriangle, Check, KeyRound, Loader2, Plug, Trash2 } from "lucide-re
 import { api } from "@/lib/api";
 import type { IntegrationProvider } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { IntegrationDirectory } from "./integration-directory";
+import { confirmDialog } from "@/components/ui/confirm-host";
 
 const LOCAL_DEFAULTS = [
   { name: "Local ComfyUI / Flux", kind: "Images & product scenes", detail: "Default local/private image engine." },
@@ -79,9 +81,9 @@ export function AdminIntegrationsView() {
   return (
     <div className="space-y-6">
       <div className="flex items-start gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 p-4 text-sm">
-        <AlertTriangle className="mt-0.5 h-5 w-5 text-amber-600 dark:text-amber-400" />
+        <AlertTriangle className="mt-0.5 h-5 w-5 text-amber-400" />
         <div>
-          <p className="font-semibold text-amber-700 dark:text-amber-300">
+          <p className="font-semibold text-amber-300">
             Local models stay the default. These are optional premium providers.
           </p>
           <p className="text-muted-foreground">
@@ -104,7 +106,7 @@ export function AdminIntegrationsView() {
             <div key={d.name} className="rounded-xl border border-border bg-card p-4">
               <div className="flex items-center justify-between">
                 <p className="text-sm font-medium">{d.name}</p>
-                <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
+                <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-medium text-emerald-400">
                   Local default
                 </span>
               </div>
@@ -139,7 +141,7 @@ export function AdminIntegrationsView() {
                   className={cn(
                     "rounded-full px-2 py-0.5 font-medium",
                     p.configured
-                      ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                      ? "bg-emerald-500/15 text-emerald-400"
                       : "bg-muted text-muted-foreground",
                   )}
                 >
@@ -227,7 +229,7 @@ export function AdminIntegrationsView() {
                 <button
                   type="button"
                   disabled={busy === p.id || !p.configured}
-                  onClick={() => run(p.id, () => api.deleteIntegrationKey(p.id))}
+                  onClick={async () => { if (await confirmDialog("Delete the saved key for this service? You will need to enter it again to use the service.")) run(p.id, () => api.deleteIntegrationKey(p.id)); }}
                   className="inline-flex items-center gap-1 rounded-md border border-border px-3 py-1.5 text-sm text-destructive hover:bg-muted disabled:opacity-50"
                 >
                   <Trash2 className="h-4 w-4" /> Delete key
@@ -241,6 +243,7 @@ export function AdminIntegrationsView() {
           ))}
         </div>
       </section>
+      <IntegrationDirectory />
     </div>
   );
 }

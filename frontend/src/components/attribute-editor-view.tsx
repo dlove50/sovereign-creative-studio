@@ -10,6 +10,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { safeInterval } from "@/lib/safe-interval";
 
 type MaskSource = "auto" | "manual" | "existing";
 type Route = "human-parse" | "groundingdino-sam" | "manual-mask";
@@ -143,14 +144,14 @@ export function AttributeEditorView() {
     }
     const unique = Array.from(new Map(active.map((s) => [s.id, s])).values());
     if (unique.length === 0) return;
-    const poll = window.setInterval(async () => {
+    const poll = safeInterval(async () => {
       const updates = await Promise.all(unique.map((s) => api.getProductScene(s.id)));
       setScenes((cur) => cur.map((s) => updates.find((u) => u.id === s.id) ?? s));
       setLatest((cur) =>
         cur ? updates.find((u) => u.id === cur.id) ?? cur : cur,
       );
     }, 2500);
-    return () => window.clearInterval(poll);
+    return poll;
   }, [latest, attributeScenes]);
 
   const activeJob = latest?.status === "queued" || latest?.status === "running";
@@ -384,7 +385,7 @@ export function AttributeEditorView() {
           </div>
 
           {isShirt ? (
-            <p className="rounded-md bg-amber-500/15 px-3 py-2 text-xs text-amber-600 dark:text-amber-400">
+            <p className="rounded-md bg-amber-500/15 px-3 py-2 text-xs text-amber-400">
               If the shirt overlaps with a jacket, automatic segmentation may not isolate it. Use a manual mask for best results.
             </p>
           ) : null}
@@ -463,7 +464,7 @@ export function AttributeEditorView() {
             </p>
           ) : null}
           {previewNote ? (
-            <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">{previewNote}</p>
+            <p className="mt-2 text-xs text-amber-400">{previewNote}</p>
           ) : null}
           {latest ? (
             <div className="mt-4">

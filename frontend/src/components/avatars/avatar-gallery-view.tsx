@@ -1,15 +1,21 @@
 "use client";
+import { EmptyState } from "@/components/ui/empty-state";
+import { SkeletonGrid } from "@/components/ui/skeleton";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { LayoutGrid, List, Search, UserPlus, UserRound, Video } from "lucide-react";
+import { LayoutGrid, List, Search, UserPlus, UserSquare } from "lucide-react";
 
 import { api, assetUrl } from "@/lib/api";
+import { useStaggerIn } from "@/components/motion/use-motion";
 import type { AvatarAsset } from "@/lib/types";
-import { LOOK_TEMPLATES } from "@/lib/look-templates";
 import { cn } from "@/lib/utils";
 import { AvatarMenu, FavoriteButton } from "./avatar-actions";
+import { PublicAvatars } from "./public-avatars";
+import { AvatarPreview } from "./avatar-preview";
+import { CategoryAvatars } from "./category-avatars";
+import { LOOK_CATEGORIES } from "@/lib/look-templates";
+import { PageHeader } from "@/components/page-header";
 
 export type AvatarGroup = { base: AvatarAsset; looks: AvatarAsset[] };
 
@@ -20,17 +26,7 @@ export function groupAvatars(avatars: AvatarAsset[]): AvatarGroup[] {
 
 function Thumb({ avatar, className }: { avatar?: AvatarAsset; className?: string }) {
   const src = avatar?.thumbnail_path ? assetUrl(avatar.thumbnail_path) : null;
-  return (
-    <div className={cn("flex items-center justify-center overflow-hidden bg-raised", className)}>
-      {src ? (
-        <img src={src} alt="" className="h-full w-full object-cover" />
-      ) : avatar?.avatar_type === "video_avatar" ? (
-        <Video className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
-      ) : (
-        <UserRound className="h-5 w-5 text-muted-foreground/60" aria-hidden="true" />
-      )}
-    </div>
-  );
+  return <AvatarPreview image={src} video={avatar?.avatar_type === "video_avatar" ? assetUrl(avatar.source_file_path) : null} label={avatar?.look_label || avatar?.name || "Additional look"} className={className} />;
 }
 
 function GroupCard({ group, list, onChanged }: { group: AvatarGroup; list: boolean; onChanged: () => void }) {
@@ -40,7 +36,7 @@ function GroupCard({ group, list, onChanged }: { group: AvatarGroup; list: boole
       <Link href={`/avatars/${group.base.id}`} className="flex items-center gap-4 rounded-2xl border border-border bg-card/60 p-3 hover:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
         <Thumb avatar={group.base} className="h-16 w-16 shrink-0 rounded-xl" />
         <span className="min-w-0 flex-1">
-          <span className="block truncate font-semibold">{group.base.name}</span>
+          <span className="block truncate font-semibold text-foreground">{group.base.name}</span>
           <span className="text-sm text-muted-foreground">{group.looks.length + 1} looks</span>
         </span>
       </Link>
@@ -58,7 +54,7 @@ function GroupCard({ group, list, onChanged }: { group: AvatarGroup; list: boole
         </div>
       </Link>
       <div className="mt-2.5 flex items-center gap-1">
-        <Link href={`/avatars/${group.base.id}`} className="min-w-0 flex-1 truncate font-semibold focus-visible:outline-none focus-visible:underline">{group.base.name}</Link>
+        <Link href={`/avatars/${group.base.id}`} className="min-w-0 flex-1 truncate font-semibold text-foreground focus-visible:outline-none focus-visible:underline">{group.base.name}</Link>
         <span className="flex items-center opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 [&:has([aria-pressed=true])]:opacity-100">
           <AvatarMenu avatar={group.base} lookCount={group.looks.length + 1} onRenamed={onChanged} onDeleted={onChanged} />
           <FavoriteButton avatar={group.base} onChanged={onChanged} />
@@ -72,49 +68,11 @@ function NewAvatarButton() {
   return (
     <Link
       href="/avatars/new"
-      className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       <UserPlus className="h-4 w-4" />
       New avatar
     </Link>
-  );
-}
-
-function PublicAvatars({ onAdopted }: { onAdopted: () => Promise<void> }) {
-  const [busy, setBusy] = useState<string | null>(null);
-  const router = useRouter();
-  async function adopt(id: string, name: string, cover: string) {
-    setBusy(id);
-    try {
-      const blob = await fetch(cover).then((r) => r.blob());
-      const form = new FormData();
-      form.append("file", new File([blob], `${id}.webp`, { type: "image/webp" }));
-      form.append("name", name);
-      const created = await api.createPhotoAvatar(form);
-      await onAdopted();
-      router.push(`/avatars/${created.id}`);
-    } finally {
-      setBusy(null);
-    }
-  }
-  return (
-    <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-      {LOOK_TEMPLATES.map((t) => (
-        <li key={t.id}>
-          <button
-            type="button"
-            onClick={() => adopt(t.id, `${t.name} presenter`, t.cover)}
-            disabled={busy !== null}
-            className="group relative block w-full overflow-hidden rounded-2xl border border-border text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <img src={t.cover} alt="" className="aspect-[3/4] w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]" />
-            <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-3 text-sm font-semibold text-white">
-              {busy === t.id ? "Adding…" : `${t.name} presenter`}
-            </span>
-          </button>
-        </li>
-      ))}
-    </ul>
   );
 }
 
@@ -123,6 +81,7 @@ export function AvatarGalleryView() {
   const [tab, setTab] = useState<"mine" | "public">("mine");
   const [query, setQuery] = useState("");
   const [list, setList] = useState(false);
+  const [category, setCategory] = useState("All");
 
   const refresh = useCallback(async () => setAvatars(await api.listAvatars()), []);
   useEffect(() => {
@@ -131,11 +90,15 @@ export function AvatarGalleryView() {
 
   const groups = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return groupAvatars(avatars ?? []).filter((g) => !q || g.base.name.toLowerCase().includes(q));
-  }, [avatars, query]);
+    return groupAvatars(avatars ?? []).filter((g) => (!q || g.base.name.toLowerCase().includes(q)) && (category !== "Look Packs" || g.looks.length >= 2));
+  }, [avatars, query, category]);
+
+  const grid = useRef<HTMLUListElement>(null);
+  useStaggerIn(grid, groups.length);
 
   return (
     <div className="mx-auto max-w-[1120px]">
+      <PageHeader title="Avatars" description="Manage your digital presenters, reusable looks, and public avatar collections." />
       <div className="flex flex-wrap items-end justify-between gap-4 border-b border-border">
         <div role="tablist" aria-label="Avatar collections" className="flex gap-6">
           {(["mine", "public"] as const).map((id) => (
@@ -146,7 +109,7 @@ export function AvatarGalleryView() {
               aria-selected={tab === id}
               onClick={() => setTab(id)}
               className={cn(
-                "-mb-px border-b-[3px] pb-2.5 text-[15px] font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                "-mb-px min-h-11 border-b-[3px] px-1 pb-2.5 text-[15px] font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                 tab === id ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground",
               )}
             >
@@ -160,28 +123,28 @@ export function AvatarGalleryView() {
       {tab === "mine" ? (
         <>
           <div className="mt-5 flex items-center gap-3">
-            <label className="flex flex-1 items-center gap-2 rounded-full border border-border bg-card/60 px-4 py-2">
+            <label className="flex min-h-11 flex-1 items-center gap-2 rounded-xl border border-border bg-card/60 px-4 py-2 focus-within:ring-2 focus-within:ring-ring">
               <Search className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
               <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search" aria-label="Search avatars" className="w-full bg-transparent text-sm placeholder:text-muted-foreground focus:outline-none" />
             </label>
             <div className="flex rounded-full border border-border bg-card/60 p-1" role="group" aria-label="Layout">
-              <button type="button" onClick={() => setList(false)} aria-pressed={!list} className={cn("flex items-center gap-1.5 rounded-full px-3 py-1 text-xs", !list ? "bg-raised text-foreground" : "text-muted-foreground")}>
+              <button type="button" onClick={() => setList(false)} aria-pressed={!list} className={cn("flex min-h-11 items-center gap-1.5 rounded-full px-3 py-1 text-xs", !list ? "bg-raised text-foreground" : "text-muted-foreground")}>
                 <LayoutGrid className="h-3.5 w-3.5" /> Grid
               </button>
-              <button type="button" onClick={() => setList(true)} aria-pressed={list} className={cn("flex items-center gap-1.5 rounded-full px-3 py-1 text-xs", list ? "bg-raised text-foreground" : "text-muted-foreground")}>
+              <button type="button" onClick={() => setList(true)} aria-pressed={list} className={cn("flex min-h-11 items-center gap-1.5 rounded-full px-3 py-1 text-xs", list ? "bg-raised text-foreground" : "text-muted-foreground")}>
                 <List className="h-3.5 w-3.5" /> List
               </button>
             </div>
           </div>
-          {avatars === null ? (
-            <p className="py-16 text-center text-sm text-muted-foreground">Loading your avatars…</p>
+          <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label="Avatar styles">
+            {["All", "Look Packs", ...LOOK_CATEGORIES].map(c => <button key={c} type="button" aria-pressed={category === c} onClick={() => setCategory(c)} className={cn("min-h-11 rounded-full border px-3 py-1.5 text-sm focus-visible:ring-2 focus-visible:ring-ring", category === c ? "border-primary bg-primary/15 text-foreground" : "border-border bg-card text-foreground hover:bg-raised")}>{c}</button>)}
+          </div>
+          {category !== "All" && category !== "Look Packs" ? <CategoryAvatars category={category} query={query} /> : avatars === null ? (
+            <SkeletonGrid count={8} aspect="aspect-[3/4]" className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4" />
           ) : groups.length === 0 ? (
-            <div className="py-16 text-center">
-              <p className="text-base font-semibold">{query ? `No avatars match “${query}”.` : "No avatars yet."}</p>
-              <p className="mt-1 text-sm text-muted-foreground">Use New avatar to upload a photo, or pick one from Public avatars.</p>
-            </div>
+            <EmptyState icon={UserSquare} title={query ? `No avatars match “${query}”.` : "No avatars yet"} body="Use New avatar to upload a photo, or pick one from Public avatars." />
           ) : (
-            <ul className={cn("mt-6 grid gap-x-5 gap-y-7", list ? "grid-cols-1 md:grid-cols-2" : "sm:grid-cols-2")}>
+            <ul ref={grid} className={cn("mt-6 grid gap-x-5 gap-y-7", list ? "grid-cols-1 md:grid-cols-2" : "sm:grid-cols-2")}>
               {groups.map((g) => (
                 <li key={g.base.id}><GroupCard group={g} list={list} onChanged={() => void refresh()} /></li>
               ))}
@@ -190,7 +153,7 @@ export function AvatarGalleryView() {
         </>
       ) : (
         <div className="mt-6">
-          <p className="mb-4 text-sm text-muted-foreground">AI-generated presenters you can use as your own. Picking one adds a copy to My avatars.</p>
+          <p className="mb-4 text-sm text-muted-foreground">Browse a presenter’s looks, then add the collection to My avatars.</p>
           <PublicAvatars onAdopted={refresh} />
         </div>
       )}

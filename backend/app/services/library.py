@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 
 from ..models import (
     AvatarJob,
+    AvatarAsset,
     CampaignBundle,
     CopyGeneration,
     Generation,
@@ -268,6 +269,22 @@ def build_library_items(
                     source_entity_type="avatar_job",
                 )
             )
+        # Owned photo avatars and alternate looks are usable image assets too.
+        # They have no project association; keep them out of project-only views.
+        for avatar in db.scalars(select(AvatarAsset).where(
+            AvatarAsset.user_id == user.id, AvatarAsset.deleted_at.is_(None),
+            AvatarAsset.avatar_type == "photo_avatar", AvatarAsset.status == "ready",
+            AvatarAsset.source_file_path.is_not(None),
+        )).all():
+            if not avatar.source_file_path or not avatar.source_file_path.strip():
+                continue
+            items.append(LibraryItemOut(
+                id=f"avatar_image:{avatar.id}", type="image", project_id=None, project_name=None,
+                title=avatar.name, description=avatar.look_label or "Avatar image",
+                status="completed", thumbnail_url=avatar.thumbnail_path or avatar.source_file_path,
+                asset_url=avatar.source_file_path, download_url=avatar.source_file_path,
+                created_at=avatar.created_at, source_entity_id=avatar.id, source_entity_type="avatar_asset",
+            ))
         # Stored voice samples appear once present (uploaded/generated).
         for voice in db.scalars(
             select(VoiceAsset).where(

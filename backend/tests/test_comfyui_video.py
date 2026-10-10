@@ -387,6 +387,8 @@ def test_comfyui_output_validation_rejects_frame_empty_mp4(tmp_path):
 
 
 def test_comfyui_video_upscale_uploads_video_injects_and_saves(monkeypatch, tmp_path):
+    from types import SimpleNamespace
+    monkeypatch.setattr(video_mod.subprocess, "run", lambda *a, **kw: SimpleNamespace(stdout='{"streams":[{"duration":"2.44","nb_read_frames":"61"}]}'))
     _reset_fake_client()
     _skip_output_validation(monkeypatch)
     monkeypatch.setattr(video_mod.httpx, "AsyncClient", _FakeAsyncClient)
@@ -423,6 +425,9 @@ def test_comfyui_video_upscale_uploads_video_injects_and_saves(monkeypatch, tmp_
     workflow_text = str(posted)
     assert posted["2"]["class_type"] == "LoadVideo"
     assert posted["6"]["class_type"] == "LTXVLatentUpsampler"
+    assert posted["upscale_repeat"]["inputs"]["amount"] == 4
+    assert posted["upscale_trim"]["inputs"]["length"] == 61
+    assert posted["8"]["inputs"]["audio"] == ["3", 1]
     assert "video_input.png" in workflow_text
     assert "ltx-2.3-22b-dev-fp8.safetensors" in workflow_text
     assert "ltx-2.3-spatial-upscaler-x2-1.1.safetensors" in workflow_text
@@ -437,6 +442,21 @@ def test_comfyui_video_upscale_uploads_video_injects_and_saves(monkeypatch, tmp_
         ("GET", "/history/vid-123"),
         ("GET", "/view"),
     ]
+
+
+@pytest.mark.parametrize("frames,padding", [(1, 0), (57, 0), (61, 4), (64, 1), (65, 0)])
+def test_upscale_temporal_padding_preserves_original_count(frames, padding):
+    import json
+    workflow = json.loads(UPSCALE_WORKFLOW.read_text())
+    ComfyUIVideoGenerator._preserve_upscale_frames(workflow, frames)
+    assert workflow["upscale_trim"]["inputs"]["length"] == frames
+    assert (frames + padding - 1) % 8 == 0
+    if padding:
+        assert workflow["upscale_repeat"]["inputs"]["amount"] == padding
+        assert workflow["4"]["inputs"]["pixels"] == ["upscale_pad", 0]
+    else:
+        assert "upscale_repeat" not in workflow
+        assert workflow["4"]["inputs"]["pixels"] == ["3", 0]
 
 
 def test_comfyui_video_upscale_requires_upscale_model(tmp_path):
@@ -514,6 +534,8 @@ def test_comfyui_video_upscale_rejects_ui_format_workflow(tmp_path):
 
 
 def test_comfyui_video_to_video_uploads_video_injects_and_saves(monkeypatch, tmp_path):
+    from types import SimpleNamespace
+    monkeypatch.setattr(video_mod.subprocess, "run", lambda *a, **kw: SimpleNamespace(stdout='{"streams":[{"duration":"1.0"}]}'))
     _reset_fake_client()
     _skip_output_validation(monkeypatch)
     monkeypatch.setattr(video_mod.httpx, "AsyncClient", _FakeAsyncClient)
@@ -625,6 +647,14 @@ def test_comfyui_video_extension_uploads_video_extends_and_saves(monkeypatch, tm
     monkeypatch.setattr(video_mod, "STORAGE_DIR", tmp_path)
     monkeypatch.setattr(video_mod, "_POLL_INTERVAL_SECONDS", 0)
 
+    def assemble(source, continuation, destination):
+        assert source.read_bytes() == _VIDEO_SOURCE_BYTES
+        assert continuation.read_bytes() == _VIDEO_BYTES
+        destination.write_bytes(b"assembled-original-and-continuation")
+        return 10.0
+
+    monkeypatch.setattr(video_mod, "append_continuation", assemble)
+
     source_url = _make_video_source(tmp_path)
     gen = ComfyUIVideoGenerator(
         "http://comfy.local:8188/",
@@ -648,7 +678,7 @@ def test_comfyui_video_extension_uploads_video_extends_and_saves(monkeypatch, tm
     )
 
     assert result.result_url == "/storage/videos/ext-video.mp4"
-    assert (tmp_path / "videos" / "ext-video.mp4").read_bytes() == _VIDEO_BYTES
+    assert (tmp_path / "videos" / "ext-video.mp4").read_bytes() == b"assembled-original-and-continuation"
 
     assert _FakeAsyncClient.last_upload_files["image"][0] == "source.mp4"
     assert _FakeAsyncClient.last_upload_files["image"][1] == _VIDEO_SOURCE_BYTES
@@ -998,3 +1028,12 @@ def test_video_factory_falls_back_to_mock(monkeypatch):
     assert isinstance(video_generators.get_video_generator(), MockVideoGenerator)
     monkeypatch.setattr(video_generators, "VIDEO_BACKEND", "banana")
     assert isinstance(video_generators.get_video_generator(), MockVideoGenerator)
+
+
+def test_video_output_ignores_loader_input_before_saved_output():
+    saved = {"filename": "result.mp4", "subfolder": "", "type": "output"}
+    outputs = {
+        "loader": {"videos": [{"filename": "source.mp4", "type": "input"}]},
+        "save": {"videos": [saved]},
+    }
+    assert ComfyUIVideoGenerator._first_video_output(outputs) == saved

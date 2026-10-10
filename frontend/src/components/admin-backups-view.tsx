@@ -8,6 +8,7 @@ import { api } from "@/lib/api";
 import type { Backup } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { confirmDialog } from "@/components/ui/confirm-host";
 
 function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -54,6 +55,7 @@ export function AdminBackupsView() {
   }
 
   async function remove(id: string) {
+    if (!await confirmDialog("Delete this backup? You will not be able to restore from it afterwards.")) return;
     setBusyId(id);
     setError(null);
     try {
@@ -96,9 +98,9 @@ export function AdminBackupsView() {
       </div>
 
       <div className="flex items-start gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 p-4">
-        <ShieldAlert className="mt-0.5 h-5 w-5 text-amber-600 dark:text-amber-400" />
+        <ShieldAlert className="mt-0.5 h-5 w-5 text-amber-400" />
         <div className="text-sm">
-          <p className="font-semibold text-amber-700 dark:text-amber-300">
+          <p className="font-semibold text-amber-300">
             Restore is manual for safety. Do not overwrite the live database while the app is running.
           </p>
           <p className="text-muted-foreground">

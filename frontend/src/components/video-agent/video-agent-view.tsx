@@ -1,10 +1,13 @@
 "use client";
 
+import { PromptAssist } from "@/components/prompt-assist/prompt-assist";
+
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { Check, ChevronRight, Clock, Loader2, Mic, Palette, Paperclip, PenLine, Sparkles, UserRound, X } from "lucide-react";
+import { Captions, Check, ChevronRight, Clock, Loader2, Monitor, Mic, Palette, Paperclip, PenLine, Sparkles, UserRound, X } from "lucide-react";
 
 import { defaultVoiceFor } from "@/lib/avatar-voice";
+import { CaptionedVideo } from "@/components/media/captioned-video";
 import { api, assetUrl } from "@/lib/api";
 import type { AvatarAsset, AvatarJob, BrandKit, VoiceOption } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -91,6 +94,8 @@ export function VideoAgentView() {
   const [voiceId, setVoiceId] = useState("");
   const [seconds, setSeconds] = useState<number>(30);
   const [instructions, setInstructions] = useState("");
+  const [shape, setShape] = useState<"auto" | "portrait" | "landscape">("auto");
+  const [captionsOn, setCaptionsOn] = useState(true);
   const [knowledge, setKnowledge] = useState<{ name: string; text: string }[]>([]);
   const [knowledgeError, setKnowledgeError] = useState<string | null>(null);
   const knowledgeInput = useRef<HTMLInputElement>(null);
@@ -148,7 +153,7 @@ export function VideoAgentView() {
       } catch { /* keep polling through brief hiccups */ }
     }, POLL_MS);
     return () => clearInterval(timer);
-  }, [stage, job]);
+  }, [stage, job?.id]);
 
   const avatar = avatars.find((a) => a.id === avatarId);
   const words = script.split(/\s+/).filter(Boolean).length;
@@ -163,7 +168,7 @@ export function VideoAgentView() {
       setStage("voice");
       const voice = await api.generateVoiceGreeting({ script_text: text, tts_voice_id: voiceId || undefined });
       setStage("video");
-      setJob(await api.createTalkingAvatar({ avatar_id: avatarId, voice_id: voice.id, script_text: text }));
+      setJob(await api.createTalkingAvatar({ avatar_id: avatarId, voice_id: voice.id, script_text: text, ...(shape === "auto" ? {} : { avatar_preset: `${shape}_480p` }) }));
     } catch (e) {
       setError(e instanceof Error ? e.message : "The video could not be started.");
       setStage("failed");
@@ -216,9 +221,11 @@ export function VideoAgentView() {
 
   return (
     <div className="mx-auto max-w-[1040px]">
-      <h1 className="pt-6 text-center text-4xl font-extrabold tracking-[-0.03em]">What do you want to create?</h1>
+      <h1 className="pt-4 text-center text-3xl font-extrabold tracking-[-0.035em] [overflow-wrap:anywhere] sm:pt-6 sm:text-4xl">What do you want to create?</h1>
+      <p className="mx-auto mt-3 max-w-2xl text-center text-sm text-muted-foreground">Describe the outcome and let Sovereign assemble the script, voice, and visual direction.</p>
+      <p className="mt-3 text-center"><Link href="/cinematic-planner" className="inline-flex min-h-11 items-center text-primary underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Plan a cinematic story with characters and multiple shots</Link></p>
 
-      <section className="mt-7 rounded-3xl border border-primary/40 bg-card/70 p-4 shadow-[0_0_40px_hsl(var(--primary)/0.12)]">
+      <section className="mt-7 rounded-3xl border border-primary/40 bg-card/70 p-4 shadow-elevated sm:p-5">
         <div className="flex flex-wrap gap-2">
           <Chip icon={UserRound} label="Avatar">
             <select value={avatarId} onChange={(e) => setAvatarId(e.target.value)} className={selectClass} aria-label="Avatar">
@@ -237,6 +244,19 @@ export function VideoAgentView() {
               {brands.map((b) => <option key={b.id} value={b.id}>{b.kit.brand_name || b.name}</option>)}
             </select>
           </Chip>
+          <Chip icon={Monitor} label="Shape">
+            <select value={shape} onChange={(e) => setShape(e.target.value as typeof shape)} className={selectClass} aria-label="Shape">
+              <option value="auto">Auto</option>
+              <option value="portrait">Portrait 9:16</option>
+              <option value="landscape">Landscape 16:9</option>
+            </select>
+          </Chip>
+          <Chip icon={Captions} label="Captions">
+            <select value={captionsOn ? "on" : "off"} onChange={(e) => setCaptionsOn(e.target.value === "on")} className={selectClass} aria-label="Captions">
+              <option value="on">On</option>
+              <option value="off">Off</option>
+            </select>
+          </Chip>
           <Chip icon={Clock} label="Length">
             <select value={seconds} onChange={(e) => setSeconds(Number(e.target.value))} className={selectClass} aria-label="Length">
               {LENGTHS.map((s) => <option key={s} value={s}>{s} seconds</option>)}
@@ -244,8 +264,8 @@ export function VideoAgentView() {
           </Chip>
         </div>
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          <input value={instructions} onChange={(e) => setInstructions(e.target.value.slice(0, 500))} aria-label="Instructions" placeholder="Instructions (optional): tone, must-include points, things to avoid" className="h-9 min-w-[240px] flex-1 rounded-full border border-border bg-background px-4 text-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
-          <button type="button" onClick={() => knowledgeInput.current?.click()} disabled={knowledge.length >= 3} className="inline-flex h-9 items-center gap-1.5 rounded-full border border-border px-3 text-xs hover:bg-raised disabled:opacity-50">
+          <input value={instructions} onChange={(e) => setInstructions(e.target.value.slice(0, 500))} aria-label="Instructions" placeholder="Instructions (optional): tone, must-include points, things to avoid" className="h-11 min-w-0 flex-1 rounded-xl border border-border bg-subdued px-4 text-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:min-w-[240px]" />
+          <button type="button" onClick={() => knowledgeInput.current?.click()} disabled={knowledge.length >= 3} className="inline-flex h-11 items-center gap-1.5 rounded-xl border border-border px-3 text-xs hover:bg-raised disabled:opacity-50">
             <Paperclip className="h-3.5 w-3.5" /> Add knowledge
           </button>
           <input ref={knowledgeInput} type="file" accept=".pdf,.pptx,.txt,.md" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) void addKnowledge(f); }} />
@@ -267,8 +287,9 @@ export function VideoAgentView() {
           placeholder="Describe the video you want: the topic, who it's for, and the feeling. I'll write the script."
           className="mt-3 w-full resize-none bg-transparent text-[15px] placeholder:text-muted-foreground/70 focus:outline-none"
         />
+          <PromptAssist value={prompt} onChange={(t) => setPrompt(t.slice(0, 2000))} kind="story" context="Video agent: what the video is about" className="mt-2" />
         <div className="flex items-center justify-end gap-2">
-          <select value={mode} onChange={(e) => setMode(e.target.value as Mode)} aria-label="Mode" className="h-9 rounded-full border border-border bg-background px-3 text-xs">
+          <select value={mode} onChange={(e) => setMode(e.target.value as Mode)} aria-label="Mode" className="h-11 rounded-xl border border-border bg-subdued px-3 text-xs">
             <option value="review">Review script first</option>
             <option value="autopilot">Auto-pilot</option>
           </select>
@@ -276,7 +297,7 @@ export function VideoAgentView() {
             type="button"
             onClick={submit}
             disabled={busy || !prompt.trim()}
-            className="inline-flex h-9 items-center gap-2 rounded-full bg-primary px-5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+            className="inline-flex h-11 items-center gap-2 rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             {stage === "writing" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
             Submit
@@ -323,6 +344,7 @@ export function VideoAgentView() {
                 maxLength={2000}
                 className="mt-1.5 w-full rounded-2xl border border-border bg-background/60 px-4 py-3 text-[15px] leading-relaxed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               />
+                {stage === "review" ? <PromptAssist value={script} onChange={(t) => setScript(t.slice(0, 2000))} kind="narration" context="Video agent narration script" className="mt-2" /> : null}
               {stage === "review" ? (
                 <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
                   <span className="text-xs text-muted-foreground">Rendering takes about {estMinutes} min on your GPU.</span>
@@ -344,12 +366,10 @@ export function VideoAgentView() {
             </p>
           ) : null}
           {stage === "done" && job?.output_video_path ? (
-            <div className="mt-4 flex flex-wrap items-end gap-4">
-              <video controls src={assetUrl(job.output_video_path) ?? undefined} className="max-h-[480px] rounded-2xl border border-border" />
-              <span className="flex flex-col gap-2">
-                <a href={assetUrl(job.output_video_path) ?? "#"} download className="rounded-full bg-primary px-5 py-2 text-center text-sm font-semibold text-primary-foreground">Download video</a>
+            <div className="mt-4">
+              <CaptionedVideo src={job.output_video_path} auto={captionsOn} className="max-h-[480px]">
                 <Link href="/avatars/create" className="rounded-full border border-border px-5 py-2 text-center text-sm hover:bg-raised">Fine-tune in Make a video</Link>
-              </span>
+              </CaptionedVideo>
             </div>
           ) : null}
           {stage === "failed" && error ? <p className="mt-4 rounded-xl bg-destructive/15 px-3 py-2 text-sm text-destructive">{error}</p> : null}

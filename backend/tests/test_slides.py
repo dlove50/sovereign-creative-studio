@@ -93,9 +93,10 @@ def test_build_scripts_skips_blank_slides_and_survives_a_failed_rewrite(monkeypa
 def test_upload_creates_a_draft_movie_with_one_scene_per_slide(monkeypatch):
     with TestClient(app) as c:
         assert c.post("/api/auth/signup", json={"username": "slides_user", "password": "slidespass1", "name": "S"}).status_code == 201
+        avatar_id = c.post("/api/avatars/photo", data={"name": "Presenter"}, files={"file": ("p.png", b"\x89PNG\r\n\x1a\nfake", "image/png")}).json()["id"]
         buf = io.BytesIO()
         _pptx(buf, [["Alpha"], ["Beta"], []])
-        r = c.post("/api/slides/to-movie", data={"avatar_id": "a1", "rewrite": "false"},
+        r = c.post("/api/slides/to-movie", data={"avatar_id": avatar_id, "rewrite": "false"},
                    files={"file": ("My Deck.pptx", buf.getvalue())})
         assert r.status_code == 201, r.text
         body = r.json()
@@ -104,6 +105,54 @@ def test_upload_creates_a_draft_movie_with_one_scene_per_slide(monkeypatch):
         assert movie["title"] == "My Deck" and movie["status"] == "draft"
         assert [s["script"] for s in movie["scenes"]] == ["Alpha", "Beta"]
         assert c.post("/api/slides/to-movie", data={"avatar_id": "a1"}, files={"file": ("x.txt", b"hi")}).status_code == 400
+
+
+def test_pdf_visuals_keep_blank_pages_and_are_movie_owned():
+    with TestClient(app) as c:
+        c.post("/api/auth/signup", json={"username": "slide_visual_owner", "password": "slidespass1", "name": "S"})
+        avatar = c.post("/api/avatars/photo", data={"name": "Presenter"}, files={"file": ("p.png", b"\x89PNG\r\n\x1a\nfake", "image/png")}).json()["id"]
+        response = c.post("/api/slides/to-movie", data={"avatar_id": avatar, "rewrite": "false"}, files={"file": ("Visual.pdf", _pdf_bytes(["First", "", "Third"]))})
+        assert response.status_code == 201, response.text
+        result = response.json()
+        assert result["scenes"] == 3 and any("Slide 2" in w and "retained" in w for w in result["warnings"])
+        movie = c.get(f"/api/movies/{result['movie_id']}").json()
+        assert [s["script"] for s in movie["scenes"]] == ["First", "", "Third"]
+        image_url = movie["scenes"][0]["slide_image_url"]
+        assert c.get(image_url).content.startswith(b"\x89PNG")
+        public_url = f"/storage/movie_slides/{movie['id']}/slide-1.png"
+        assert c.get(public_url).status_code == 404
+        saved = c.put(f"/api/movies/{movie['id']}", json={"scenes": movie["scenes"]})
+        assert saved.status_code == 200 and saved.json()["scenes"][0]["slide_image_url"] == image_url
+        with TestClient(app) as other:
+            other.post("/api/auth/signup", json={"username": "slide_visual_other", "password": "slidespass1", "name": "O"})
+            assert other.get(image_url).status_code == 404
+            foreign = other.post("/api/movies", json={}).json()
+            assert other.put(f"/api/movies/{foreign['id']}", json={"scenes": movie["scenes"]}).status_code == 422
+            assert other.post("/api/slides/to-movie", data={"avatar_id": avatar, "rewrite": "false"}, files={"file": ("Foreign.pdf", _pdf_bytes(["Text"]))}).status_code == 404
+
+
+@pytest.mark.parametrize("orientation,size", [("landscape", (832, 480)), ("portrait", (480, 832))])
+def test_pdf_page_composes_with_presenter_and_preserves_audio(tmp_path, orientation, size):
+    import json
+    import shutil
+    import subprocess
+    from app.services import avatar_comfyui, slide_visuals
+    ffmpeg = avatar_comfyui._ffmpeg()
+    if not ffmpeg:
+        pytest.skip("FFmpeg unavailable")
+    source = tmp_path / "deck.pdf"
+    source.write_bytes(_pdf_bytes(["Visible slide"]))
+    image = slide_visuals.page_images(source, tmp_path / "pages", 1)[0]
+    clip, output = tmp_path / "presenter.mp4", tmp_path / "composed.mp4"
+    subprocess.run([ffmpeg, "-v", "error", "-y", "-f", "lavfi", "-i", "color=blue:s=320x320:r=25", "-f", "lavfi", "-i", "sine=duration=1", "-t", "1", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", str(clip)], check=True)
+    slide_visuals.compose(clip, image, output, orientation)
+    ffprobe = shutil.which("ffprobe") or ffmpeg.replace("ffmpeg", "ffprobe")
+    meta = json.loads(subprocess.check_output([ffprobe, "-v", "error", "-show_streams", "-show_format", "-of", "json", str(output)]))
+    video = next(s for s in meta["streams"] if s["codec_type"] == "video")
+    assert (video["width"], video["height"]) == size
+    assert any(s["codec_type"] == "audio" for s in meta["streams"])
+    assert .9 < float(meta["format"]["duration"]) < 1.2
+    subprocess.run([ffmpeg, "-v", "error", "-xerror", "-i", str(output), "-f", "null", "-"], check=True)
 
 
 def test_extract_text_reads_text_and_decks_and_rejects_other_files():

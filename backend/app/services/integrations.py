@@ -17,6 +17,12 @@ from fastapi import HTTPException
 from .. import config
 
 _PROVIDERS = {
+    "fal": {
+        "name": "fal Motion Studio",
+        "kind": "video",
+        "note": "Seedance 2.5 character replacement, drafts and 1080p draft completion. Each render uses external provider credits.",
+        "defaults": {},
+    },
     "heygen": {
         "name": "HeyGen",
         "kind": "video",

@@ -106,6 +106,7 @@ def test_project_workspace_returns_project_media_and_counts(client):
             "prompt": "motion",
             "motion_preset": "product_reveal",
             "duration_seconds": 3,
+            "provider": "local_ltx",
         },
     ).json()
     video = _wait(client, f"/api/videos/{video['id']}", "completed")

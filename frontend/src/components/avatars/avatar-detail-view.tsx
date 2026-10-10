@@ -1,4 +1,6 @@
 "use client";
+import { SkeletonGrid } from "@/components/ui/skeleton";
+import { confirmDialog } from "@/components/ui/confirm-host";
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
@@ -80,7 +82,7 @@ function LookModal({
             {look.id !== baseId ? (
               <button
                 type="button"
-                onClick={async () => { if (window.confirm(`Delete the look “${caption}”? This can't be undone.`)) { setBusy("delete"); await onDelete(); } }}
+                onClick={async () => { if (await confirmDialog(`Delete the look “${caption}”? This can't be undone.`)) { setBusy("delete"); await onDelete(); } }}
                 className="flex w-full items-center justify-center gap-2 rounded-full px-4 py-2 text-sm text-destructive hover:bg-raised"
               >
                 <Trash2 className="h-4 w-4" /> Delete look
@@ -106,7 +108,7 @@ export function AvatarDetailView({ avatarId }: { avatarId: string }) {
 
   const clicked = avatars?.find((a) => a.id === avatarId);
   const base = clicked?.group_id ? avatars?.find((a) => a.id === clicked.group_id) : clicked;
-  if (avatars === null) return <p className="py-16 text-center text-sm text-muted-foreground">Loading…</p>;
+  if (avatars === null) return <SkeletonGrid count={3} className="grid grid-cols-1 gap-4 py-8 sm:grid-cols-3" />;
   if (!base) {
     return (
       <div className="py-16 text-center">
@@ -159,7 +161,7 @@ export function AvatarDetailView({ avatarId }: { avatarId: string }) {
             <li key={look.id}>
               <button type="button" onClick={() => setOpen(look)} className="group relative block aspect-[4/3] w-full overflow-hidden rounded-2xl border border-border text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                 {src ? <img src={src} alt="" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]" /> : <span className="flex h-full items-center justify-center bg-raised"><Video className="h-6 w-6 text-muted-foreground" /></span>}
-                <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-3 pb-2.5 pt-8 text-xs font-medium text-white">{caption}</span>
+                <span className="absolute inset-x-0 bottom-0 bg-black/90 px-3 py-2.5 text-sm font-semibold text-white">{caption}</span>
               </button>
             </li>
           );

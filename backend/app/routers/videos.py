@@ -1,4 +1,5 @@
 from pathlib import Path
+import shutil
 from typing import Any
 
 import httpx
@@ -85,6 +86,7 @@ _VIDEO_EXTENSION_REQUIRED_NODES = {
     "CheckpointLoaderSimple",
     "LoadVideo",
     "GetVideoComponents",
+    "ImageFromBatch",
     "ImageScale",
     "LTXAVTextEncoderLoader",
     "CLIPTextEncode",
@@ -98,17 +100,6 @@ _VIDEO_EXTENSION_REQUIRED_NODES = {
     "CreateVideo",
     "SaveVideo",
 }
-_VIDEO_TO_VIDEO_LIVE_BLOCKER = (
-    "Video -> Video is setup-required after live validation: the current LTX "
-    "workflow fails at SaveVideo with [Errno 22] Invalid argument. Keep using "
-    "Image -> Video/Text -> Video/Upscale until the workflow is repaired."
-)
-_VIDEO_EXTENSION_LIVE_BLOCKER = (
-    "Video Extension is setup-required after live validation: the current LTX "
-    "workflow finishes execution but the app cannot retrieve the ComfyUI output "
-    "(/view returns HTTP 404). Keep using Image -> Video/Text -> Video/Upscale "
-    "until the workflow is repaired."
-)
 
 # Video Studio mode registry (Phase C11). id -> (label, description, source_required).
 _VIDEO_MODES = [
@@ -441,8 +432,6 @@ def _video_to_video_ready() -> tuple[bool, str | None]:
         return True, None
     if VIDEO_BACKEND != "comfyui":
         return False, f"Video backend {VIDEO_BACKEND} is not a real ComfyUI backend."
-    return False, _VIDEO_TO_VIDEO_LIVE_BLOCKER
-
     workflow_path = _workflow_path(COMFYUI_VIDEO_TO_VIDEO_WORKFLOW_PATH)
     if not workflow_path.is_file():
         return False, f"Video -> Video workflow missing: {workflow_path}"
@@ -489,11 +478,12 @@ def _video_extension_ready() -> tuple[bool, str | None]:
         return True, None
     if VIDEO_BACKEND != "comfyui":
         return False, f"Video backend {VIDEO_BACKEND} is not a real ComfyUI backend."
-    return False, _VIDEO_EXTENSION_LIVE_BLOCKER
-
     workflow_path = _workflow_path(COMFYUI_VIDEO_EXTENSION_WORKFLOW_PATH)
     if not workflow_path.is_file():
         return False, f"Video Extension workflow missing: {workflow_path}"
+    missing_tools = [tool for tool in ("ffmpeg", "ffprobe") if not shutil.which(tool)]
+    if missing_tools:
+        return False, "Video Extension assembly requires: " + ", ".join(missing_tools)
 
     try:
         with httpx.Client(
@@ -632,7 +622,10 @@ def create_video(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    provider = payload.provider or "local_ltx"
+    provider = payload.provider or (
+        "local_h3" if payload.mode in {"text_to_video", "image_to_video", "video_to_video"}
+        else "local_ltx"
+    )
     if provider == "seedance_api":
         ready, reason = _seedance_ready()
         if not ready:

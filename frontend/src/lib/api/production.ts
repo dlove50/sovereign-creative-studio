@@ -79,7 +79,7 @@ import type {
 } from "../types";
 
 
-import { API_BASE, downloadZip, formRequest, request, setActiveUserId } from "@/lib/api/core";
+import { API_BASE, downloadZip, formRequest, request, requestVoid, setActiveUserId } from "@/lib/api/core";
 
 export const productionApi = {
   listStoryboards: (projectId: string) =>
@@ -99,11 +99,7 @@ export const productionApi = {
       body: JSON.stringify(input),
     }),
   deleteStoryboard: async (projectId: string, storyboardId: string) => {
-    const res = await fetch(
-      `${API_BASE}/api/projects/${projectId}/storyboards/${storyboardId}`,
-      { method: "DELETE", cache: "no-store" },
-    );
-    if (!res.ok) throw new Error("Could not delete storyboard");
+    await requestVoid(`/api/projects/${projectId}/storyboards/${storyboardId}`, { method: "DELETE" });
   },
   exportStoryboardUrl: (projectId: string, storyboardId: string) =>
     `${API_BASE}/api/projects/${projectId}/storyboards/${storyboardId}/export`,
@@ -120,11 +116,7 @@ export const productionApi = {
       body: JSON.stringify(input),
     }),
   deleteShot: async (storyboardId: string, shotId: string) => {
-    const res = await fetch(
-      `${API_BASE}/api/storyboards/${storyboardId}/shots/${shotId}`,
-      { method: "DELETE", cache: "no-store" },
-    );
-    if (!res.ok) throw new Error("Could not delete shot");
+    await requestVoid(`/api/storyboards/${storyboardId}/shots/${shotId}`, { method: "DELETE" });
   },
 
   listProductions: (projectId: string) =>
@@ -148,11 +140,7 @@ export const productionApi = {
       body: JSON.stringify(input),
     }),
   deleteProduction: async (projectId: string, productionId: string) => {
-    const res = await fetch(
-      `${API_BASE}/api/projects/${projectId}/productions/${productionId}`,
-      { method: "DELETE", cache: "no-store" },
-    );
-    if (!res.ok) throw new Error("Could not delete production");
+    await requestVoid(`/api/projects/${projectId}/productions/${productionId}`, { method: "DELETE" });
   },
   downloadProductionPackage: async (projectId: string, productionId: string) => {
     await downloadZip(
@@ -183,29 +171,7 @@ export const productionApi = {
     scene_id?: string | null;
     copy_id?: string | null;
   }) => {
-    const res = await fetch(`${API_BASE}/api/exports/campaign-bundle`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(input),
-    });
-    if (!res.ok) {
-      let detail = res.statusText;
-      try {
-        detail = (await res.json())?.detail ?? detail;
-      } catch {
-        /* non-JSON */
-      }
-      throw new Error(detail);
-    }
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "campaign-bundle.zip";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
+    await downloadZip("/api/exports/campaign-bundle", input, "campaign-bundle.zip");
   },
   downloadSocialBundle: async (input: {
     project_id: string;

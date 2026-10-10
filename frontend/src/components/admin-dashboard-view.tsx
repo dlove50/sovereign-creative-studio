@@ -3,7 +3,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import {
-  AlertTriangle,
   CheckCircle2,
   Coins,
   Loader2,
@@ -18,6 +17,8 @@ import type { AdminDashboard, AdminJobSummary, FamilyUser } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { confirmDialog } from "@/components/ui/confirm-host";
+import { LoadError } from "@/components/ui/load-error";
 
 export function AdminDashboardView() {
   const [dashboard, setDashboard] = useState<AdminDashboard | null>(null);
@@ -49,6 +50,7 @@ export function AdminDashboardView() {
   }, []);
 
   async function resetSafeDefaults() {
+    if (!await confirmDialog("Reset the image model to flux-kontext and switch video generation to the built-in test (mock) engine? Real video generation stays off until you turn it back on.")) return;
     setResetting(true);
     setError(null);
     try {
@@ -123,6 +125,7 @@ export function AdminDashboardView() {
     note: string;
     direction: "add" | "remove";
   }) {
+    if (input.direction === "remove" && !await confirmDialog("Remove these credits from the account?")) return;
     setSavingCredit(input.direction);
     setError(null);
     try {
@@ -140,6 +143,7 @@ export function AdminDashboardView() {
   }
 
   async function refundTransaction(id: string) {
+    if (!await confirmDialog("Refund this credit transaction? The credits go back to the account.")) return;
     setSavingCredit(id);
     setError(null);
     try {
@@ -154,7 +158,7 @@ export function AdminDashboardView() {
 
   if (loading && !dashboard) {
     return (
-      <Card className="max-w-2xl">
+      <Card role="status" aria-label="Loading admin dashboard" className="max-w-2xl">
         <CardContent className="flex items-center gap-3 p-5">
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
           <p className="text-sm text-muted-foreground">Loading private admin status...</p>
@@ -164,14 +168,7 @@ export function AdminDashboardView() {
   }
 
   if (error && !dashboard) {
-    return (
-      <Card className="max-w-2xl">
-        <CardContent className="flex items-center gap-3 p-5">
-          <AlertTriangle className="h-5 w-5 text-destructive" />
-          <p className="text-sm text-muted-foreground">{error}</p>
-        </CardContent>
-      </Card>
-    );
+    return <LoadError what="the admin dashboard" message={error} onRetry={load} />;
   }
 
   if (!dashboard) return null;
@@ -315,7 +312,7 @@ export function AdminDashboardView() {
           className="flex items-center justify-between rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm transition-colors hover:bg-amber-500/15"
         >
           <span>
-            <span className="font-semibold text-amber-700 dark:text-amber-300">
+            <span className="font-semibold text-amber-300">
               Local Credit Top-Up
             </span>
             <span className="ml-2 text-muted-foreground">
@@ -565,7 +562,8 @@ function FamilyUserRow({
     setRole(user.role);
     setStatus(user.status);
     setNotes(user.notes ?? "");
-  }, [user]);
+    // Reset only when opening a different user or entering edit mode: a background refresh replaces `user` and must not wipe a half-typed edit.
+  }, [user.id, editing]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (editing) {
     return (

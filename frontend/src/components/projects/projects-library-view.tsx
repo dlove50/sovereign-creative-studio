@@ -1,18 +1,24 @@
 "use client";
+import { EmptyState } from "@/components/ui/empty-state";
+import { confirmDialog } from "@/components/ui/confirm-host";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowDownWideNarrow, Download, Filter, Folder, FolderPlus, Loader2, Search, Trash2, Video, X } from "lucide-react";
 
+import { CompletedVideoEditing } from "@/components/media/completed-video-editing";
 import { api, assetUrl } from "@/lib/api";
+import { useStaggerIn } from "@/components/motion/use-motion";
+import { SkeletonGrid } from "@/components/ui/skeleton";
 import type { AvatarJob, Movie, Project, VideoGeneration } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { PageHeader } from "@/components/page-header";
 
-type Kind = "avatar" | "clip" | "movie";
+type Kind = "avatar" | "clip" | "movie" | "cinematic";
 type Item = { id: string; kind: Kind; title: string; url: string | null; status: string; createdAt: string };
 type Sort = "newest" | "oldest" | "name";
-const KIND_LABEL: Record<Kind, string> = { avatar: "Avatar video", clip: "Video clip", movie: "Scene-by-scene video" };
+const KIND_LABEL: Record<Kind, string> = { cinematic: "Cinematic video", avatar: "Avatar video", clip: "Video clip", movie: "Scene-by-scene video" };
 
 function timeAgo(iso: string) {
   const ms = Date.now() - new Date(iso + (iso.endsWith("Z") ? "" : "Z")).getTime();
@@ -74,8 +80,9 @@ export function ProjectsLibraryView() {
 
   useEffect(() => {
     api.listProjects().then(setProjects).catch(() => setProjects([]));
-    Promise.all([api.listAvatarJobs().catch(() => [] as AvatarJob[]), api.listVideos().catch(() => [] as VideoGeneration[]), api.listMovies().catch(() => { setError("Scene-by-scene videos could not be loaded. Reload to try again."); return [] as Movie[]; })]).then(([jobs, clips, movies]) => {
+    Promise.all([api.listAvatarJobs().catch(() => [] as AvatarJob[]), api.listVideos().catch(() => [] as VideoGeneration[]), api.listMovies().catch(() => { setError("Scene-by-scene videos could not be loaded. Reload to try again."); return [] as Movie[]; }), api.listCinematicOutputs().catch(() => { setError("Cinematic videos could not be loaded. Reload to try again."); return []; })]).then(([jobs, clips, movies, cinematic]) => {
       setItems([
+        ...cinematic.map((v): Item => ({ id: `c-${v.id}`, kind: "cinematic", title: `${v.title} - Revision ${v.revision}`, url: v.result_url, status: v.status, createdAt: v.created_at })),
         ...movies.map((m): Item => ({ id: `m-${m.id}`, kind: "movie", title: m.title, url: m.output_video_path, status: m.status, createdAt: m.updated_at })),
         ...jobs.filter((j) => j.status !== "setup_required").map((j): Item => ({
           id: `a-${j.id}`, kind: "avatar", title: j.script_text?.trim() || "Talking avatar", url: j.output_video_path, status: j.status, createdAt: j.created_at,
@@ -103,17 +110,30 @@ export function ProjectsLibraryView() {
     );
   }, [items, kind, q, sort]);
 
-  async function trashOpen() {
-    if (!open || !window.confirm(`Move “${open.title.slice(0, 60)}” to the trash? An admin can restore it.`)) return;
-    const [prefix, rawId] = [open.id.slice(0, 2), open.id.slice(2)];
+  const grid = useRef<HTMLUListElement>(null);
+  useStaggerIn(grid, videos.length);
+
+  async function trashItem(item: Item) {
+    if (item.kind === "cinematic") return;
+    const label = item.title.slice(0, 60);
+    const ok = item.kind === "movie"
+      ? await confirmDialog(`Delete “${label}”? Its scenes are removed with it.`)
+      : await confirmDialog(`Move “${label}” to the trash? An admin can restore it.`);
+    if (!ok) return;
+    const [prefix, rawId] = [item.id.slice(0, 2), item.id.slice(2)];
     try {
-      if (prefix === "a-") await api.trashAvatarJob(rawId);
+      if (item.kind === "movie") await api.deleteMovie(rawId);
+      else if (prefix === "a-") await api.trashAvatarJob(rawId);
       else await api.trashVideo(rawId);
-      setItems((all) => (all ?? []).filter((i) => i.id !== open.id));
-      setOpen(null);
+      setItems((all) => (all ?? []).filter((i) => i.id !== item.id));
+      setOpen((current) => (current?.id === item.id ? null : current));
     } catch (e) {
-      setError(e instanceof Error ? e.message : "The video could not be moved to the trash.");
+      setError(e instanceof Error ? e.message : "It could not be deleted.");
     }
+  }
+
+  async function trashOpen() {
+    if (open) await trashItem(open);
   }
 
   async function createFolder() {
@@ -131,12 +151,13 @@ export function ProjectsLibraryView() {
 
   return (
     <div className="mx-auto max-w-[1120px]">
+      <PageHeader title="Projects" description="Organize finished videos, active renders, and reusable production folders." />
       <div className="flex flex-wrap items-center gap-2">
-        <label className="flex min-w-[220px] flex-1 items-center gap-2 rounded-full border border-border bg-card/60 px-4 py-2">
+        <label className="flex min-h-11 min-w-[220px] flex-1 items-center gap-2 rounded-xl border border-border bg-card/60 px-4 py-2 focus-within:ring-2 focus-within:ring-ring">
           <Search className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
           <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search videos and folders" aria-label="Search videos and folders" className="w-full bg-transparent text-sm placeholder:text-muted-foreground focus:outline-none" />
         </label>
-        <label className="flex items-center gap-1.5 rounded-full border border-border bg-card/60 px-3 py-2 text-sm">
+        <label className="flex min-h-11 items-center gap-1.5 rounded-xl border border-border bg-card/60 px-3 py-2 text-sm">
           <ArrowDownWideNarrow className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
           <select value={sort} onChange={(e) => setSort(e.target.value as Sort)} aria-label="Sort" className="bg-transparent focus:outline-none">
             <option value="newest">Newest</option>
@@ -144,20 +165,21 @@ export function ProjectsLibraryView() {
             <option value="name">Name</option>
           </select>
         </label>
-        <label className="flex items-center gap-1.5 rounded-full border border-border bg-card/60 px-3 py-2 text-sm">
+        <label className="flex min-h-11 items-center gap-1.5 rounded-xl border border-border bg-card/60 px-3 py-2 text-sm">
           <Filter className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
           <select value={kind} onChange={(e) => setKind(e.target.value as "all" | Kind)} aria-label="Filter" className="bg-transparent focus:outline-none">
             <option value="all">All videos</option>
             <option value="avatar">Avatar videos</option>
             <option value="movie">Scene-by-scene videos</option>
             <option value="clip">Video clips</option>
+            <option value="cinematic">Cinematic videos</option>
           </select>
         </label>
       </div>
 
       <div className="mt-8 flex items-center gap-2">
         <h2 className="text-base font-semibold">Folders</h2>
-        <button type="button" onClick={() => setNaming((v) => !v)} aria-label="New folder" className="flex h-7 w-7 items-center justify-center rounded-full border border-border hover:bg-raised">
+        <button type="button" onClick={() => setNaming((v) => !v)} aria-label="New folder" className="flex h-11 w-11 items-center justify-center rounded-full border border-border hover:bg-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
           <FolderPlus className="h-3.5 w-3.5" />
         </button>
       </div>
@@ -170,12 +192,12 @@ export function ProjectsLibraryView() {
             onKeyDown={(e) => e.key === "Enter" && createFolder()}
             placeholder="Folder name"
             aria-label="Folder name"
-            className="flex-1 rounded-full border border-input bg-background px-4 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="min-h-11 min-w-0 flex-1 rounded-xl border border-input bg-subdued px-4 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
-          <button type="button" onClick={createFolder} disabled={!folderName.trim()} className="rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60">Create folder</button>
+          <button type="button" onClick={createFolder} disabled={!folderName.trim()} className="min-h-11 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60">Create folder</button>
         </div>
       ) : null}
-      {error ? <p className="mt-2 text-sm text-destructive">{error}</p> : null}
+      {error ? <p role="alert" className="mt-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p> : null}
       {folders.length ? (
         <ul className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
           {folders.map((p) => (
@@ -193,16 +215,20 @@ export function ProjectsLibraryView() {
 
       <h2 className="mb-4 mt-10 text-base font-semibold">Videos</h2>
       {items === null ? (
-        <p className="py-10 text-center text-sm text-muted-foreground">Loading your videos…</p>
+        <SkeletonGrid count={6} aspect="aspect-video" className="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2 md:grid-cols-3" />
       ) : videos.length === 0 ? (
-        <div className="py-12 text-center">
-          <p className="font-semibold">{q || kind !== "all" ? "No videos match." : "No videos yet."}</p>
-          <Link href="/video-agent" className="mt-2 inline-block text-sm text-primary hover:underline">Make your first video with the Video agent</Link>
-        </div>
+        q || kind !== "all" ? <EmptyState icon={Video} title="No videos match." body="Try another word or clear the filter." /> : <EmptyState icon={Video} title="No videos yet" body="Finished avatar videos, movies and clips collect here." action={{ label: "Make your first video", href: "/video-agent" }} />
       ) : (
-        <ul className="grid grid-cols-2 gap-x-4 gap-y-6 md:grid-cols-3">
+        <ul ref={grid} className="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2 md:grid-cols-3">
           {videos.map((item) => (
-            <li key={item.id}><VideoCard item={item} onOpen={() => item.kind === "movie" ? router.push(`/movies/${item.id.slice(2)}`) : setOpen(item)} /></li>
+            <li key={item.id} className="group relative">
+              <VideoCard item={item} onOpen={() => item.kind === "movie" ? router.push(`/movies/${item.id.slice(2)}`) : setOpen(item)} />
+              {item.kind !== "cinematic" && !(item.status === "queued" || item.status === "running" || item.status === "rendering") ? (
+                <button type="button" onClick={() => trashItem(item)} aria-label={`Delete ${item.title.slice(0, 60)}`} className="absolute right-2 top-2 rounded-full bg-black/70 p-1.5 text-white opacity-0 transition hover:bg-destructive focus-visible:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100">
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              ) : null}
+            </li>
           ))}
         </ul>
       )}
@@ -215,8 +241,9 @@ export function ProjectsLibraryView() {
               <button type="button" onClick={() => setOpen(null)} aria-label="Close" className="rounded-full p-1 text-muted-foreground hover:bg-raised"><X className="h-4 w-4" /></button>
             </div>
             <video controls autoPlay src={assetUrl(open.url) ?? undefined} className="max-h-[70vh] w-full bg-black" />
+            <div className="px-5 py-3"><CompletedVideoEditing id={open.id} url={open.url} title={open.title} origin="Projects" /></div>
             <div className="flex justify-between gap-3 px-5 py-3">
-              <button type="button" onClick={trashOpen} className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm text-destructive hover:bg-raised">
+              <button hidden={open.kind === "cinematic"} type="button" onClick={trashOpen} className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm text-destructive hover:bg-raised">
                 <Trash2 className="h-4 w-4" /> Move to trash
               </button>
               <a href={assetUrl(open.url) ?? "#"} download className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground">

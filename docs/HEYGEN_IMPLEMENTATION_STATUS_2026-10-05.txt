@@ -1,0 +1,90 @@
+SOVEREIGN / HEYGEN FEATURE REVIEW — 5 OCTOBER 2026
+
+Objective
+Implement equivalent HeyGen workflows inside Sovereign, with local models where practical and explicit provider connectors where required. A feature button, source file, or passing mock test is not proof of full product parity. HeyGen's proprietary models and training assets have not been transferred.
+
+New completed source work in this pass
+
+1. PDF slide visuals
+PDF pages are rendered locally with PDFium, retained as private movie assets, and composited beside the presenter (or above it in portrait). Blank/scanned pages keep their images and warn that narration must be added. Each asset request verifies movie ownership. Maximum 30 pages, 50 MB upload. PPTX remains text import; export a deck to PDF to preserve visuals. FFmpeg composition tests verify both orientations, audio, duration, and complete decode.
+
+2. Batch variants
+Each CSV/manual row can override the default presenter and voice. Optional CSV headers: avatar_id and tts_voice_id. Existing script-only files still work, including quoted multiline scripts. All presenters are validated before any batch movie is created; one invalid/foreign presenter rejects the whole batch. This is row-based variation, not HeyGen's script-by-avatar cross-product UI.
+
+3. SCORM 1.2 export
+Saved interactive lessons export a self-contained ZIP with manifest, player, quiz data, and deduplicated owned video files. The player supports branching, feedback, first-attempt scoring, LMS resume, explicit completion, and session shutdown. No runtime studio server or network calls are required. Media limit: 512 MB. Empty steps and graphs without a reachable final step are rejected. Preview without an LMS is explicitly labelled; actual target-LMS import is not yet tested. SCORM 2004/xAPI and automatic LMS synchronization are not implemented.
+
+4. Prompt-generated presentations
+The installed local Qwen model drafts 2–10 slides with titles, bullets, and narration. Original static slide images and editable narration are saved as a movie draft; no automatic video render or credit charge. Output length/schema failures are reported, not silently accepted. The actual qwen3.8:27b model produced two slides in 25.73 seconds, with images visually reviewed. English typography was tested; full multilingual font coverage and editable slide objects remain gaps.
+
+Verification
+- 68 backend tests passed across slides, presentation generation, interactive lessons/SCORM, movies/batches, and cloud recovery.
+- 2 CSV parser tests passed; legacy and multiline variant files covered.
+- Production frontend build passed, 63 routes, .next-heygen-parity, backend origin http://127.0.0.1:8002.
+- Type checking and scoped diff checks passed. UI detector reported no findings for edited views.
+- Existing real Sofia video reused for a 1.36-second slide/presenter composition; FFmpeg full decode passed. No duplicate GPU avatar render was needed.
+- SCORM runtime verified with a mock LMS API: initialize, resume, first-answer score retention, finish action, shutdown once, and disconnected preview. This is not a claim of LMS certification.
+- New UI/source changes have NOT been activated in the running app. Live browser checks of those new controls remain pending.
+
+Current feature matrix
+Feature | Sovereign status | Remaining work
+AI Studio / scene editor | Existing local movie flow; live two-scene video passed | New-source deployment; richer layered timeline and editable slide objects
+Talking avatars | Existing local Sofia render verified | Long-take quality, gesture control, resolution and throughput parity
+Video Agent | Existing local scripting, reviewed/autopilot flow | Full workflow acceptance against current app; assistant parity
+Cinematic shots/plans | Existing source plans, storage and assembly | Activate and verify current plan-to-production path
+Video podcast | Existing alternating avatar scenes | HeyGen host/guest language controls, invitations, richer staging and simultaneous speakers
+PPT/PDF to video | New PDF visuals tested; PPTX text import | Native editable PPTX layouts and scanned-text OCR
+Generate presentation | New local prompt-to-slides tested | Document-to-presentation UI, visual editing, themes, broader language fonts
+Batch Mode | New per-row avatars/voices tested | Cross-product selection and full rendered batch acceptance
+Translate Videos | Existing local transcript/subtitle/translated-avatar workflow | Original-video multilingual dubbing/lip-sync and broad language acceptance
+AI Video Generator | Existing multiple local engines | Per-engine current end-to-end acceptance and option parity
+Generate Images | Existing image generation/edit workflows | Current workflow acceptance and feature-by-feature fidelity
+AI Clipping | Existing transcription/clipping workflow | Current long-video acceptance and editing parity
+Upscale Video | Existing local upscale workflow | Current output/quality verification
+Speech Cleanup | Existing pause/filler workflow | Accuracy, manual correction, current acceptance
+Interactive Video | Existing branching/questions/feedback | New deployment, link overlays, recorder, sharing/embedding and analytics
+SCORM export | New SCORM 1.2 package/runtime tested | Real LMS import, SCORM 2004/xAPI, LMS synchronization
+LiveAvatar | No real-time equivalent verified | Separate real-time model/service and streaming integration; HeyGen labels this a separate product
+Photo avatars / looks | Existing local generation and references | Identity fidelity, personal-model training, broad current acceptance
+Digital Twin | Existing footage-to-still plus voice workflow | Actual motion/personal-avatar training is not implemented
+Voice cloning | Existing local sample cloning | Current quality/language acceptance and integrated UX
+Voice design / external libraries | Optional provider connector source exists | Configured provider, provider feature coverage and real acceptance
+Brand systems | Text/color editor works; richer brand_spec service and migration found | Service is NOT wired to routes/editor/model field; logo/font/asset UI and application to output remain gaps
+Projects / assets | Existing folders, filters, library and trash | Current multi-user acceptance, sharing and review collaboration parity
+Screen recording | Not implemented in this pass | Browser capture, owned clip ingestion, editing, permission UX
+Ask Orby-style assistant | Not implemented | Scoped studio assistant with tool actions and review
+Developer API / integrations | Existing local API and optional cloud studio | API documentation/access controls, relevant HeyGen endpoint coverage
+Cloud HeyGen / ElevenLabs | Connector code; both unconfigured/disabled at last check | Actual credentials and explicit cost scope before provider calls
+
+Live HeyGen evidence reviewed this pass
+- App Library: 14 apps (Video Podcast, AI Studio, Video Agent, Translate Videos, Cinematic Shots, PPT/PDF to Video, AI Video Generator, AI Clipping, Upscale Video, Batch Mode, Generate Images, Speech Cleanup, Interactive Video, LiveAvatar).
+- PPT/PDF: editable PPT vs static PDF upload, 50 MB; separate Generate Presentation flow.
+- Batch Mode: multiple avatar/voice choices per script, project name, portrait/landscape, count-based Generate button.
+- Interactive Video: Business-plan gate lists branching, links, quizzes, LMS/SCORM, and Studio screen recorder. No upgrade purchased or paid generation submitted.
+- LiveAvatar: explicit separate-product modal. No account or paid service created.
+- Video Podcast: host/guest avatars and voices, language/accent, document attachment, custom script toggle, 720p/1080p, layout, length, scene instructions, reference, and paid preview. Read-only inspection only.
+Sources: https://app.heygen.com/apps ; https://app.heygen.com/apps/ppt-to-video ; https://app.heygen.com/apps/batch-mode ; https://app.heygen.com/apps/video-podcast-v2
+SCORM lifecycle reference: https://adlnet.gov/assets/uploads/ADL_CrossDomainScripting_1_0.pdf
+
+Deployment boundary
+The normal frontend/backend restart was rejected before execution by automatic approval review with the reason "blocked by policy". No alternative launcher, port, remote host or service-restart workaround was attempted. Existing live app and media remain separate from new source/build results. Cloud provider configuration and real LMS import also remain outstanding. Do not describe this project as fully integrated or finished.
+
+Next implementation priorities (no general proceed prompt required)
+1. Wire the existing brand specification work through owned API routes, model storage, visual editor, and generated outputs; do not mistake the orphan service for a usable feature.
+2. Add screen recording and owned clip ingestion for interactive training.
+3. Expand presentation editing/document generation and batch cross-product workflows.
+4. Implement/test original-video dubbing with appropriate installed multilingual models or configured provider.
+5. Define and implement a real-time avatar path; ordinary offline avatar rendering cannot provide real-time interaction.
+6. Activate verified sources only after the deployment block is resolved, then run real browser acceptance for every new workflow.
+
+How to use the new workflows after activation
+- Slides: Import a PDF, choose presenter/voice, review warnings, add narration to blank pages, then render from the movie editor.
+- Presentations: Slides > Create from a prompt, enter brief, select 2–10 slides and presenter, Create scenes, then Review scenes. Validate generated facts before rendering.
+- Batch: Import CSV with script and optional title, avatar_id, tts_voice_id; or set Presenter/Voice for individual rows. Draft first to review variation before rendering.
+- Training: Save a lesson whose final step has no choices. Select Export SCORM 1.2. Import the ZIP directly into an LMS as SCORM 1.2; do not upload the extracted folder. Confirm resume, score, media playback and completion in that LMS before publishing it to learners.
+
+Replication / testing
+Changes are in the existing sovereign-creative-studio checkout; no push or commit performed. Preserve pre-existing edits. New Python dependencies: pypdfium2>=5.14,<6 and Pillow>=12.3,<13, installed in the backend virtual environment. On another machine, copy/review the changed source and install backend requirements, preserving that machine's .env, database, storage and keys. Use its existing frontend install/build procedure. Do not copy cloud secrets or overwrite destination configuration. The original DeepSeek Harness repair guide and patch were emailed separately earlier; this document concerns Sovereign additions.
+Backend check (from backend): .venv\Scripts\python.exe -m pytest tests/test_presentation.py tests/test_interactive.py tests/test_interactive_export.py tests/test_movies.py tests/test_slides.py tests/test_cloud_media.py -q -p no:cacheprovider
+Frontend check (from frontend): npx playwright test e2e/batch-csv.spec.ts --reporter=line
+Frontend production build: use NEXT_DIST_DIR=.next-heygen-parity and BACKEND_ORIGIN=http://127.0.0.1:8002 with npm run build. Set the backend origin to the destination machine's actual service. Building alone does not activate the service.

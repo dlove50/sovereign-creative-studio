@@ -3,6 +3,7 @@ import type {
   AssetCollection,
   AssetCollectionInput,
   BrandKit,
+  BrandVisuals,
   CampaignBuilderResult,
   CampaignPreset,
   CampaignResult,
@@ -79,7 +80,7 @@ import type {
 } from "../types";
 
 
-import { API_BASE, downloadZip, formRequest, request, setActiveUserId } from "@/lib/api/core";
+import { downloadZip, formRequest, request, requestVoid, setActiveUserId } from "@/lib/api/core";
 
 export const projectsApi = {
   listLibrary: (projectId?: string) =>
@@ -87,11 +88,21 @@ export const projectsApi = {
       projectId ? `/api/library?project_id=${projectId}` : "/api/library",
     ),
 
+  listCinematicOutputs: () => request<{id: string; plan_id: string; revision: number; title: string; result_url: string; status: string; created_at: string}[]>("/api/projects/cinematic-outputs"),
   listProjects: () => request<Project[]>("/api/projects"),
   getProjectWorkspace: (id: string) =>
     request<ProjectWorkspace>(`/api/projects/${id}/workspace`),
   getBrandKit: (id: string) =>
     request<BrandKit>(`/api/projects/${id}/brand-kit`),
+  getBrandVisuals: (id: string) => request<BrandVisuals>(`/api/projects/${encodeURIComponent(id)}/brand-visuals`),
+  importBrandWebsite: (id: string, source: string) =>
+    request<BrandVisuals & {imported_colors: number; imported_fonts: number}>(`/api/projects/${encodeURIComponent(id)}/brand-visuals/import-site?${new URLSearchParams({source_url:source})}`, {method:"POST"}),
+  updateBrandVisuals: (id: string, spec: Pick<BrandVisuals, "colors" | "fonts">) =>
+    request<BrandVisuals>(`/api/projects/${encodeURIComponent(id)}/brand-visuals`, {method:"PUT", body:JSON.stringify(spec)}),
+  uploadBrandImage: (id: string, kind: "logos" | "assets", file: File) => {
+    const form = new FormData(); form.append("file", file);
+    return formRequest<BrandVisuals>(`/api/projects/${encodeURIComponent(id)}/brand-assets?kind=${kind}`, form);
+  },
   updateBrandKit: (id: string, input: BrandKit) =>
     request<BrandKit>(`/api/projects/${id}/brand-kit`, {
       method: "PUT",
@@ -124,11 +135,7 @@ export const projectsApi = {
       { method: "PUT", body: JSON.stringify(input) },
     ),
   deleteCollection: async (projectId: string, collectionId: string) => {
-    const res = await fetch(
-      `${API_BASE}/api/projects/${projectId}/collections/${collectionId}`,
-      { method: "DELETE", cache: "no-store" },
-    );
-    if (!res.ok) throw new Error("Could not delete collection");
+    await requestVoid(`/api/projects/${projectId}/collections/${collectionId}`, { method: "DELETE" });
   },
   createCollectionCampaign: (
     projectId: string,
@@ -161,11 +168,7 @@ export const projectsApi = {
       body: JSON.stringify(input),
     }),
   deleteBrief: async (projectId: string, briefId: string) => {
-    const res = await fetch(
-      `${API_BASE}/api/projects/${projectId}/briefs/${briefId}`,
-      { method: "DELETE", cache: "no-store" },
-    );
-    if (!res.ok) throw new Error("Could not delete brief");
+    await requestVoid(`/api/projects/${projectId}/briefs/${briefId}`, { method: "DELETE" });
   },
   getCreativeDirectorRecommendations: (input: {
     project_id: string;
@@ -180,5 +183,15 @@ export const projectsApi = {
       method: "POST",
       body: JSON.stringify({ name, description: description || null }),
     }),
+
+  deleteBrandAsset: async (projectId: string, kind: "logos" | "assets", name: string) => {
+    await requestVoid(`/api/projects/${encodeURIComponent(projectId)}/brand-assets/${encodeURIComponent(name)}?kind=${kind}`, { method: "DELETE" });
+  },
+
+  fetchRemoteImage: async (projectId: string, kind: "logos" | "assets", imageUrl: string) =>
+    request<BrandVisuals>(
+      `/api/projects/${encodeURIComponent(projectId)}/brand-assets/fetch-url?kind=${kind}&image_url=${encodeURIComponent(imageUrl)}`,
+      { method: "POST" },
+    ),
 
 };

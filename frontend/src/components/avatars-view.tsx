@@ -1,4 +1,5 @@
 "use client";
+import { confirmDialog } from "@/components/ui/confirm-host";
 
 import { useEffect, useRef, useState } from "react";
 import { ImagePlus, Loader2, Mic, Shirt, Sparkles, Trash2, UserSquare, Video } from "lucide-react";
@@ -19,8 +20,8 @@ function ReadyBadge({ ready, label }: { ready: boolean; label: string }) {
       className={cn(
         "rounded-full px-2 py-0.5 text-[11px] font-medium",
         ready
-          ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
-          : "bg-amber-500/15 text-amber-700 dark:text-amber-400",
+          ? "bg-emerald-500/15 text-emerald-400"
+          : "bg-amber-500/15 text-amber-400",
       )}
     >
       {label}: {ready ? "Ready" : "Setup required"}
@@ -216,7 +217,7 @@ export function AvatarsView() {
   }
 
   async function deleteVoiceGreeting(voice: VoiceAsset) {
-    if (!window.confirm(`Delete “${voice.name}”? This removes its generated audio and cannot be undone.`)) return;
+    if (!await confirmDialog(`Delete “${voice.name}”? This removes its generated audio and cannot be undone.`)) return;
     setBusy(`delete-voice-${voice.id}`);
     setError(null);
     try {
@@ -359,7 +360,7 @@ export function AvatarsView() {
         </div>
         <p className="text-sm text-muted-foreground">
           1. Write what your avatar should say and pick a voice. 2. Choose a photo and quality. 3. Create the video —
-          long scripts are rendered in 3-second pieces and joined seamlessly.
+          long voice recordings are rendered in overlapping chunks and joined. Chunk length depends on the selected preset; review transitions and lip sync before publishing.
         </p>
         <div className="space-y-2 rounded-xl border border-border/70 bg-background/40 p-3">
           <label htmlFor="avatar-script" className="text-xs font-medium text-muted-foreground">
@@ -426,7 +427,7 @@ export function AvatarsView() {
                   {preset.width}x{preset.height} · {preset.frames} frames · {preset.steps} steps
                 </span>
                 {preset.warning ? (
-                  <span className="mt-1 block text-[11px] text-amber-600 dark:text-amber-400">{preset.warning}</span>
+                  <span className="mt-1 block text-[11px] text-amber-400">{preset.warning}</span>
                 ) : null}
               </button>
             ))}

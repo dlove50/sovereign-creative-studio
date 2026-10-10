@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Sparkles, Upload, UserRound, X } from "lucide-react";
+import { Loader2, Sparkles, Upload, X } from "lucide-react";
 
 import { api } from "@/lib/api";
 import type { AvatarAsset } from "@/lib/types";
@@ -15,18 +15,18 @@ type Step = "choose" | "design" | "clone" | "voice";
 function ChoiceCard({ title, text, badge, children, onClick }: { title: string; text: string; badge?: string; children?: React.ReactNode; onClick?: () => void }) {
   const body = (
     <>
-      <div className="relative flex aspect-[4/3] items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-primary/25 via-raised to-background">
-        {title.startsWith("Clone") ? <UserRound className="h-20 w-20 text-primary/70" aria-hidden /> : <Sparkles className="h-20 w-20 text-primary/70" aria-hidden />}
-        {children ? <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-background/70 opacity-0 backdrop-blur-sm transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">{children}</div> : null}
+      <div className="relative flex aspect-[3/2] items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-primary/25 via-raised to-background">
+        <img src={title.startsWith("Clone") ? "/sovereign-ui/avatar-creation/create_digital_human.png" : "/sovereign-ui/avatar-creation/create_virtual_char.png"} alt="" className="h-full w-full object-cover" />
+        {children ? <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-background/70 opacity-100 backdrop-blur-sm transition-opacity md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100">{children}</div> : null}
       </div>
-      <div className="mt-4 flex items-center gap-3">
+      <div className="mx-3 mt-4 flex items-center gap-3">
         <h2 className="text-lg font-bold">{title}</h2>
         {badge ? <span className="rounded-full bg-primary/15 px-2.5 py-0.5 text-xs font-semibold text-primary">{badge}</span> : null}
       </div>
-      <p className="mt-1 text-sm text-muted-foreground">{text}</p>
+      <p className="mx-3 mt-2 text-sm text-muted-foreground">{text}</p>
     </>
   );
-  const shell = "group block w-full rounded-3xl border border-border bg-card/50 p-3 text-left transition-colors hover:border-primary/60 focus-within:border-primary/60";
+  const shell = "group block w-full rounded-2xl border border-border bg-card/50 p-1 pb-5 text-left transition-colors hover:border-primary/60 focus-within:border-primary/60";
   return onClick ? <button type="button" onClick={onClick} className={shell}>{body}</button> : <div className={shell}>{body}</div>;
 }
 
@@ -65,10 +65,10 @@ export function NewAvatarFlow() {
       </div>
       {step === "choose" ? (
         <div>
-          <h1 className="text-center text-4xl font-extrabold tracking-[-0.03em]">Create a new avatar</h1>
+          <h1 className="text-center text-3xl font-extrabold tracking-[-0.03em]">Create a new avatar</h1>
           <p className="mx-auto mt-2 max-w-lg text-center text-sm text-muted-foreground">Create an identity that looks and sounds consistent in any outfit and setting.</p>
           {error ? <p className="mx-auto mt-4 max-w-lg rounded-xl bg-destructive/15 px-3 py-2 text-center text-sm text-destructive">{error}</p> : null}
-          <div className="mt-8 grid gap-5 md:grid-cols-2">
+          <div className="mx-auto mt-8 grid max-w-[740px] gap-8 md:grid-cols-2">
             <ChoiceCard title="Clone a real person" badge="Photo and voice" text="Upload a video of someone talking. Their best still becomes the face and their speech becomes the voice." onClick={() => setStep("clone")} />
             <ChoiceCard title="Create a virtual character" text="Start with an image and bring it to life with a voice.">
               <button type="button" onClick={() => photoInput.current?.click()} disabled={uploading} className="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground">

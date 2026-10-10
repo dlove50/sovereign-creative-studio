@@ -9,6 +9,7 @@ import type { ProductAsset, ProductAssetStatus, Project } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { safeInterval } from "@/lib/safe-interval";
 
 const STATUS_VARIANT = {
   uploaded: "muted",
@@ -26,16 +27,17 @@ export function UploadView() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const previewUrl = useMemo(() => {
-    if (!file) return null;
-    return URL.createObjectURL(file);
-  }, [file]);
-
+  // Created and revoked in the same effect: a memo + separate cleanup revokes the URL in React StrictMode while it is still shown.
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   useEffect(() => {
-    return () => {
-      if (previewUrl) URL.revokeObjectURL(previewUrl);
-    };
-  }, [previewUrl]);
+    if (!file) {
+      setPreviewUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(file);
+    setPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
 
   useEffect(() => {
     async function load() {
@@ -60,14 +62,14 @@ export function UploadView() {
     const active = assets.filter((asset) => asset.status === "processing");
     if (active.length === 0) return;
 
-    const poll = window.setInterval(async () => {
+    const poll = safeInterval(async () => {
       const updates = await Promise.all(active.map((asset) => api.getAsset(asset.id)));
       setAssets((current) =>
         current.map((asset) => updates.find((item) => item.id === asset.id) ?? asset),
       );
     }, 2500);
 
-    return () => window.clearInterval(poll);
+    return poll;
   }, [assets]);
 
   async function handleUpload(e: React.FormEvent) {

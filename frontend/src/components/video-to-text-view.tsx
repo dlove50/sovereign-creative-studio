@@ -39,6 +39,7 @@ import { consumeHandoff } from "@/lib/stores/useMediaHandoff";
 import { transcriptToMedia } from "@/lib/utils/mediaMapping";
 import { validateSourceUrl } from "@/lib/utils/validateSourceUrl";
 import { cn } from "@/lib/utils";
+import { safeInterval } from "@/lib/safe-interval";
 
 const selectClass =
   "flex h-10 w-full rounded-md border border-input bg-background/40 px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
@@ -101,13 +102,13 @@ export function VideoToTextView() {
       (job) => job.status === "queued" || job.status === "running",
     );
     if (active.length === 0) return;
-    const poll = window.setInterval(async () => {
+    const poll = safeInterval(async () => {
       const updates = await Promise.all(active.map((job) => api.getTranscription(job.id)));
       setJobs((current) =>
         current.map((job) => updates.find((update) => update.id === job.id) ?? job),
       );
     }, 2500);
-    return () => window.clearInterval(poll);
+    return poll;
   }, [jobs]);
 
   async function load() {
@@ -276,7 +277,7 @@ export function VideoToTextView() {
               <div className="space-y-2">
                 <Label htmlFor="source-url">Source URL override</Label>
                 {autoAttachedFrom && sourceUrl ? (
-                  <p className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
+                  <p className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-medium text-emerald-400">
                     Auto-attached {autoAttachedFrom}
                   </p>
                 ) : null}

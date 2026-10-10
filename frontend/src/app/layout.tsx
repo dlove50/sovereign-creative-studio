@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 
+import { AssistantPanel } from "@/components/assistant/assistant-panel";
+import { MotionProvider } from "@/components/motion/motion-provider";
+import { ConfirmHost } from "@/components/ui/confirm-host";
 import { AppRail } from "@/components/shell/app-rail";
 import { Topbar } from "@/components/topbar";
 
@@ -20,13 +23,23 @@ export default function RootLayout({
   return (
     <html lang="en" className={sans.variable}>
       <body className="font-sans antialiased">
-        <div className="flex min-h-screen">
-          <AppRail />
-          <div className="flex min-w-0 flex-1 flex-col">
-            <Topbar />
-            <main className="flex-1 px-6 py-8 md:px-10">{children}</main>
+        <MotionProvider>
+          <a
+            href="#main-content"
+            className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[110] focus:rounded-xl focus:bg-primary focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-primary-foreground"
+          >
+            Skip to content
+          </a>
+          <div className="flex min-h-screen">
+            <AppRail />
+            <div className="flex min-w-0 flex-1 flex-col">
+              <Topbar />
+              <main id="main-content" tabIndex={-1} className="mx-auto w-full max-w-content flex-1 px-4 py-6 focus:outline-none sm:px-6 md:px-8 md:py-8 lg:px-10">{children}</main>
+            </div>
           </div>
-        </div>
+          <ConfirmHost />
+          <AssistantPanel />
+        </MotionProvider>
       </body>
     </html>
   );

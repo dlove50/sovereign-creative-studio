@@ -251,6 +251,8 @@ OLLAMA_QWEN_MODEL = os.getenv("OLLAMA_QWEN_MODEL", "qwen3:4b")
 # Video agent script writer. The 27B writes noticeably better scripts (~75 s);
 # set VIDEO_AGENT_MODEL=qwen3:4b for speed (~15 s).
 VIDEO_AGENT_MODEL = os.getenv("VIDEO_AGENT_MODEL", "qwen3.8:27b")
+# Vision model used to check that look reference pictures contain no face.
+VISION_MODEL = os.getenv("VISION_MODEL", "qwen3-vl:8b")
 OLLAMA_DEEPSEEK_MODEL = os.getenv("OLLAMA_DEEPSEEK_MODEL", "qwen3.6:35b")
 # Anthropic (Claude) and Google (Gemini) — optional; no key required at startup.
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
@@ -431,3 +433,29 @@ SESSION_MAX_AGE_SECONDS = int(os.getenv("SESSION_MAX_AGE_SECONDS", str(60 * 60 *
 # Backend-only secrets folder (session signing key, provider API keys). Never
 # served to the browser; excluded from backups; gitignored.
 SECRETS_DIR = Path(os.getenv("SECRETS_DIR", str(STORAGE_DIR / "secrets")))
+
+# --- Music Lab (local YuE2 through a dedicated ComfyUI instance) ---------------
+# The YuE2 nodes need a recent ComfyUI (v0.37+). It runs as its own instance so
+# the main image/video ComfyUI is never touched.
+MUSIC_COMFYUI_URL = os.getenv("MUSIC_COMFYUI_URL", "http://127.0.0.1:8199")
+MUSIC_COMFYUI_DIR = os.getenv("MUSIC_COMFYUI_DIR", r"C:\Users\David\ComfyUI-Installs\ComfyUI\ComfyUI")
+MUSIC_COMFYUI_PYTHON = os.getenv(
+    "MUSIC_COMFYUI_PYTHON", r"C:\Users\David\Documents\ComfyUI\.venv\Scripts\python.exe"
+)
+MUSIC_CHECKPOINT = os.getenv("MUSIC_CHECKPOINT", "yue2_3b_int8_convrot.safetensors")
+MUSIC_DIR = Path(os.getenv("MUSIC_DIR", str(STORAGE_DIR / "music")))
+# Local model that writes lyrics from a one-line idea (loaded briefly, then unloaded so the GPU stays free).
+MUSIC_LYRICS_MODEL = os.getenv("MUSIC_LYRICS_MODEL", "gemma4:e4b")
+# Speaker volume for songs played by Sovereign/Jarvis (0-100).
+MUSIC_PLAYER_VOLUME = int(os.getenv("MUSIC_PLAYER_VOLUME", "100"))
+# Isolated Python (reuses ComfyUI's PyTorch) with Demucs, used to split vocals from the instrumental.
+MUSIC_STEMS_PYTHON = os.getenv(
+    "MUSIC_STEMS_PYTHON", r"C:\Users\David\Documents\Codex\sovereign-stems\venv\Scripts\python.exe"
+)
+# Fast story planner for the Director (a small model; the full planner model can take several minutes).
+DIRECTOR_FAST_PLANNER_MODEL = os.getenv("DIRECTOR_FAST_PLANNER_MODEL", "gemma4:e4b")
+# VibeVoice Studio (text-to-speech and voice cloning) is embedded as Sovereign's Voice Studio.
+VIBEVOICE_APP_DIR = Path(os.getenv("VIBEVOICE_APP_DIR", r"C:\Users\David\Documents\Codex\2026-05-21\vibevoice-app"))
+VIBEVOICE_PORT = int(os.getenv("VIBEVOICE_PORT", "8011"))
+# The local writing model behind the prompt helpers (clean it up / write it for me / plan a film).
+PROMPT_ASSIST_MODEL = os.getenv("PROMPT_ASSIST_MODEL", MUSIC_LYRICS_MODEL)

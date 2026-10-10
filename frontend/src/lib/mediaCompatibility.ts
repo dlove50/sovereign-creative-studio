@@ -40,13 +40,14 @@ const UNIVERSAL: Def[] = [
   A("view_details", "View Details", "available", null, null, "Info"),
 ];
 
-function imageActions(): Def[] {
+function imageActions(ctx: CompatibilityContext): Def[] {
   return [
     A("animate_image", "Animate This Image", "available", "/videos", "image_to_video", "Clapperboard"),
     A("edit_image", "Edit This Image", "available", "/create", "image_edit", "Wand2"),
     A("product_scene", "Use in Product Scene", "available", "/product-scenes", null, "Megaphone"),
     A("use_reference", "Use as Reference", "available", "/product-scenes", "reference", "Images"),
-    A("avatar_from_image", "Make Talking Avatar", "setup-required", "/avatars", null, "PersonStanding"),
+    // Destination checks live readiness and imports only an owned image.
+    A("avatar_from_image", "Make Talking Avatar", ctx.avatarReady === false ? "setup-required" : "available", "/avatars/from-image", null, "PersonStanding"),
   ];
 }
 
@@ -54,9 +55,9 @@ function videoActions(): Def[] {
   return [
     A("transcribe_video", "Transcribe This Video", "available", "/video-to-text", null, "Type"),
     A("upscale_video", "Upscale This Video", "available", "/videos", "video_upscale", "Sparkles"),
-    // Not unlocked until they actually work — shown disabled with a status label.
-    A("video_to_video", "Video-to-Video", "needs-repair", "/videos", "video_to_video", "Film"),
-    A("extend_video", "Extend Video", "coming-soon", "/videos", "video_extension", "Film"),
+    // The destination checks live backend prerequisites before accepting a job.
+    A("video_to_video", "Video-to-Video", "available", "/videos", "video_to_video", "Film"),
+    A("extend_video", "Extend Video", "available", "/videos", "video_extension", "Film"),
   ];
 }
 
@@ -84,7 +85,7 @@ function productSceneActions(): Def[] {
 function primarySpecific(media: MediaObject, ctx: CompatibilityContext): Def[] {
   switch (media.type) {
     case "image":
-      return imageActions();
+      return imageActions(ctx);
     case "video":
       return videoActions();
     case "transcript":

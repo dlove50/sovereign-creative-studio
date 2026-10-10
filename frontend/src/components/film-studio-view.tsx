@@ -26,6 +26,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { safeInterval } from "@/lib/safe-interval";
 
 type ShotType = "wide" | "medium" | "closeup" | "tracking" | "hero";
 type FilmMood = "luxury" | "noir" | "sunset" | "neon" | "studio";
@@ -143,13 +144,13 @@ export function FilmStudioView() {
         (scene.status === "queued" || scene.status === "running"),
     );
     if (activeScenes.length === 0) return;
-    const poll = window.setInterval(async () => {
+    const poll = safeInterval(async () => {
       const updates = await Promise.all(activeScenes.map((scene) => api.getProductScene(scene.id)));
       setScenes((current) =>
         current.map((scene) => updates.find((update) => update.id === scene.id) ?? scene),
       );
     }, 2500);
-    return () => window.clearInterval(poll);
+    return poll;
   }, [scenes]);
 
   useEffect(() => {
@@ -157,13 +158,13 @@ export function FilmStudioView() {
       (video) => video.status === "queued" || video.status === "running",
     );
     if (activeVideos.length === 0) return;
-    const poll = window.setInterval(async () => {
+    const poll = safeInterval(async () => {
       const updates = await Promise.all(activeVideos.map((video) => api.getVideo(video.id)));
       setVideos((current) =>
         current.map((video) => updates.find((update) => update.id === video.id) ?? video),
       );
     }, 3000);
-    return () => window.clearInterval(poll);
+    return poll;
   }, [videos]);
 
   async function loadAll() {

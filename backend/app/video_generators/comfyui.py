@@ -18,11 +18,14 @@ import json
 import mimetypes
 import random
 import struct
+import subprocess
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 import httpx
+from .extension_assembly import append_continuation
 
 from ..config import (
     BASE_DIR,
@@ -391,6 +394,10 @@ class ComfyUIVideoGenerator(VideoGenerator):
         workflow = replace(workflow)
         for node in workflow.values():
             inputs = node.get("inputs", {})
+            if node.get("class_type") == "SaveVideo":
+                # Prompts may contain Windows path characters or exceed MAX_PATH.
+                # Keep user prose in conditioning, never in output filenames.
+                inputs["filename_prefix"] = "sovereign_video_" + str(random.getrandbits(64))
             if node.get("class_type") == "KSampler" and "seed" in inputs:
                 inputs["seed"] = random.randint(0, 2**32 - 1)
 
@@ -517,6 +524,8 @@ class ComfyUIVideoGenerator(VideoGenerator):
                 for item in candidates:
                     if not isinstance(item, dict) or not item.get("filename"):
                         continue
+                    if item.get("type") == "input":
+                        continue
                     suffix = Path(item["filename"]).suffix.lower()
                     if suffix in _VIDEO_EXTENSIONS or key != "images":
                         return item
@@ -531,6 +540,20 @@ class ComfyUIVideoGenerator(VideoGenerator):
         return suffix if suffix in _VIDEO_EXTENSIONS else ".mp4"
 
     # --- public API ----------------------------------------------------------
+    @staticmethod
+    def _preserve_upscale_frames(workflow: dict, frame_count: int) -> None:
+        """Pad LTX's temporal input to 8n+1, then remove only added frames."""
+        if frame_count < 1:
+            raise RuntimeError("Source video has no readable frames.")
+        padding = (1 - frame_count) % 8
+        if padding:
+            workflow["upscale_last"] = {"class_type": "ImageFromBatch", "inputs": {"image": ["3", 0], "batch_index": -1, "length": 1}}
+            workflow["upscale_repeat"] = {"class_type": "RepeatImageBatch", "inputs": {"image": ["upscale_last", 0], "amount": padding}}
+            workflow["upscale_pad"] = {"class_type": "ImageBatch", "inputs": {"image1": ["3", 0], "image2": ["upscale_repeat", 0]}}
+            workflow["4"]["inputs"]["pixels"] = ["upscale_pad", 0]
+        workflow["upscale_trim"] = {"class_type": "ImageFromBatch", "inputs": {"image": ["7", 0], "batch_index": 0, "length": frame_count}}
+        workflow["8"]["inputs"]["images"] = ["upscale_trim", 0]
+
     async def generate(
         self,
         *,
@@ -546,6 +569,24 @@ class ComfyUIVideoGenerator(VideoGenerator):
         source_image = (
             None if mode == "text_to_video" else self._resolve_source_image(source_image_url)
         )
+        expected_duration = duration_seconds
+        source_frame_count = None
+        if mode in ("video_to_video", "video_upscale") and source_image is not None:
+            probe = subprocess.run(
+                ["ffprobe", "-v", "error", "-select_streams", "v:0",
+                 "-count_frames", "-show_entries", "stream=duration,nb_read_frames:format=duration", "-of", "json", str(source_image)],
+                capture_output=True, text=True, check=True, timeout=30,
+            )
+            metadata = json.loads(probe.stdout)
+            stream = next(iter(metadata.get("streams", [])), {})
+            duration = stream.get("duration")
+            if duration in (None, "N/A"):
+                duration = metadata.get("format", {}).get("duration")
+            expected_duration = float(duration)
+            if not 0 < expected_duration < float("inf"):
+                raise RuntimeError("Source video has no valid duration.")
+            if mode == "video_upscale":
+                source_frame_count = int(stream.get("nb_read_frames", 0))
 
         async with httpx.AsyncClient(
             base_url=self.base_url, timeout=_HTTP_TIMEOUT_SECONDS
@@ -561,6 +602,8 @@ class ComfyUIVideoGenerator(VideoGenerator):
                 mode=mode,
                 quality_preset=quality_preset,
             )
+            if mode == "video_upscale" and workflow.get("6", {}).get("class_type") == "LTXVLatentUpsampler":
+                self._preserve_upscale_frames(workflow, source_frame_count)
             prompt_id = await self._submit(client, workflow)
             outputs = await self._await_outputs(client, prompt_id)
             output = self._first_video_output(outputs)
@@ -568,10 +611,19 @@ class ComfyUIVideoGenerator(VideoGenerator):
 
         output_dir = STORAGE_DIR / "videos"
         output_dir.mkdir(parents=True, exist_ok=True)
-        filename = f"{video_id}{self._output_suffix(output)}"
+        filename = f"{video_id}{'.mp4' if mode == 'video_extension' else self._output_suffix(output)}"
         output_path = output_dir / filename
-        output_path.write_bytes(data)
-        self._validate_output_video(output_path, duration_seconds)
+        if mode == "video_extension":
+            with tempfile.TemporaryDirectory(prefix="continuation-", dir=output_dir) as temporary:
+                segment = Path(temporary) / f"segment{self._output_suffix(output)}"
+                segment.write_bytes(data)
+                self._validate_output_video(segment, duration_seconds)
+                expected_duration = await asyncio.to_thread(
+                    append_continuation, source_image, segment, output_path
+                )
+        else:
+            output_path.write_bytes(data)
+        self._validate_output_video(output_path, expected_duration)
         return VideoResult(result_url=f"/storage/videos/{filename}")
 
     # --- output validation --------------------------------------------------
@@ -660,7 +712,7 @@ class ComfyUIVideoGenerator(VideoGenerator):
         }
 
     @classmethod
-    def _validate_output_video(cls, output_path: Path, requested_duration: int) -> None:
+    def _validate_output_video(cls, output_path: Path, requested_duration: float) -> None:
         if not output_path.is_file() or output_path.stat().st_size < 1024:
             raise RuntimeError("ComfyUI returned an empty or tiny video file.")
         if output_path.suffix.lower() != ".mp4":

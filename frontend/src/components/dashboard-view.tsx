@@ -9,6 +9,7 @@ import type { Generation, Project, User } from "@/lib/types";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { GenerationCard } from "@/components/generation-card";
+import { LoadError } from "@/components/ui/load-error";
 
 function StatCard({
   icon: Icon,
@@ -39,11 +40,16 @@ export function DashboardView() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [generations, setGenerations] = useState<Generation[]>([]);
 
-  useEffect(() => {
-    api.getMe().then(setUser).catch(() => {});
-    api.listProjects().then(setProjects).catch(() => {});
-    api.listGenerations().then(setGenerations).catch(() => {});
-  }, []);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const load = () => {
+    setLoadError(null);
+    const fail = (e: unknown) => setLoadError(e instanceof Error ? e.message : "The studio didn't answer.");
+    api.getMe().then(setUser).catch(fail);
+    api.listProjects().then(setProjects).catch(fail);
+    api.listGenerations().then(setGenerations).catch(fail);
+  };
+  useEffect(load, []);
 
   return (
     <div className="space-y-8">
@@ -63,8 +69,8 @@ export function DashboardView() {
 
       <section className="grid gap-4 sm:grid-cols-3">
         <StatCard icon={Coins} label="Credits" value={user?.credits ?? "—"} />
-        <StatCard icon={Folder} label="Projects" value={projects.length} />
-        <StatCard icon={Images} label="Generations" value={generations.length} />
+        <StatCard icon={Folder} label="Projects" value={loadError ? "—" : projects.length} />
+        <StatCard icon={Images} label="Generations" value={loadError ? "—" : generations.length} />
       </section>
 
       <section>
@@ -77,14 +83,16 @@ export function DashboardView() {
             View all
           </Link>
         </div>
-        {generations.length === 0 ? (
+        {loadError ? (
+          <LoadError what="your recent work" message={loadError} onRetry={load} />
+        ) : generations.length === 0 ? (
           <div className="flex h-40 items-center justify-center rounded-lg border border-dashed border-border text-sm text-muted-foreground">
             No generations yet — your recent work will show up here.
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
             {generations.slice(0, 4).map((g) => (
-              <GenerationCard key={g.id} generation={g} />
+              <GenerationCard key={g.id} generation={g} onDeleted={(id) => setGenerations((all) => all.filter((x) => x.id !== id))} />
             ))}
           </div>
         )}

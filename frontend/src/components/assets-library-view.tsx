@@ -1,4 +1,5 @@
 "use client";
+import { confirmDialog } from "@/components/ui/confirm-host";
 
 import { useEffect, useMemo, useState } from "react";
 import type React from "react";
@@ -111,7 +112,7 @@ export function AssetsLibraryView() {
     const entityType = map[item.source_entity_type];
     if (!entityType) return;
     if (
-      !window.confirm(
+      !await confirmDialog(
         "Move this asset to trash? This will remove it from the gallery but keep a recoverable copy.",
       )
     )
@@ -134,7 +135,7 @@ export function AssetsLibraryView() {
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Could not move asset to trash";
       const needsForce = /original|referenced/i.test(msg);
-      if (needsForce && window.confirm(`${msg}\n\nMove to trash anyway?`)) {
+      if (needsForce && await confirmDialog(`${msg}\n\nMove to trash anyway?`)) {
         await api.trashAsset({
           entity_type: entityType,
           entity_id: item.source_entity_id,
@@ -306,6 +307,7 @@ function LibraryCard({
 }) {
   const canTrash = TRASHABLE_SOURCES.has(item.source_entity_type);
   const showActions =
+    item.source_entity_type !== "local_audio" &&
     item.status === "completed" &&
     !!item.asset_url &&
     ["image", "video", "scene", "transcript", "upload", "processed_asset"].includes(item.type);
@@ -413,7 +415,8 @@ function PreviewModal({
   const mediaUrl = assetUrl(item.asset_url);
   const imageUrl = assetUrl(item.thumbnail_url);
   const isVideo = item.type === "video" && mediaUrl;
-  const isImage = !isVideo && mediaUrl;
+  const isAudio = item.source_entity_type === "local_audio" && mediaUrl;
+  const isImage = !isVideo && !isAudio && mediaUrl;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm">
@@ -437,7 +440,9 @@ function PreviewModal({
         </div>
         <div className="grid min-h-0 gap-4 overflow-y-auto p-4 lg:grid-cols-[minmax(0,1fr)_320px]">
           <div className="flex min-h-64 items-center justify-center rounded-md bg-background/60">
-            {isVideo ? (
+            {isAudio ? (
+              <audio src={mediaUrl || undefined} controls className="w-full p-4" />
+            ) : isVideo ? (
               <video
                 src={mediaUrl}
                 controls

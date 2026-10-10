@@ -34,7 +34,7 @@ from ..schemas import (
     ImageProviderReadiness,
     StylePresetOut,
 )
-from ..services import face_refine, image_modes, image_presets, prompt_presets
+from ..services import face_check, face_refine, image_modes, image_presets, prompt_presets
 from ..services.generation_jobs import enqueue_generation
 from ..services.integrations import get_private_provider_config
 
@@ -153,6 +153,33 @@ def upload_generation_source(
         "filename": stored_name,
         "project_id": project_id,
     }
+
+
+@router.post("/reference-upload", status_code=201)
+def upload_reference_image(file: UploadFile = File(...), user: User = Depends(get_current_user)):
+    """Upload a reference picture (clothes, a room, an object) for a look.
+
+    A picture with a face is refused: the editor copies the face into the avatar. If the local
+    vision model can't be reached the picture is accepted and `checked` is false.
+    """
+    original_name = Path(file.filename or "reference").name
+    suffix = Path(original_name).suffix.lower()
+    if suffix not in _ALLOWED_SOURCE_EXTENSIONS:
+        raise HTTPException(status_code=400, detail="Reference upload must be an image file")
+    source_dir = STORAGE_DIR / "image-edit-sources"
+    source_dir.mkdir(parents=True, exist_ok=True)
+    stored_name = f"{uuid.uuid4().hex}{suffix}"
+    destination = source_dir / stored_name
+    with destination.open("wb") as out:
+        shutil.copyfileobj(file.file, out)
+    has_face = face_check.image_has_face(destination)
+    if has_face:
+        destination.unlink(missing_ok=True)
+        raise HTTPException(
+            status_code=422,
+            detail="That picture shows a face, and it would replace your avatar's face. Use a picture of clothes, a room or an object.",
+        )
+    return {"source_image_url": f"/storage/image-edit-sources/{stored_name}", "filename": stored_name, "checked": has_face is False}
 
 
 @router.get("/modes", response_model=list[ImageModeOption])

@@ -99,6 +99,22 @@ export function LookStudioView() {
   const [references, setReferences] = useState<{ url: string; name: string }[]>([]);
   const [orientation, setOrientation] = useState<LookOrientation>("Same as photo");
   const [uploadingRef, setUploadingRef] = useState(false);
+  const [renderedTemplates, setRenderedTemplates] = useState<LookTemplate[]>([]);
+  const templates = useMemo(() => [...LOOK_TEMPLATES, ...renderedTemplates], [renderedTemplates]);
+
+  useEffect(() => {
+    let active = true;
+    const refreshTemplates = async () => {
+      try {
+        const res = await fetch("/sovereign-ui/category-avatars/catalog.json", { cache: "no-store" });
+        if (!res.ok) return;
+        const data = await res.json() as { avatars: { id: string; name: string; category: LookCategory; cover: string | null; prompt: string; edit_prompt: string; description: string }[] };
+        if (active) setRenderedTemplates(data.avatars.filter(a => a.cover).map(a => ({ id: a.id, name: a.description, category: a.category, cover: a.cover!, coverPrompt: a.prompt, variants: [{ label: a.description, prompt: a.edit_prompt }] })));
+      } catch { /* Existing templates remain available while the render library is offline. */ }
+    };
+    void refreshTemplates(); const timer = setInterval(refreshTemplates, 30000);
+    return () => { active = false; clearInterval(timer); };
+  }, []);
 
   const refresh = useCallback(async () => setAvatars(await api.listAvatars()), []);
   const queue = useLookQueue(refresh);
@@ -116,17 +132,17 @@ export function LookStudioView() {
 
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return LOOK_TEMPLATES.filter((t) =>
+    return templates.filter((t) =>
       (filter === "All" || (filter === "Look Packs" ? isPack(t) : t.category === filter)) &&
       (!q || `${t.name} ${t.category} ${t.variants.map((v) => v.label).join(" ")}`.toLowerCase().includes(q)),
     );
-  }, [filter, query]);
+  }, [filter, query, templates]);
 
   async function addReference(file: File) {
     setError(null);
     setUploadingRef(true);
     try {
-      const up = await api.uploadGenerationSource(file);
+      const up = await api.uploadReferenceImage(file);
       setReferences((all) => [...all, { url: up.source_image_url, name: file.name }].slice(0, MAX_REFERENCES));
     } catch (e) {
       setError(e instanceof Error ? e.message : "The reference image could not be uploaded.");
@@ -135,21 +151,24 @@ export function LookStudioView() {
     }
   }
 
-  async function create(variants: LookVariant[]) {
-    if (!avatar) { setError("Pick the avatar to restyle first."); return; }
+  /** Resolves true when the looks were started, so a caller (the pack dialog) only closes on success. */
+  async function create(variants: LookVariant[]): Promise<boolean> {
+    if (!avatar) { setError("Pick the avatar to restyle first."); return false; }
     setError(null);
     setBusy(true);
     try {
       await queue.start(avatar, variants, { references: references.map((r) => r.url), orientation });
       router.push(`/avatars/${avatar.group_id || avatar.id}`);
+      return true;
     } catch (e) {
       setError(e instanceof Error ? e.message : "The looks could not be started.");
+      return false;
     } finally {
       setBusy(false);
     }
   }
 
-  const customVariants = LOOK_TEMPLATES.filter((t) => picked.includes(t.id)).map((t) => t.variants[0]);
+  const customVariants = templates.filter((t) => picked.includes(t.id)).map((t) => t.variants[0]);
   const chips: Filter[] = ["All", "Look Packs", ...LOOK_CATEGORIES];
 
   return (
@@ -224,7 +243,7 @@ export function LookStudioView() {
             ) : null}
           </div>
         </div>
-        {references.length ? <p className="mt-3 text-xs text-muted-foreground">Use pictures of clothes, rooms or objects. A picture with a person in it can change your avatar&apos;s face.</p> : null}
+        {references.length ? <p className="mt-3 text-xs text-muted-foreground">Use pictures of clothes, rooms or objects. Pictures with a face are refused, because they would replace your avatar&apos;s face.</p> : null}
         <input ref={refInput} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) void addReference(f); }} />
       </section>
       {error ? <p className="mt-3 rounded-xl bg-destructive/15 px-3 py-2 text-sm text-destructive">{error}</p> : null}
@@ -250,7 +269,7 @@ export function LookStudioView() {
             onClick={() => setFilter(c)}
             className={cn(
               "inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-medium transition-colors",
-              filter === c ? "border-primary bg-primary/15 text-foreground" : "border-border text-muted-foreground hover:text-foreground",
+              filter === c ? "border-primary bg-primary/15 text-foreground" : "border-border bg-card text-foreground hover:bg-raised",
             )}
           >
             {c === "Look Packs" ? <Layers className="h-3 w-3" /> : null}
@@ -314,7 +333,7 @@ export function LookStudioView() {
                 )}
               >
                 <img src={t.cover} alt="" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]" />
-                <span className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-2 bg-gradient-to-t from-black/80 to-transparent px-3 pb-3 pt-10">
+                <span className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-2 bg-black/90 px-3 py-3">
                   <span className="text-sm font-semibold text-white">{t.name}</span>
                   {isPack(t) ? <span className="rounded-full bg-amber-200 px-2 py-0.5 text-[10px] font-bold text-amber-950">Look Pack</span> : null}
                 </span>
@@ -326,7 +345,7 @@ export function LookStudioView() {
       </ul>
       {shown.length === 0 ? <p className="py-10 text-center text-sm text-muted-foreground">No templates match. Try another word or filter.</p> : null}
 
-      {modal ? <PackModal template={modal} onClose={() => setModal(null)} onCreate={async (v) => { await create(v); setModal(null); }} /> : null}
+      {modal ? <PackModal template={modal} onClose={() => setModal(null)} onCreate={async (v) => { if (await create(v)) setModal(null); }} /> : null}
     </div>
   );
 }

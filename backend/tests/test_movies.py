@@ -179,3 +179,89 @@ def test_batch_is_limited_to_50_rows():
     avatar_id = _avatar(c)
     rows = [{"script": "x"}] * 51
     assert c.post("/api/movies/batch", json={"avatar_id": avatar_id, "rows": rows}).status_code == 422
+
+
+def test_batch_variants_select_each_rows_avatar_and_voice_atomically():
+    c = _client("batch_variants")
+    avatar_a, avatar_b = _avatar(c), _avatar(c)
+    request = {"avatar_id": avatar_a, "tts_voice_id": "batch_voice", "rows": [
+        {"title": "Default", "script": "One."},
+        {"title": "Variant", "script": "Two.", "avatar_id": avatar_b, "tts_voice_id": "other_voice"},
+    ]}
+    r = c.post("/api/movies/batch", json=request)
+    assert r.status_code == 201, r.text
+    scenes = [m["scenes"][0] for m in r.json()]
+    assert [(s["avatar_id"], s["tts_voice_id"]) for s in scenes] == [(avatar_a, "batch_voice"), (avatar_b, "other_voice")]
+    before = len(c.get("/api/movies").json())
+    other = _client("batch_variant_other")
+    request["rows"][1]["avatar_id"] = _avatar(other)
+    assert c.post("/api/movies/batch", json=request).status_code == 404
+    assert len(c.get("/api/movies").json()) == before
+    request["rows"] = [{"script": "   "}]
+    assert c.post("/api/movies/batch", json=request).status_code == 422
+
+
+def test_retry_reuses_completed_scene_after_later_scene_fails(monkeypatch):
+    c = _client("movie_resume")
+    _give_credits("movie_resume")
+    avatar_id = _avatar(c)
+    m = c.post("/api/movies", json={"scenes": [
+        {"avatar_id": avatar_id, "script": "One."},
+        {"avatar_id": avatar_id, "script": "Two."},
+    ]}).json()
+    spoken, rendered = [], []
+    fail_second = True
+
+    def speech(text, out_path, voice_id=None):
+        spoken.append(text)
+        if text == "Two." and fail_second:
+            raise RuntimeError("Temporary voice outage")
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_bytes(b"test audio")
+
+    def render(job_id):
+        rendered.append(job_id)
+        with SessionLocal() as db:
+            job = db.get(AvatarJob, job_id)
+            path = config.STORAGE_DIR / "avatar_videos" / f"{job_id}.mp4"
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(b"completed scene")
+            job.status, job.output_video_path = "completed", f"/storage/avatar_videos/{path.name}"
+            db.commit()
+
+    joined = []
+    def join(clips, out):
+        joined.extend(clips)
+        out.write_bytes(b"assembled movie")
+
+    monkeypatch.setattr(movies.voice_provider, "generate_speech", speech)
+    monkeypatch.setattr(avatar_jobs, "_run_avatar_video", render)
+    monkeypatch.setattr(movies, "join_clips", join)
+    monkeypatch.setattr(movies, "enqueue", lambda _: None)
+    c.post(f"/api/movies/{m['id']}/render")
+    movies.render_movie(m["id"])
+    failed = c.get(f"/api/movies/{m['id']}").json()
+    assert failed["status"] == "failed"
+    first_job = failed["scenes"][0]["avatar_job_id"]
+    # Enough for only the remaining scene: the route must not demand two scenes.
+    _give_credits("movie_resume", config.CREDITS_PER_VOICE_GENERATION + config.CREDITS_PER_AVATAR_VIDEO)
+    fail_second = False
+    assert c.post(f"/api/movies/{m['id']}/render").status_code == 200
+    movies.render_movie(m["id"])
+    done = c.get(f"/api/movies/{m['id']}").json()
+    assert done["status"] == "completed"
+    assert spoken == ["One.", "Two.", "Two."]
+    assert len(rendered) == 2 and rendered[0] == first_job
+    assert len(joined) == 2 and joined[0].stem == first_job
+    with SessionLocal() as db:
+        movie = db.get(Movie, m["id"])
+        scene = movies.load_scenes(movie)[0]
+        assert movies.completed_scene_clip(db, movie, scene) is not None
+        scene["script"] = "Changed words."
+        assert movies.completed_scene_clip(db, movie, scene) is None
+        scene = movies.load_scenes(movie)[0]
+        movie.orientation = "landscape"
+        assert movies.completed_scene_clip(db, movie, scene) is None
+        movie.orientation = "portrait"
+        joined[0].unlink()  # This fixture owns the temporary test file.
+        assert movies.completed_scene_clip(db, movie, scene) is None

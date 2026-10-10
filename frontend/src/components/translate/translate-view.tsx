@@ -10,6 +10,18 @@ import type { AvatarAsset, VoiceOption } from "@/lib/types";
 type Result = Awaited<ReturnType<typeof api.translateVideo>>;
 const ACCEPT = "video/mp4,video/quicktime,video/webm,video/x-matroska,audio/mpeg,audio/wav,audio/mp4,.mkv,.m4v,.m4a";
 
+// Piper voice ids start with a language code (es_ES-..., fr_FR-...). Used to pick a voice that speaks the translation.
+const LANGUAGE_CODES: Record<string, string> = {
+  English: "en", Spanish: "es", French: "fr", German: "de", Italian: "it", Portuguese: "pt", Dutch: "nl", Polish: "pl",
+  Russian: "ru", Ukrainian: "uk", Turkish: "tr", Arabic: "ar", Chinese: "zh", Czech: "cs", Danish: "da", Finnish: "fi",
+  Greek: "el", Hungarian: "hu", Norwegian: "no", Romanian: "ro", Swedish: "sv", Vietnamese: "vi", Catalan: "ca",
+};
+
+function voiceForLanguage(language: string, voices: VoiceOption[]): VoiceOption | undefined {
+  const code = LANGUAGE_CODES[language];
+  return code ? voices.find((v) => v.ready && v.language.toLowerCase().startsWith(`${code}_`)) : undefined;
+}
+
 function clock(seconds: number) {
   const m = Math.floor(seconds / 60);
   return `${m}:${String(Math.floor(seconds % 60)).padStart(2, "0")}`;
@@ -28,7 +40,14 @@ export function TranslateView() {
   const [voices, setVoices] = useState<VoiceOption[]>([]);
   const [avatarId, setAvatarId] = useState("");
   const [voiceId, setVoiceId] = useState("");
+  const [voiceChosen, setVoiceChosen] = useState(false); // once the person picks a voice, stop choosing for them
   const [making, setMaking] = useState(false);
+  const spokenLanguage = result?.language ?? language;
+  const matchingVoice = voiceForLanguage(spokenLanguage, voices);
+
+  useEffect(() => {
+    if (!voiceChosen) setVoiceId(matchingVoice?.id ?? "");
+  }, [matchingVoice?.id, voiceChosen]);
 
   useEffect(() => {
     api.translateLanguages().then(setLanguages).catch(() => setLanguages([]));
@@ -82,8 +101,8 @@ export function TranslateView() {
       <h1 className="pt-4 text-center text-4xl font-extrabold tracking-[-0.03em]">Translate video</h1>
       <p className="mx-auto mt-2 max-w-lg text-center text-sm text-muted-foreground">
         Upload a video or recording and get subtitles in another language. You can also have your avatar say the translation.
-        Spoken translation depends on the voices installed here: the built-in voices are English, so check a cloned voice
-        before relying on another language.
+        Spoken translation needs a voice in that language. Spanish and French voices are installed; for other
+        languages, use a cloned voice and check how it sounds before relying on it.
       </p>
 
       <button
@@ -95,7 +114,7 @@ export function TranslateView() {
         <span className="text-sm font-semibold">{file ? file.name : "Choose a video or audio file"}</span>
         <span className="text-xs text-muted-foreground">{file ? `${(file.size / 1e6).toFixed(1)} MB · click to change` : "MP4, MOV, WEBM, MKV, MP3, WAV or M4A"}</span>
       </button>
-      <input ref={input} type="file" accept={ACCEPT} className="hidden" onChange={(e) => { setFile(e.target.files?.[0] ?? null); e.target.value = ""; }} />
+      <input ref={input} type="file" accept={ACCEPT} className="hidden" onChange={(e) => { setFile(e.target.files?.[0] ?? null); setResult(null); e.target.value = ""; }} />
 
       <div className="mt-4 flex flex-wrap items-end gap-3">
         <label className="min-w-[220px] flex-1 text-xs font-medium text-muted-foreground">
@@ -143,10 +162,16 @@ export function TranslateView() {
               </label>
               <label className="text-xs font-medium text-muted-foreground">
                 Voice
-                <select value={voiceId} onChange={(e) => setVoiceId(e.target.value)} className={field}>
+                <select value={voiceId} onChange={(e) => { setVoiceChosen(true); setVoiceId(e.target.value); }} className={field}>
                   <option value="">Default voice</option>
                   {voices.map((v) => <option key={v.id} value={v.id}>{v.label}</option>)}
                 </select>
+                <span className="mt-1 block text-xs font-normal" aria-live="polite">
+                  {voiceChosen
+                    ? (voiceId && matchingVoice?.id !== voiceId ? `Check that this voice speaks ${spokenLanguage}.` : "")
+                    : matchingVoice ? `Matched to ${spokenLanguage}: ${matchingVoice.label}.`
+                      : `No built-in ${spokenLanguage} voice. The default voice is English; choose a cloned voice for ${spokenLanguage}.`}
+                </span>
               </label>
               <button type="button" disabled={making || !avatarId} onClick={makeAvatarVideo} className="inline-flex h-10 items-center gap-2 rounded-full bg-primary px-5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60">
                 {making ? <Loader2 className="h-4 w-4 animate-spin" /> : null}

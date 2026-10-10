@@ -1,7 +1,7 @@
 // Starter scene sets for the video editor. They are plain scripts with [brackets] to fill in,
 // written for this studio. Each scene stays well under the 1,500 character scene limit.
 
-export const MOVIE_TEMPLATE_CATEGORIES = ["Training", "Corporate", "Marketing", "Sales", "Tutorials", "Real estate", "Finance"] as const;
+export const MOVIE_TEMPLATE_CATEGORIES = ["Training", "Corporate", "Marketing", "Sales", "Tutorials & Explainers", "Learning & Development", "Explainer Video", "Real estate", "Finance"] as const;
 export type MovieTemplateCategory = (typeof MOVIE_TEMPLATE_CATEGORIES)[number];
 
 export type MovieTemplate = {
@@ -61,13 +61,13 @@ export const MOVIE_TEMPLATES: MovieTemplate[] = [
       "To recap: you want [goal], and the main concern is [concern]. Here's what I suggest: [recommendation].",
       "The next step is [action] by [date]. Let me know if anything changes. Talk soon.",
     ] },
-  { id: "how-to-3-steps", title: "How to, in three steps", category: "Tutorials", blurb: "Teach one practical skill clearly.",
+  { id: "how-to-3-steps", title: "How to, in three steps", category: "Tutorials & Explainers", blurb: "Teach one practical skill clearly.",
     scenes: [
       "Today I'll show you how to [do the thing]. It takes about [time] and you only need [tools].",
       "Step one: [action]. Step two: [action]. Step three: [action]. Take your time with the second step, because that's where most people slip.",
       "That's it. You've just [achieved result]. If this helped, try [next idea] next.",
     ] },
-  { id: "explainer", title: "One big idea, explained", category: "Tutorials", blurb: "Explain a concept with an everyday example.",
+  { id: "explainer", title: "One big idea, explained", category: "Explainer Video", blurb: "Explain a concept with an everyday example.",
     scenes: [
       "Have you ever wondered [question]? Let me explain it simply.",
       "Think of it like [everyday comparison]. In the same way, [concept] works by [short explanation].",
@@ -84,5 +84,54 @@ export const MOVIE_TEMPLATES: MovieTemplate[] = [
       "Here's your [weekly or monthly] market update from [company]. This is general information, not personal advice.",
       "Over the period, [market or sector] moved [direction], mainly because of [reason]. [Second point.]",
       "Looking ahead, keep an eye on [event or data]. For questions about your own situation, speak with [adviser or contact].",
+    ] },
+  { id: "course-overview", title: "Course overview", category: "Learning & Development", blurb: "Explain the learning goal, structure and preparation.",
+    scenes: [
+      "Welcome to [course]. By the end, you will be able to [observable skill]. This course is designed for [learners] who already know [starting knowledge].",
+      "We will start with [foundation], work through [example], and finish with [practice task]. Set aside [time] and have [materials] ready.",
+      "Your final task is [assessment]. Use [success criteria] to check your work. Start the first lesson when you are ready, and ask questions through [support channel].",
+    ] },
+  { id: "lesson-and-practice", title: "Lesson and practice", category: "Learning & Development", blurb: "Teach a skill, invite practice and check understanding.",
+    scenes: [
+      "In this lesson, we will practice [skill]. It helps when [situation]. Watch for [important detail] as we work through an example.",
+      "Start by [first action]. Then [next action]. In our example, [input] produces [result] because [reason].",
+      "Now try [practice task] yourself. Pause here before continuing. Compare your result with [expected result], and check [common mistake] if yours differs.",
+      "You are ready to move on when you can [success criterion] without help. Next, we will apply this skill to [next topic].",
+    ] },
+  { id: "knowledge-base-answer", title: "Knowledge base answer", category: "Tutorials & Explainers", blurb: "Resolve a common question with a clear escalation path.",
+    scenes: [
+      "If you are seeing [symptom], this guide will help you check [likely cause]. It applies to [product version or situation].",
+      "First, confirm [prerequisite]. Open [location], choose [setting], and enter [value]. You should see [confirmation].",
+      "If the issue continues, note [diagnostic detail] and contact [support]. Include [useful information] so the team can help without repeating these steps.",
+    ] },
+  { id: "product-walkthrough", title: "Product walkthrough", category: "Tutorials & Explainers", blurb: "Show a practical workflow from setup to saved result.",
+    scenes: [
+      "Let's use [product] to complete [task]. Before you begin, sign in and have [required input] ready.",
+      "From [starting screen], select [control]. Add [input], choose [option], and review [preview or confirmation] before continuing.",
+      "Select [finish action] to save your result. Find it under [location]. Check [quality criterion], then use [sharing or export action] if you need a copy.",
+    ] },
+  { id: "business-strategy", title: "Business strategy briefing", category: "Corporate", blurb: "Connect a goal to choices, owners and review dates.",
+    scenes: [
+      "Our goal for [period] is [measurable outcome]. The evidence behind this priority is [customer need or operational finding].",
+      "We will focus on [initiative one] and [initiative two]. We are postponing [other work] so the team has the time and resources to deliver.",
+      "[Owner] will lead [milestone] by [date]. We will review [metric] at [cadence] and adjust if [decision threshold] is reached.",
+    ] },
+  { id: "hiring-role-overview", title: "Hiring role overview", category: "Corporate", blurb: "Describe the work, selection process and application route.",
+    scenes: [
+      "We are hiring a [role] for [team]. You will help [purpose] by working on [main responsibilities].",
+      "The role requires [essential skills]. Experience with [optional skill] is helpful. The working arrangement is [location and schedule], with [published compensation or benefits information].",
+      "Apply through [application route] by [date]. The process includes [selection stages]. For accessibility arrangements or questions, contact [contact].",
+    ] },
+  { id: "sales-report", title: "Sales results report", category: "Sales", blurb: "Separate measured results from forecasts and next actions.",
+    scenes: [
+      "Here are the sales results for [period], using data updated on [date]. Actual revenue was [amount], compared with a target of [target].",
+      "[Segment] contributed [result]. The main change came from [supported explanation]. Our pipeline forecast is [forecast], which remains an estimate based on [assumptions].",
+      "Next, [owner] will address [action] by [date]. We will track [metric] and review progress at [next meeting].",
+    ] },
+  { id: "financial-planning-explainer", title: "Financial planning basics", category: "Explainer Video", blurb: "Explain goals, cash flow and review habits without product recommendations.",
+    scenes: [
+      "A financial plan connects your goals with the money coming in and going out. Start by naming a goal, its estimated cost, and when you want to reach it.",
+      "List income, essential spending, debt payments and existing savings. The amount left over helps you understand what may be available for your goal. Use your own figures and check that they are current.",
+      "Consider how unexpected costs or changes in income could affect the plan. Review it when your circumstances change. For decisions involving investments, taxes or borrowing, discuss your situation with a qualified professional.",
     ] },
 ];

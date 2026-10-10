@@ -32,13 +32,14 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 BACKEND = ROOT / "backend"
 FRONTEND = ROOT / "frontend"
-COMFY_DIR = Path(r"C:\Users\David\ComfyUI-Installs\ComfyUI\ComfyUI")
-COMFY_PY = Path(r"C:\Users\David\Documents\ComfyUI\.venv\Scripts\python.exe")
-COMFY_MODELS = Path(r"C:\Users\David\AppData\Roaming\Comfy Desktop\shared_model_paths.yaml")
-COMFY_USER = Path(r"C:\Users\David\Documents\ComfyUI\user")
-COMFY_BASE = Path(r"C:\Users\David\Documents\ComfyUI")
-COMFY_INPUT = Path(r"C:\Users\David\Documents\ComfyUI\input")
-COMFY_OUTPUT = Path(r"C:\Users\David\Documents\ComfyUI\output")
+# ComfyUI locations. The defaults are this PC's; setting SOVEREIGN_COMFY_* moves them (the laptop kit does).
+COMFY_DIR = Path(os.environ.get("SOVEREIGN_COMFY_DIR", r"C:\Users\David\ComfyUI-Installs\ComfyUI\ComfyUI"))
+COMFY_PY = Path(os.environ.get("SOVEREIGN_COMFY_PY", r"C:\Users\David\Documents\ComfyUI\.venv\Scripts\python.exe"))
+COMFY_MODELS = Path(os.environ.get("SOVEREIGN_COMFY_MODELS", r"C:\Users\David\AppData\Roaming\Comfy Desktop\shared_model_paths.yaml"))
+COMFY_BASE = Path(os.environ.get("SOVEREIGN_COMFY_BASE", r"C:\Users\David\Documents\ComfyUI"))
+COMFY_USER = COMFY_BASE / "user"
+COMFY_INPUT = COMFY_BASE / "input"
+COMFY_OUTPUT = COMFY_BASE / "output"
 
 SERVICES = {
     "comfyui": {
@@ -49,7 +50,7 @@ SERVICES = {
     "backend": {
         "label": "Backend",
         "port": 8002,
-        "health": "http://127.0.0.1:8002/api/generations/presets",
+        "health": "http://127.0.0.1:8002/api/health",
     },
     "frontend": {
         "label": "Frontend",
@@ -123,14 +124,17 @@ def _fetch_json(url: str, timeout: float = 5.0) -> dict | list | None:
 
 def _is_sovereign_backend() -> bool:
     """Return True only if port 8002 serves the Sovereign backend."""
-    body = _fetch_json(f"http://127.0.0.1:{BACKEND_PORT}/api/generations/presets")
-    return bool(body and "quality_presets" in body and "image_modes" in body)
+    body = _fetch_json(f"http://127.0.0.1:{BACKEND_PORT}/api/health")
+    if not isinstance(body, dict) or body.get("status") != "ok":
+        return False
+    schema = _fetch_json(f"http://127.0.0.1:{BACKEND_PORT}/openapi.json")
+    return bool(isinstance(schema, dict) and schema.get("info", {}).get("title") == "Sovereign Creative Studio API")
 
 
 def _check_proxy() -> bool:
     """Return True if the frontend proxy correctly forwards to backend port 8002."""
-    body = _fetch_json("http://localhost:3000/api/generations/presets")
-    return bool(body and "quality_presets" in body)
+    body = _fetch_json("http://localhost:3000/api/health")
+    return bool(isinstance(body, dict) and body.get("status") == "ok" and _is_sovereign_backend())
 
 
 def port_pids(port: int) -> list[int]:
@@ -313,8 +317,9 @@ def ensure_paths(skip_comfy: bool) -> None:
 
 
 def ensure_frontend_build() -> None:
-    build_id = FRONTEND / ".next" / "BUILD_ID"
-    routes_manifest = FRONTEND / ".next" / "routes-manifest.json"
+    dist_dir = os.environ.get("NEXT_DIST_DIR", ".next-cinematic-fixed")
+    build_id = FRONTEND / dist_dir / "BUILD_ID"
+    routes_manifest = FRONTEND / dist_dir / "routes-manifest.json"
     expected_origin = f"http://127.0.0.1:{BACKEND_PORT}"
     build_is_current = False
     if build_id.is_file() and routes_manifest.is_file():
@@ -454,6 +459,7 @@ def start(args: argparse.Namespace) -> int:
         print(f"[3/3] Starting frontend ({frontend_label}) on http://localhost:3000")
         frontend_env = clean_env()
         frontend_env["BACKEND_ORIGIN"] = f"http://127.0.0.1:{BACKEND_PORT}"
+        frontend_env["NEXT_DIST_DIR"] = os.environ.get("NEXT_DIST_DIR", ".next-cinematic-fixed")
         started.append((
             "Frontend",
             popen(frontend_command, FRONTEND, "Sovereign Frontend", args.hidden, env=frontend_env),

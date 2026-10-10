@@ -41,6 +41,7 @@ import { consumeHandoff } from "@/lib/stores/useMediaHandoff";
 import { videoToMedia } from "@/lib/utils/mediaMapping";
 import { validateSourceUrl } from "@/lib/utils/validateSourceUrl";
 import { cn } from "@/lib/utils";
+import { confirmDialog } from "@/components/ui/confirm-host";
 
 const STATUS_VARIANT = {
   queued: "muted",
@@ -71,7 +72,7 @@ export function VideoModeBanner({
             <span className="text-sm font-semibold">Video backend</span>
             <Badge variant={isComfy ? "default" : "muted"}>{backend}</Badge>
             {isComfy ? (
-              <Badge variant="outline">Real LTX video mode</Badge>
+              <Badge variant="outline">Local video workflows</Badge>
             ) : (
               <Badge variant="outline">Mock preview mode</Badge>
             )}
@@ -145,6 +146,8 @@ export function VideoCard({
           <iframe
             src={src}
             title={video.prompt}
+            sandbox="allow-scripts"
+            loading="lazy"
             className="h-full w-full border-0"
           />
         ) : video.status === "completed" && src ? (
@@ -301,6 +304,7 @@ export function StoryboardPlanner({ projectId }: { projectId: string }) {
   }
 
   async function deleteStoryboard(storyboard: Storyboard) {
+    if (!await confirmDialog(`Delete the storyboard "${storyboard.title}" and all of its shots? This cannot be undone.`)) return;
     setError(null);
     try {
       await api.deleteStoryboard(projectId, storyboard.id);
@@ -337,6 +341,7 @@ export function StoryboardPlanner({ projectId }: { projectId: string }) {
 
   async function deleteShot(shot: Shot) {
     if (!selectedId) return;
+    if (!await confirmDialog(`Delete shot ${shot.shot_number}? This cannot be undone.`)) return;
     setError(null);
     try {
       await api.deleteShot(selectedId, shot.id);

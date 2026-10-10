@@ -2,8 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Cloud, Download, Loader2, RefreshCw, Settings2 } from "lucide-react";
-import { cloudApi, type CatalogItem, type CloudJob, type CloudOperation, type CloudStatus } from "@/lib/api/cloud";
+import { Cloud, Download, Loader2, RefreshCw, Settings2, Sparkles } from "lucide-react";
+import { cloudApi, type CatalogItem, type CloudJob, type CloudOperation, type CloudStatus, mockApi } from "@/lib/api/cloud";
 import { cn } from "@/lib/utils";
 
 const MODES: { id: CloudOperation; label: string; detail: string }[] = [
@@ -16,8 +16,10 @@ const MODES: { id: CloudOperation; label: string; detail: string }[] = [
   { id: "isolate", label: "Audio isolation", detail: "Remove background noise from a voice recording." },
   { id: "music", label: "Music", detail: "Describe a soundtrack and save an MP3. Availability depends on your ElevenLabs API plan." },
   { id: "align", label: "Transcript timing", detail: "Match a supplied transcript to a recording. Download word and character timings as JSON." },
+  { id: "voice-clone", label: "Voice cloning", detail: "Upload an audio sample from which to clone a voice for future use." },
+  { id: "sts", label: "Speak to video", detail: "Upload video or record via webcam, then generate output with a cloned voice." },
 ];
-const UPLOADS = new Set<CloudOperation>(["voice-changer", "transcribe", "dubbing", "isolate", "align"]);
+const UPLOADS = new Set<CloudOperation>(["voice-changer", "transcribe", "dubbing", "isolate", "align", "voice-clone", "sts"]);
 const field = "w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary";
 const button = "inline-flex items-center justify-center gap-2 rounded-full border border-border px-4 py-2 text-sm font-medium hover:bg-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-50";
 const message = (e: unknown) => e instanceof Error ? e.message : "Something went wrong. Try again.";
@@ -70,6 +72,7 @@ export function CloudStudioView() {
   const [engine, setEngine] = useState("avatar_iv");
   const [accepted, setAccepted] = useState(false);
   const [refreshing, setRefreshing] = useState<string[]>([]);
+  const [fileType, setFileType] = useState<"audio" | "video">("audio");
   const catalogVersion = useRef(0);
   const submitting = useRef(false);
   const provider = mode === "avatar-video" ? "heygen" : "elevenlabs";
@@ -139,7 +142,7 @@ export function CloudStudioView() {
     try {
       const job = await cloudApi.submit({ request_id: crypto.randomUUID(), operation: mode, accept_charges: accepted,
         title, text, voice_id: voiceId, avatar_id: avatarId, aspect_ratio: ratio, engine,
-        target_lang: language, duration_seconds: duration, loop, music_seconds: musicSeconds, instrumental }, UPLOADS.has(mode) ? file : undefined);
+        target_lang: language, duration_seconds: duration, loop, music_seconds: musicSeconds, instrumental, file_type: fileType }, UPLOADS.has(mode) ? file : undefined);
       setJobs(current => [job, ...current.filter(j => j.id !== job.id)]);
       setAccepted(false); setNotice("Job saved. Its progress and downloads appear below.");
     } catch (e) {
@@ -207,9 +210,15 @@ export function CloudStudioView() {
               <input required={mode !== "avatar-video"} className={field} value={voiceId} onChange={e => setVoiceId(e.target.value)} pattern="[A-Za-z0-9_-]*" placeholder="Choose a voice or paste its ID" /></label>
             {selectedVoice?.audio_url && <audio key={selectedVoice.id} controls preload="none" src={selectedVoice.audio_url} className="w-full" aria-label={`${selectedVoice.name} preview`} />}
           </div>}
-          {UPLOADS.has(mode) ? <label className="block space-y-2 text-sm font-medium">Source recording
-            <input key={mode} type="file" required className={field} accept={mode === "dubbing" || mode === "transcribe" ? "audio/*,video/*" : "audio/*"} onChange={e => setFile(e.target.files?.[0])} />
-            <span className="block text-xs font-normal text-muted-foreground">Up to 100 MB. This file will be uploaded to ElevenLabs for processing.</span></label>
+          {UPLOADS.has(mode) ? <div className="space-y-3">
+              {(mode === "sts") && <div className="flex gap-2">
+                <button type="button" className={cn(button, fileType === "audio" && "border-primary bg-primary/10 text-primary")} onClick={() => setFileType("audio")}>Audio sample</button>
+                <button type="button" className={cn(button, fileType === "video" && "border-primary bg-primary/10 text-primary")} onClick={() => setFileType("video")}>Video (Recommended)</button>
+              </div>}
+              {mode === "voice-clone" && <span className="block text-xs font-normal text-muted-foreground">Upload an audio sample for voice cloning.</span>}
+              <input key={`${mode}-${fileType}`} type="file" required className={field} accept={fileType === "video" ? "video/*" : mode === "dubbing" || mode === "transcribe" ? "audio/*,video/*" : "audio/*"} onChange={e => setFile(e.target.files?.[0])} />
+              <span className="block text-xs font-normal text-muted-foreground">Up to 100 MB. {(fileType === "video" || mode === "sts") ? "Upload video or use the webcam for capture." : "This file will be uploaded to ElevenLabs for processing."}</span>
+            </div>
             : <label className="block space-y-2 text-sm font-medium">{mode === "sound-effects" ? "Describe the sound" : mode === "music" ? "Describe the music" : "Script"}
               <textarea required className={cn(field, "min-h-36 resize-y")} value={text} onChange={e => setText(e.target.value)} maxLength={mode === "music" ? 4100 : 5000}
                 placeholder={mode === "sound-effects" ? "Rain on a workshop roof, soft wind and a distant rumble…" : mode === "music" ? "Gentle acoustic guitar, warm piano, a relaxed pace…" : "Write what the voice should say…"} /></label>}

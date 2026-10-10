@@ -84,7 +84,7 @@ import type {
 
 import { API_BASE, downloadZip, formRequest, request, setActiveUserId } from "@/lib/api/core";
 
-export type InteractiveNode = { id: string; title: string; video_url: string; choices: { label: string; next: string }[] };
+export type InteractiveNode = { id: string; title: string; video_url: string; question?: string; body?: string; choices: { label: string; next: string; feedback?: string; is_correct?: boolean | null }[] };
 export type InteractiveItem = { id: string; title: string; nodes: InteractiveNode[]; start_node_id: string | null; created_at: string; updated_at: string };
 
 export const adminApi = {
@@ -137,9 +137,12 @@ export const adminApi = {
     request<void>(`/api/videos/${encodeURIComponent(id)}`, { method: "DELETE" }),
   createBatch: (input: {
     avatar_id: string; tts_voice_id?: string | null; orientation: MovieOrientation;
-    rows: { title: string; script: string }[]; render: boolean;
+    rows: { title: string; script: string; avatar_id?: string; tts_voice_id?: string }[]; render: boolean;
+    avatar_ids?: string[]; tts_voice_ids?: string[];
   }) => request<Movie[]>("/api/movies/batch", { method: "POST", body: JSON.stringify(input) }),
   listMovies: () => request<Movie[]>("/api/movies"),
+  deleteGeneration: (id: string) => request<void>(`/api/generations/${encodeURIComponent(id)}`, { method: "DELETE" }),
+  deleteProject: (id: string) => request<void>(`/api/projects/${encodeURIComponent(id)}`, { method: "DELETE" }),
   createMovie: (input: { title?: string; orientation?: MovieOrientation; scenes?: Partial<MovieScene>[] } = {}) =>
     request<Movie>("/api/movies", { method: "POST", body: JSON.stringify(input) }),
   getMovie: (id: string) => request<Movie>(`/api/movies/${encodeURIComponent(id)}`),
@@ -161,8 +164,24 @@ export const adminApi = {
     }>("/api/speech-cleanup", form),
   extractKnowledge: (form: FormData) =>
     formRequest<{ name: string; text: string; truncated: boolean }>("/api/slides/extract-text", form),
+  developerEndpoints: () =>
+    request<{ count: number; interactive_docs: string; openapi: string; endpoints: {
+      method: string; path: string; group: string; summary: string; description: string;
+      path_params: string[]; query_params: string[]; body: "json" | "multipart" | null;
+    }[] }>("/api/developers/endpoints"),
+  assistantChat: (messages: { role: "user" | "assistant"; content: string }[]) =>
+    request<{ reply: string; action: string; navigate_to: string | null; page: string | null }>(
+      "/api/assistant/chat", { method: "POST", body: JSON.stringify({ messages }) }),
+  saveScreenRecording: (form: FormData) =>
+    formRequest<{ id: string; title: string; result_url: string; poster_url: string; duration_seconds: number; has_audio: boolean }>("/api/recordings", form),
+  documentBrief: (form: FormData) =>
+    formRequest<{ name: string; brief: string; source_chars: number; condensed: boolean; ocr_pages: number; suggested_slides: number }>("/api/slides/document-brief", form),
+  addCaptions: (videoUrl: string) =>
+    request<{ video_url: string; srt_url: string; captions: number }>("/api/captions", { method: "POST", body: JSON.stringify({ video_url: videoUrl }) }),
   slidesToMovie: (form: FormData) =>
     formRequest<{ movie_id: string; scenes: number; warnings: string[]; credits_estimate: number }>("/api/slides/to-movie", form),
+  generatePresentation: (input: { prompt: string; slide_count: number; avatar_id: string; tts_voice_id: string; orientation: "portrait" | "landscape"; brand_project_id?: string | null }) =>
+    request<{ movie_id: string; scenes: number; warnings: string[]; credits_estimate: number }>("/api/slides/generate", { method: "POST", body: JSON.stringify(input) }),
   translateLanguages: () => request<string[]>("/api/translate/languages"),
   translateVideo: (form: FormData) =>
     formRequest<{
@@ -172,6 +191,9 @@ export const adminApi = {
   translationToMovie: (input: { title: string; lines: string[]; avatar_id: string; tts_voice_id: string | null; orientation: "portrait" | "landscape" }) =>
     request<{ movie_id: string; scenes: number; credits_estimate: number }>("/api/translate/to-movie", { method: "POST", body: JSON.stringify(input) }),
   listInteractive: () => request<InteractiveItem[]>("/api/interactive"),
+  exportInteractiveScorm: (id: string) => downloadZip(`/api/interactive/${encodeURIComponent(id)}/export/scorm`, {}, "sovereign-lesson-scorm12.zip"),
+  exportInteractivePackage: (id: string, format: "scorm12" | "scorm2004" | "xapi") =>
+    downloadZip(`/api/interactive/${encodeURIComponent(id)}/export/${format}`, {}, `sovereign-lesson-${format}.zip`),
   getInteractive: (id: string) => request<InteractiveItem>(`/api/interactive/${encodeURIComponent(id)}`),
   listInteractiveClips: () => request<{ title: string; url: string }[]>("/api/interactive/clips"),
   createInteractive: (input: { title?: string; nodes?: InteractiveNode[]; start_node_id?: string | null }) =>

@@ -21,6 +21,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { consumeHandoff } from "@/lib/stores/useMediaHandoff";
 import { cn } from "@/lib/utils";
+import { safeInterval } from "@/lib/safe-interval";
 
 const COPY_TYPES: { value: CopyType; label: string }[] = [
   { value: "product_description", label: "Product description" },
@@ -123,13 +124,13 @@ export function CopyStudioView() {
       (c) => c.status === "queued" || c.status === "running",
     );
     if (active.length === 0) return;
-    const poll = window.setInterval(async () => {
+    const poll = safeInterval(async () => {
       const updates = await Promise.all(active.map((c) => api.getCopy(c.id)));
       setCopies((current) =>
         current.map((c) => updates.find((u) => u.id === c.id) ?? c),
       );
     }, 2500);
-    return () => window.clearInterval(poll);
+    return poll;
   }, [copies]);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -169,7 +170,7 @@ export function CopyStudioView() {
     <>
       <CopyProviderBanner />
       {transcriptNote ? (
-        <p className="mb-4 flex items-center gap-1.5 rounded-md bg-emerald-500/10 px-3 py-2 text-xs text-emerald-700 dark:text-emerald-400">
+        <p className="mb-4 flex items-center gap-1.5 rounded-md bg-emerald-500/10 px-3 py-2 text-xs text-emerald-400">
           {transcriptNote}
         </p>
       ) : null}

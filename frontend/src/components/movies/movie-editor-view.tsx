@@ -1,10 +1,13 @@
 "use client";
+import { confirmDialog } from "@/components/ui/confirm-host";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ArrowLeft, Check, Download, Loader2, Monitor, Plus, Smartphone, Sparkles, Trash2, UserRound, Wand2 } from "lucide-react";
 
 import { defaultVoiceFor } from "@/lib/avatar-voice";
+import { CaptionedVideo } from "@/components/media/captioned-video";
 import { api, assetUrl } from "@/lib/api";
 import type { AvatarAsset, Movie, MovieOrientation, MovieScene, VoiceOption } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -45,6 +48,17 @@ export function MovieEditorView({ movieId }: { movieId: string }) {
   }, [movieId]);
 
   const rendering = movie?.status === "rendering";
+  const router = useRouter();
+
+  async function removeVideo() {
+    if (!movie || !await confirmDialog(`Delete “${movie.title.slice(0, 60)}”? Its scenes are removed with it.`)) return;
+    try {
+      await api.deleteMovie(movieId);
+      router.push("/projects");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "The video could not be deleted.");
+    }
+  }
 
   const locked = rendering || starting;
 
@@ -194,6 +208,7 @@ export function MovieEditorView({ movieId }: { movieId: string }) {
   return (
     <div className="mx-auto max-w-[1240px]">
       <header className="flex flex-wrap items-center gap-3 border-b border-border pb-4">
+        <Link href="/cinematic-planner" target="_blank" rel="noopener noreferrer" className="rounded-lg border border-border px-3 py-2 text-sm hover:bg-raised">Cinematic planner (new tab)</Link>
         <Link href="/projects" aria-label="Back to projects" className="flex h-9 w-9 items-center justify-center rounded-full border border-border hover:bg-raised"><ArrowLeft className="h-4 w-4" /></Link>
         <input
           value={movie.title}
@@ -203,6 +218,9 @@ export function MovieEditorView({ movieId }: { movieId: string }) {
           placeholder="Untitled video"
           className="min-w-0 flex-1 bg-transparent text-xl font-extrabold tracking-[-0.02em] focus:outline-none"
         />
+        <button type="button" disabled={locked} onClick={removeVideo} aria-label="Delete this video" title={locked ? "Wait for the render to finish" : "Delete this video"} className="flex h-9 items-center gap-1.5 rounded-full border border-border px-3 text-sm text-muted-foreground hover:border-destructive hover:text-destructive disabled:opacity-50">
+          <Trash2 className="h-4 w-4" /> Delete
+        </button>
         <span className="text-xs text-muted-foreground" aria-live="polite">
           {saving === "saving" ? "Saving…" : saving === "saved" ? "Saved" : movie.status === "draft" ? "Draft" : ""}
         </span>
@@ -239,11 +257,8 @@ export function MovieEditorView({ movieId }: { movieId: string }) {
         <p className="mt-3 rounded-xl bg-primary/10 px-3 py-2 text-sm">Rendering {movie.scenes.length} scenes, with the selected looks and voices. You can leave this page; it keeps going.</p>
       ) : null}
       {movie.status === "completed" && movie.output_video_path ? (
-        <div className="mt-4 flex flex-wrap items-end gap-4 rounded-3xl border border-border bg-card/60 p-4">
-          <video controls src={assetUrl(movie.output_video_path) ?? undefined} className={cn("rounded-2xl border border-border bg-black", portrait ? "max-h-[420px]" : "max-h-[340px]")} />
-          <a href={assetUrl(movie.output_video_path) ?? "#"} download className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground">
-            <Download className="h-4 w-4" /> Download video
-          </a>
+        <div className="mt-4 rounded-3xl border border-border bg-card/60 p-4">
+          <CaptionedVideo src={movie.output_video_path} className={portrait ? "max-h-[420px]" : "max-h-[340px]"} />
         </div>
       ) : null}
 
@@ -251,7 +266,7 @@ export function MovieEditorView({ movieId }: { movieId: string }) {
         <aside aria-label="Scenes">
           <ol className="space-y-2">
             {movie.scenes.map((s, i) => {
-              const thumb = avatars.find((a) => a.id === s.avatar_id)?.thumbnail_path;
+              const thumb = s.slide_image_url || avatars.find((a) => a.id === s.avatar_id)?.thumbnail_path;
               return (
                 <li key={s.id}>
                   <button
@@ -289,8 +304,13 @@ export function MovieEditorView({ movieId }: { movieId: string }) {
         </aside>
 
         <section aria-label="Scene preview" className="flex items-start justify-center rounded-3xl border border-border bg-background/60 p-4">
-          <div className={cn("flex items-center justify-center overflow-hidden rounded-2xl bg-raised", portrait ? "aspect-[9/16] w-full max-w-[292px]" : "aspect-video w-full")}>
+          <div className={cn("flex items-center justify-center overflow-hidden rounded-2xl bg-raised", portrait ? "aspect-[9/16] w-full max-w-[292px]" : "aspect-video w-full", scene?.slide_image_url && (portrait ? "flex-col" : "flex-row"))}>
+            {scene?.slide_image_url ? <>
+              <img src={assetUrl(scene.slide_image_url) ?? undefined} alt={`Slide ${selectedIndex + 1}`} className={cn("object-contain bg-white", portrait ? "h-[55%] w-full" : "h-full w-[62%]")} />
+              {lookSrc ? <img src={lookSrc} alt={look?.name ?? "Presenter"} className={cn("object-contain bg-black", portrait ? "h-[45%] w-full" : "h-full w-[38%]")} /> : <span className="p-3 text-sm">Choose a presenter</span>}
+            </> : <>
             {lookSrc ? <img src={lookSrc} alt={look?.name ?? ""} className="h-full w-full object-cover" /> : <span className="px-6 text-center text-sm text-muted-foreground">Pick a look for this scene</span>}
+            </>}
           </div>
         </section>
 
@@ -302,7 +322,11 @@ export function MovieEditorView({ movieId }: { movieId: string }) {
                 <button
                   type="button"
                   disabled={locked}
-                  onClick={() => { change({ scenes: movie.scenes.filter((_, i) => i !== selectedIndex) }); setSelected(Math.max(0, selectedIndex - 1)); }}
+                  onClick={async () => {
+                    if (!await confirmDialog(`Delete scene ${selectedIndex + 1}? Changes save automatically, so this cannot be undone.`)) return;
+                    change({ scenes: movie.scenes.filter((_, i) => i !== selectedIndex) });
+                    setSelected(Math.max(0, selectedIndex - 1));
+                  }}
                   aria-label="Delete scene"
                   className="rounded-full p-1.5 text-muted-foreground hover:bg-raised hover:text-destructive"
                 >

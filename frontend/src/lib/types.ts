@@ -204,6 +204,13 @@ export interface BrandKit {
   campaign_notes: string | null;
 }
 
+export interface BrandVisuals {
+  colors: { name: string; hex: string }[];
+  fonts: { role: string; family: string }[];
+  logos: { name: string; url: string }[];
+  assets: { name: string; url: string }[];
+}
+
 export interface CreativeBrief {
   id: string;
   project_id: string;
@@ -388,6 +395,7 @@ export type VideoQualityPreset =
   | "standard_local"
   | "best_local"
   | "image_to_video_best"
+  | "wan_smooth"
   | "h3_turbo"
   | "h3_full"
   | "h3_reference";
@@ -1058,6 +1066,7 @@ export interface MovieScene {
   avatar_id: string | null;
   tts_voice_id: string | null;
   script: string;
+  slide_image_url?: string | null;
   status?: "draft" | "voice" | "video" | "completed" | "failed";
   error?: string | null;
 }

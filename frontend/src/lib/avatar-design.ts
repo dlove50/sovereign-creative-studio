@@ -8,7 +8,10 @@ export const ETHNICITIES = [
 ] as const;
 export const ORIENTATIONS = ["Landscape", "Portrait", "Square"] as const;
 export const POSES = ["Full body", "Upper body", "Face"] as const;
-export const STYLES = ["Realistic", "Pixar style", "Anime", "Cartoon", "Watercolor", "Cinematic"] as const;
+export const STYLES = [
+  "Unspecified", "Realistic", "Pixar style", "Disney-style 2D", "Cinematic", "Vintage", "Noir", "Cyberpunk",
+  "Anime", "Cartoon", "Watercolor", "Claymation", "Stop-motion",
+] as const;
 
 export type DesignForm = {
   name: string;
@@ -23,7 +26,7 @@ export type DesignForm = {
 
 export const EMPTY_DESIGN: DesignForm = {
   name: "", age: "Adult", gender: "Man", ethnicity: "Not specified", description: "",
-  orientation: "Portrait", pose: "Upper body", style: "Realistic",
+  orientation: "Portrait", pose: "Upper body", style: "Unspecified",
 };
 
 export const SAMPLE_DESCRIPTIONS = [
@@ -40,7 +43,14 @@ const POSE_PHRASE: Record<DesignForm["pose"], string> = {
 };
 
 const STYLE_PHRASE: Record<DesignForm["style"], string> = {
+  Unspecified: "",
   Realistic: "photorealistic, soft natural light",
+  "Disney-style 2D": "Disney-style hand-drawn 2D animated character, expressive features, graceful shapes, richly painted colors",
+  Vintage: "vintage portrait photography, warm faded colors, subtle film grain, nostalgic styling",
+  Noir: "black-and-white film noir portrait, dramatic chiaroscuro lighting, deep shadows, classic cinematic atmosphere",
+  Cyberpunk: "cyberpunk character portrait, neon cyan and magenta lighting, futuristic clothing, high-tech details",
+  Claymation: "handcrafted clay animation character, sculpted clay texture, rounded expressive features, miniature studio lighting",
+  "Stop-motion": "stop-motion puppet character, tactile fabric and felt textures, handcrafted miniature details, cinematic studio lighting",
   "Pixar style": "Pixar-style 3D animated character, smooth stylised render, expressive eyes",
   Anime: "anime illustration, clean line art, soft cel shading",
   Cartoon: "friendly cartoon character, bold shapes, flat colours",

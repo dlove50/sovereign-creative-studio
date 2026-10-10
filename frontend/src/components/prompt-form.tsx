@@ -1,5 +1,7 @@
 "use client";
 
+import { PromptAssist } from "@/components/prompt-assist/prompt-assist";
+
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, Clapperboard, Film, ImageIcon, Loader2, Wand2 } from "lucide-react";
@@ -38,11 +40,11 @@ const MEDIA_OPTIONS: { value: MediaType; label: string; icon: typeof ImageIcon }
 const ACTIVE_STATUSES = new Set(["queued", "running", "pending"]);
 
 const IMAGE_PROVIDERS: { id: ImageProvider; label: string; badge: string }[] = [
-  { id: "local_comfyui", label: "Local ComfyUI / Flux", badge: "Default local" },
+  { id: "local_comfyui", label: "Local ComfyUI", badge: "Default local" },
   { id: "openai_image_api", label: "OpenAI Image API", badge: "Premium" },
 ];
 
-// Display order for the Model/Preset selector; flux1_krea is the recommended default.
+// Display order only; the backend supplies the configured default model.
 const PRESET_DISPLAY_ORDER = [
   "flux1_krea",
   "krea2_turbo_fp8",
@@ -84,6 +86,8 @@ export function PromptForm() {
       mode = pending.targetMode;
     } else if (typeof window !== "undefined") {
       const sp = new URLSearchParams(window.location.search);
+      const plannedPrompt = sp.get("prompt");
+      if (plannedPrompt) setPrompt(plannedPrompt.slice(0, 4000));
       if (sp.get("source")) {
         src = sp.get("source");
         mode = sp.get("mode");
@@ -105,13 +109,10 @@ export function PromptForm() {
       .listImagePresets()
       .then((p) => {
         setPresets(p);
-        // Keep flux1_krea if it is ready (the recommended default).
-        // Otherwise fall to the first ready non-fallback preset.
-        const kreaReady = p.quality_presets.some((qp) => qp.id === "flux1_krea" && qp.ready);
-        if (!kreaReady) {
-          const firstReady = p.quality_presets.find((qp) => qp.id !== "local_fast" && qp.ready);
-          if (firstReady) setQualityPreset(firstReady.id);
-        }
+        // Follow the server configuration so UI and API choose the same model.
+        const configuredDefault = p.quality_presets.find((qp) => qp.is_default && qp.ready);
+        const firstReady = configuredDefault ?? p.quality_presets.find((qp) => qp.ready);
+        if (firstReady) setQualityPreset(firstReady.id);
       })
       .catch(() => setPresets(null));
   }, []);
@@ -210,6 +211,7 @@ export function PromptForm() {
             placeholder="Describe what you want to create, e.g. a luxury perfume bottle on wet marble, cinematic lighting"
             className="min-h-[140px]"
           />
+            <PromptAssist value={prompt} onChange={setPrompt} kind="visual" context="Image studio prompt" />
         </div>
 
         <div className="space-y-2">
@@ -328,7 +330,7 @@ export function PromptForm() {
                       </Badge>
                     </p>
                     {!selectedPresetInfo.ready ? (
-                      <p className="text-amber-700 dark:text-amber-300">{selectedPresetInfo.detail}</p>
+                      <p className="text-amber-300">{selectedPresetInfo.detail}</p>
                     ) : null}
                   </div>
                 ) : (
@@ -463,7 +465,7 @@ export function PromptForm() {
           </p>
         )}
         {providerBlockReason && mediaType === "image" ? (
-          <p className="rounded-md bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-300">
+          <p className="rounded-md bg-amber-500/10 px-3 py-2 text-sm text-amber-300">
             {providerBlockReason}
           </p>
         ) : null}
@@ -499,7 +501,7 @@ export function PromptForm() {
         <div className="rounded-lg border border-border bg-card p-6">
           <h3 className="mb-4 text-sm font-semibold">Latest result</h3>
           {result ? (
-            <GenerationCard generation={result} />
+            <GenerationCard generation={result} onDeleted={() => setResult(null)} />
           ) : (
             <div className="flex h-64 flex-col items-center justify-center gap-2 rounded-md border border-dashed border-border text-center text-sm text-muted-foreground">
               <Wand2 className="h-6 w-6" />
@@ -512,7 +514,7 @@ export function PromptForm() {
                 <h4 className="mb-2 text-sm font-semibold">What do you want to do with this?</h4>
                 <MediaActions media={generationToMedia(result)} onAction={onAction} />
               </div>
-              {toast ? <p className="text-xs text-emerald-600 dark:text-emerald-400">{toast}</p> : null}
+              {toast ? <p className="text-xs text-emerald-400">{toast}</p> : null}
             </div>
           ) : null}
         </div>

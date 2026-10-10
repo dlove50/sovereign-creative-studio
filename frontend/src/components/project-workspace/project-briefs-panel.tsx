@@ -1,4 +1,5 @@
 "use client";
+import { confirmDialog } from "@/components/ui/confirm-host";
 
 import { useEffect, useMemo, useState } from "react";
 import type React from "react";
@@ -144,7 +145,7 @@ export function CreativeBriefsTab({
   }
 
   async function remove(brief: CreativeBrief) {
-    if (!window.confirm(`Delete brief "${brief.title}"?`)) return;
+    if (!await confirmDialog(`Delete brief "${brief.title}"?`)) return;
     try {
       await api.deleteBrief(projectId, brief.id);
       onChange(briefs.filter((b) => b.id !== brief.id));

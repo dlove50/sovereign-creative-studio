@@ -4,7 +4,9 @@ import { useEffect, useState } from "react";
 import { Loader2, Play, Plus, RotateCcw, Trash2 } from "lucide-react";
 
 import { api, assetUrl } from "@/lib/api";
+import { TrainingPlayer as Player } from "./training-player";
 import { cn } from "@/lib/utils";
+import { confirmDialog } from "@/components/ui/confirm-host";
 
 type Item = Awaited<ReturnType<typeof api.getInteractive>>;
 type Node = Item["nodes"][number];
@@ -12,37 +14,6 @@ type Clip = Awaited<ReturnType<typeof api.listInteractiveClips>>[number];
 
 const MAX_CHOICES = 4;
 const newId = () => Math.random().toString(36).slice(2, 10);
-
-function Player({ nodes, startId }: { nodes: Node[]; startId: string | null }) {
-  const [currentId, setCurrentId] = useState(startId);
-  const [ended, setEnded] = useState(false);
-  const node = nodes.find((n) => n.id === currentId);
-
-  if (!node) return <p className="py-10 text-center text-sm text-muted-foreground">Add a clip to preview it.</p>;
-  const src = assetUrl(node.video_url) ?? undefined;
-  const go = (next: string) => { setCurrentId(next); setEnded(false); };
-  return (
-    <div className="mx-auto max-w-[560px]">
-      <div className="relative overflow-hidden rounded-3xl bg-black">
-        {src ? <video key={node.id} src={src} autoPlay controls onEnded={() => setEnded(true)} className="max-h-[420px] w-full" /> : <p className="p-10 text-center text-sm text-muted-foreground">This clip has no video yet.</p>}
-        {ended || !src ? (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/70 p-6">
-            {node.choices.length === 0 ? <p className="text-sm font-semibold">The end</p> : <p className="text-sm font-semibold">What happens next?</p>}
-            {node.choices.map((c) => (
-              <button key={c.label + c.next} type="button" onClick={() => go(c.next)} className="w-full max-w-[320px] rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-black hover:bg-white/90">
-                {c.label}
-              </button>
-            ))}
-            <button type="button" onClick={() => go(startId ?? node.id)} className="mt-2 inline-flex items-center gap-1.5 text-xs text-white/70 hover:text-white">
-              <RotateCcw className="h-3.5 w-3.5" /> Start over
-            </button>
-          </div>
-        ) : null}
-      </div>
-      <p className="mt-2 text-center text-xs text-muted-foreground">{node.title || "Untitled clip"}</p>
-    </div>
-  );
-}
 
 export function InteractiveEditorView({ itemId }: { itemId: string }) {
   const [item, setItem] = useState<Item | null>(null);
@@ -52,6 +23,8 @@ export function InteractiveEditorView({ itemId }: { itemId: string }) {
   const [clips, setClips] = useState<Clip[]>([]);
   const [tab, setTab] = useState<"edit" | "play">("edit");
   const [saving, setSaving] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [exportFormat, setExportFormat] = useState<"scorm12" | "scorm2004" | "xapi">("scorm12");
   const [saved, setSaved] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -79,12 +52,20 @@ export function InteractiveEditorView({ itemId }: { itemId: string }) {
     }
   }
 
+  async function exportScorm() {
+    setExporting(true);
+    setError(null);
+    try { await api.exportInteractivePackage(itemId, exportFormat); }
+    catch (e) { setError(e instanceof Error ? e.message : "Could not export the lesson."); }
+    finally { setExporting(false); }
+  }
+
   if (!item) return <p className="py-20 text-center text-sm text-muted-foreground">{error ?? "Opening…"}</p>;
   const field = "h-10 rounded-xl border border-input bg-background px-3 text-sm text-foreground";
   return (
     <div className="mx-auto max-w-[900px]">
       <div className="flex flex-wrap items-center gap-3 pt-4">
-        <input value={title} onChange={(e) => edit(() => setTitle(e.target.value.slice(0, 200)))} aria-label="Title" className="min-w-[220px] flex-1 bg-transparent text-3xl font-extrabold tracking-[-0.03em] focus:outline-none" />
+        <input disabled={saving} value={title} onChange={(e) => edit(() => setTitle(e.target.value.slice(0, 200)))} aria-label="Title" className="min-w-[220px] flex-1 bg-transparent text-3xl font-extrabold tracking-[-0.03em] focus:outline-none" />
         <div role="tablist" className="flex rounded-full border border-border p-1 text-sm">
           {(["edit", "play"] as const).map((t) => (
             <button key={t} role="tab" aria-selected={tab === t} type="button" onClick={() => setTab(t)} className={cn("rounded-full px-4 py-1.5 font-medium", tab === t ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground")}>
@@ -97,6 +78,16 @@ export function InteractiveEditorView({ itemId }: { itemId: string }) {
         </button>
       </div>
       {error ? <p className="mt-3 rounded-xl bg-destructive/15 px-3 py-2 text-sm text-destructive">{error}</p> : null}
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        <label className="sr-only" htmlFor="export-format">Export format</label>
+        <select id="export-format" value={exportFormat} disabled={exporting} onChange={(e) => setExportFormat(e.target.value as "scorm12" | "scorm2004" | "xapi")} className="h-10 rounded-full border border-border bg-background px-3 text-sm">
+          <option value="scorm12">SCORM 1.2</option>
+          <option value="scorm2004">SCORM 2004 (4th Edition)</option>
+          <option value="xapi">xAPI (Tin Can)</option>
+        </select>
+        <button type="button" disabled={!saved || saving || exporting || !nodes.length} onClick={exportScorm} className="rounded-full border border-border px-4 py-2 text-sm font-medium hover:bg-raised disabled:opacity-50">{exporting ? "Packaging lesson…" : "Export lesson"}</button>
+        <p className="text-xs text-muted-foreground">{saved ? (exportFormat === "xapi" ? "Includes clips, branching and quizzes. Your learning record store supplies its address when it launches the lesson. Up to 512 MB of media." : "Includes clips, branching, quizzes, and LMS progress tracking. Up to 512 MB of media.") : "Save changes before exporting."}</p>
+      </div>
 
       {tab === "play" ? (
         <div className="mt-6">
@@ -104,7 +95,7 @@ export function InteractiveEditorView({ itemId }: { itemId: string }) {
         </div>
       ) : (
         <>
-          <ul className="mt-6 space-y-3">
+          <fieldset disabled={saving} className="disabled:opacity-70"><ul className="mt-6 space-y-3">
             {nodes.map((node, index) => (
               <li key={node.id} className="rounded-3xl border border-border bg-card/60 p-4">
                 <div className="flex flex-wrap items-center gap-2">
@@ -117,11 +108,14 @@ export function InteractiveEditorView({ itemId }: { itemId: string }) {
                   <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
                     <input type="radio" name="start" checked={startId === node.id} onChange={() => edit(() => setStartId(node.id))} /> Start here
                   </label>
-                  <button type="button" aria-label={`Delete clip ${index + 1}`} onClick={() => edit(() => {
+                  <button type="button" aria-label={`Delete clip ${index + 1}`} onClick={async () => { if (await confirmDialog(`Delete clip ${index + 1} and the choices that lead to it?`)) edit(() => {
                     setNodes((all) => all.filter((n) => n.id !== node.id).map((n) => ({ ...n, choices: n.choices.filter((c) => c.next !== node.id) })));
                     if (startId === node.id) setStartId(nodes.find((n) => n.id !== node.id)?.id ?? null);
-                  })} className="flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground hover:bg-raised hover:text-destructive"><Trash2 className="h-4 w-4" /></button>
+                  }); }} className="flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground hover:bg-raised hover:text-destructive"><Trash2 className="h-4 w-4" /></button>
                 </div>
+                <label className="mt-4 block text-sm font-medium">Step instructions<textarea maxLength={2000} value={node.body||""} onChange={e=>patchNode(node.id,{body:e.target.value})} className="mt-2 w-full rounded-lg border border-border bg-background p-3 text-foreground"/></label>
+                <label className="mt-4 block text-sm font-medium">Knowledge-check question (optional)<textarea maxLength={1000} value={node.question||""} onChange={e=>patchNode(node.id,{question:e.target.value,choices:node.choices.map(c=>({...c,is_correct:e.target.value.trim()?(c.is_correct??false):null}))})} className="mt-2 w-full rounded-lg border border-border bg-background p-3 text-foreground" placeholder="What should the learner do next?"/></label>
+                {node.question&&<p className="mt-2 text-sm text-muted-foreground">Mark at least one correct choice. Link incorrect choices to a retry or explanation step.</p>}
                 <ul className="mt-3 space-y-2">
                   {node.choices.map((choice, ci) => (
                     <li key={ci} className="flex flex-wrap items-center gap-2 pl-3">
@@ -131,19 +125,21 @@ export function InteractiveEditorView({ itemId }: { itemId: string }) {
                       <select value={choice.next} onChange={(e) => patchNode(node.id, { choices: node.choices.map((c, i) => (i === ci ? { ...c, next: e.target.value } : c)) })} aria-label={`Choice ${ci + 1} goes to`} className={cn(field, "w-[200px]")}>
                         {nodes.map((n, i) => <option key={n.id} value={n.id}>{n.title || `Clip ${i + 1}`}</option>)}
                       </select>
+                      {node.question&&<label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={choice.is_correct===true} onChange={e=>patchNode(node.id,{choices:node.choices.map((c,i)=>i===ci?{...c,is_correct:e.target.checked}:c)})}/>Correct answer</label>}
+                      <label className="w-full text-sm">Feedback shown before continuing<textarea maxLength={1000} value={choice.feedback||""} onChange={e=>patchNode(node.id,{choices:node.choices.map((c,i)=>i===ci?{...c,feedback:e.target.value}:c)})} className="mt-1 w-full rounded-lg border border-border bg-background p-2 text-foreground"/></label>
                       <button type="button" aria-label="Remove choice" onClick={() => patchNode(node.id, { choices: node.choices.filter((_, i) => i !== ci) })} className="text-xs text-muted-foreground hover:text-destructive">Remove</button>
                     </li>
                   ))}
                 </ul>
                 {node.choices.length < MAX_CHOICES ? (
-                  <button type="button" onClick={() => patchNode(node.id, { choices: [...node.choices, { label: "", next: nodes.find((n) => n.id !== node.id)?.id ?? node.id }] })} className="mt-2 ml-3 text-xs font-medium text-primary hover:underline">
+                  <button type="button" onClick={() => patchNode(node.id, { choices: [...node.choices, { label: "", is_correct: node.question?false:null, next: nodes.find((n) => n.id !== node.id)?.id ?? node.id }] })} className="mt-2 ml-3 text-xs font-medium text-primary hover:underline">
                     + Add a choice
                   </button>
                 ) : null}
               </li>
             ))}
-          </ul>
-          <button type="button" onClick={() => edit(() => {
+          </ul></fieldset>
+          <button disabled={saving} type="button" onClick={() => edit(() => {
             const id = newId();
             setNodes((all) => [...all, { id, title: "", video_url: "", choices: [] }]);
             setStartId((cur) => cur ?? id);

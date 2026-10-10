@@ -12,7 +12,7 @@ const distDir =
 // origin only. This keeps the session cookie first-party (HTTP-only, SameSite=Lax
 // works without cross-origin/Secure friction on localhost). Override the backend
 // target with BACKEND_ORIGIN if needed.
-const backendOrigin = process.env.BACKEND_ORIGIN || "http://127.0.0.1:8000";
+const backendOrigin = process.env.BACKEND_ORIGIN || "http://127.0.0.1:8002";
 
 const nextConfig = {
   reactStrictMode: true,

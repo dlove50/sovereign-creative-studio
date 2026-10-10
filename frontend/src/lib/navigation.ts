@@ -17,6 +17,7 @@ import {
   ImageIcon,
   Layers3,
   Megaphone,
+  Music2,
   PackagePlus,
   PenLine,
   PersonStanding,
@@ -41,8 +42,14 @@ export type NavigationItem = {
   icon: LucideIcon;
 };
 
+export function isNavigationActive(href: string, pathname: string) {
+  return href === "/" || href === "/admin" ? pathname === href : pathname.startsWith(href);
+}
+
 // The everyday creator path stays short and task-oriented.
 export const CREATOR_NAV: NavigationItem[] = [
+  { href: "/motion-studio", label: "Motion Studio", icon: Film },
+  { href: "/apps", label: "App library", icon: LayoutGrid },
   { href: "/", label: "Home", icon: Home },
   { href: "/chain", label: "Quick Chain", icon: Wand2 },
   { href: "/movies", label: "Scene by scene", icon: Clapperboard },
@@ -50,6 +57,8 @@ export const CREATOR_NAV: NavigationItem[] = [
   { href: "/video-to-text", label: "Transcribe Video", icon: Type },
   { href: "/ocr-studio", label: "OCR Studio", icon: ScanText },
   { href: "/create", label: "Image Studio", icon: ImageIcon },
+  { href: "/music-lab", label: "Music Lab", icon: Music2 },
+  { href: "/voice-studio", label: "Voice Studio", icon: Mic },
   { href: "/inspiration", label: "Inspiration", icon: Sparkle },
   { href: "/avatars", label: "Avatars & Voices", icon: PersonStanding },
   { href: "/assets-library", label: "Assets", icon: Archive },
@@ -86,8 +95,10 @@ export const ADMIN_NAV: NavigationItem[] = [
 export const RAIL_NAV: NavigationItem[] = [
   { href: "/", label: "Home", icon: Home },
   { href: "/avatars", label: "Avatar", icon: PersonStanding },
+  { href: "/cloud-studio", label: "Apps", icon: Sparkle },
+  { href: "/director", label: "Director", icon: Clapperboard },
+  { href: "/music-lab", label: "Music", icon: Music2 },
   { href: "/brand", label: "Brand", icon: Palette },
-  { href: "/apps", label: "Apps", icon: LayoutGrid },
   { href: "/projects", label: "Projects", icon: Folder },
 ];
 
@@ -99,6 +110,8 @@ export const AVATAR_NAV: NavigationItem[] = [
 ];
 
 export const CREATE_NAV: NavigationItem[] = [
+  { href: "/apps", label: "App library", icon: LayoutGrid },
+  { href: "/motion-studio", label: "Motion Studio", icon: Film },
   { href: "/", label: "Home", icon: Home },
   { href: "/video-agent", label: "Video agent", icon: Sparkle },
   { href: "/movies", label: "Scene by scene", icon: Clapperboard },
