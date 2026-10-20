@@ -195,9 +195,10 @@ export const musicApi = {
   dubSpecial: (id: string, body: { text: string; sound_name: string }) => post<MusicJob>(`/api/music/songs/${id}/dub/special`, body),
   splitStems: (id: string) => post<{ has_stems: boolean }>(`/api/music/songs/${id}/stems`),
   stemUrl: (id: string, name: "vocals" | "instrumental") => `/api/music/songs/${id}/stems/${name}`,
-  importSongs: (files: File[]) => {
+  importSongs: (files: File[], projectId?: string) => {
     const form = new FormData();
     files.forEach((file) => form.append("files", file));
+    if (projectId) form.append("project_id", projectId);
     return formRequest<ImportResult>("/api/music/import", form);
   },
   vocals: (id: string) => request<VocalWaveform>(`/api/music/songs/${id}/vocals`),

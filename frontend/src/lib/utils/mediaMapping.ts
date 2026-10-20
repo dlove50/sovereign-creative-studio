@@ -178,7 +178,7 @@ export function avatarJobToMedia(job: AvatarJob): MediaObject | null {
 
 /** Map an Asset Library row (already a unified shape) into a MediaObject. */
 export function assetToMedia(asset: LibraryItem): MediaObject {
-  const type = libraryTypeToMediaType(asset.type);
+  const type = ["music_song", "local_audio", "voice_asset"].includes(asset.source_entity_type) ? "audio" : libraryTypeToMediaType(asset.type);
   const meta = emptyMediaMetadata();
   if (type === "transcript") meta.transcriptText = asset.description ?? null;
   return {

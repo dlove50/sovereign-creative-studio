@@ -2,12 +2,14 @@
 import { EmptyState } from "@/components/ui/empty-state";
 import { confirmDialog } from "@/components/ui/confirm-host";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowDownWideNarrow, Download, Filter, Folder, FolderPlus, Loader2, Search, Trash2, Video, X } from "lucide-react";
 
 import { CompletedVideoEditing } from "@/components/media/completed-video-editing";
+import { MediaImportControl } from "@/components/media/media-import-control";
 import { api, assetUrl } from "@/lib/api";
 import { useStaggerIn } from "@/components/motion/use-motion";
 import { SkeletonGrid } from "@/components/ui/skeleton";
@@ -78,7 +80,7 @@ export function ProjectsLibraryView() {
   const [open, setOpen] = useState<Item | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const refreshItems = useCallback(() => {
     api.listProjects().then(setProjects).catch(() => setProjects([]));
     Promise.all([api.listAvatarJobs().catch(() => [] as AvatarJob[]), api.listVideos().catch(() => [] as VideoGeneration[]), api.listMovies().catch(() => { setError("Scene-by-scene videos could not be loaded. Reload to try again."); return [] as Movie[]; }), api.listCinematicOutputs().catch(() => { setError("Cinematic videos could not be loaded. Reload to try again."); return []; })]).then(([jobs, clips, movies, cinematic]) => {
       setItems([
@@ -93,6 +95,8 @@ export function ProjectsLibraryView() {
       ]);
     });
   }, []);
+
+  useEffect(refreshItems, [refreshItems]);
 
   useEffect(() => {
     if (!open) return;
@@ -152,6 +156,7 @@ export function ProjectsLibraryView() {
   return (
     <div className="mx-auto max-w-[1120px]">
       <PageHeader title="Projects" description="Organize finished videos, active renders, and reusable production folders." />
+      <div className="mb-4"><MediaImportControl kind="video" onImported={refreshItems} /></div>
       <div className="flex flex-wrap items-center gap-2">
         <label className="flex min-h-11 min-w-[220px] flex-1 items-center gap-2 rounded-xl border border-border bg-card/60 px-4 py-2 focus-within:ring-2 focus-within:ring-ring">
           <Search className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
@@ -233,14 +238,14 @@ export function ProjectsLibraryView() {
         </ul>
       )}
 
-      {open?.url ? (
+      {open?.url ? createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4" role="dialog" aria-modal="true" aria-label={open.title} onClick={() => setOpen(null)}>
-          <div className="w-full max-w-3xl overflow-hidden rounded-3xl border border-border bg-card" onClick={(e) => e.stopPropagation()}>
+          <div className="max-h-[calc(100dvh-2rem)] w-full max-w-3xl overflow-y-auto rounded-3xl border border-border bg-card" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between gap-3 border-b border-border px-5 py-3">
               <p className="truncate font-semibold">{open.title}</p>
               <button type="button" onClick={() => setOpen(null)} aria-label="Close" className="rounded-full p-1 text-muted-foreground hover:bg-raised"><X className="h-4 w-4" /></button>
             </div>
-            <video controls autoPlay src={assetUrl(open.url) ?? undefined} className="max-h-[70vh] w-full bg-black" />
+            <video key={open.id} controls autoPlay playsInline src={assetUrl(open.url) ?? undefined} className="max-h-[60vh] w-full bg-black" />
             <div className="px-5 py-3"><CompletedVideoEditing id={open.id} url={open.url} title={open.title} origin="Projects" /></div>
             <div className="flex justify-between gap-3 px-5 py-3">
               <button hidden={open.kind === "cinematic"} type="button" onClick={trashOpen} className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm text-destructive hover:bg-raised">
@@ -251,7 +256,7 @@ export function ProjectsLibraryView() {
               </a>
             </div>
           </div>
-        </div>
+        </div>, document.body
       ) : null}
     </div>
   );

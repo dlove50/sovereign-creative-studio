@@ -2,6 +2,7 @@
 import { confirmDialog } from "@/components/ui/confirm-host";
 
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import type React from "react";
 import {
   Archive,
@@ -307,7 +308,7 @@ function LibraryCard({
 }) {
   const canTrash = TRASHABLE_SOURCES.has(item.source_entity_type);
   const showActions =
-    item.source_entity_type !== "local_audio" &&
+    !["local_audio", "music_song"].includes(item.source_entity_type) &&
     item.status === "completed" &&
     !!item.asset_url &&
     ["image", "video", "scene", "transcript", "upload", "processed_asset"].includes(item.type);
@@ -415,11 +416,11 @@ function PreviewModal({
   const mediaUrl = assetUrl(item.asset_url);
   const imageUrl = assetUrl(item.thumbnail_url);
   const isVideo = item.type === "video" && mediaUrl;
-  const isAudio = item.source_entity_type === "local_audio" && mediaUrl;
+  const isAudio = ["local_audio", "music_song"].includes(item.source_entity_type) && mediaUrl;
   const isImage = !isVideo && !isAudio && mediaUrl;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm">
+  return createPortal(
+    <div role="dialog" aria-modal="true" aria-label={item.title} className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm">
       <div className="flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-lg border border-border bg-card shadow-xl">
         <div className="flex items-start justify-between gap-4 border-b border-border p-4">
           <div className="min-w-0">
@@ -502,7 +503,7 @@ function PreviewModal({
           </aside>
         </div>
       </div>
-    </div>
+    </div>, document.body
   );
 }
 

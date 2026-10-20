@@ -48,7 +48,7 @@ def _title_from(filename: str) -> str:
 
 # --- import -----------------------------------------------------------------------------------
 
-def import_song(filename: str, data: bytes) -> dict[str, Any]:
+def import_song(filename: str, data: bytes, *, user_id: str | None = None, project_id: str | None = None) -> dict[str, Any]:
     """Add one audio file to the library and return its song record."""
     suffix = Path(filename or "").suffix.lower()
     if suffix not in IMPORT_SUFFIXES:
@@ -88,6 +88,8 @@ def import_song(filename: str, data: bytes) -> dict[str, Any]:
         "generation_seconds": 0,
         "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "source_filename": Path(filename).name[:200],
+        "user_id": user_id,
+        "project_id": project_id,
     }
     _meta_path(song_id).write_text(json.dumps(song, indent=2), encoding="utf-8")
     return song

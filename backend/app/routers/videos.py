@@ -1,10 +1,13 @@
 import json
 from pathlib import Path
 import shutil
+import math
+import subprocess
+from datetime import datetime, timezone
 from typing import Any
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, File, Form, UploadFile
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -42,6 +45,45 @@ from ..services.source_validation import validate_source_media_url
 from ..services.video_jobs import enqueue_video
 
 router = APIRouter(prefix="/api/videos", tags=["videos"])
+
+
+@router.post("/import")
+def import_videos(
+    project_id: str = Form(...), files: list[UploadFile] = File(...),
+    db: Session = Depends(get_db), user: User = Depends(get_current_user),
+):
+    from ..services.video_import import import_video
+
+    project = db.get(Project, project_id)
+    if project is None or project.user_id != user.id:
+        raise HTTPException(status_code=404, detail="Project not found")
+    videos, errors = [], []
+    for upload in files:
+        try:
+            url, duration, size = import_video(upload)
+        except (ValueError, RuntimeError, OSError, subprocess.TimeoutExpired) as exc:
+            errors.append({"filename": upload.filename, "error": str(exc) if not isinstance(exc, subprocess.TimeoutExpired) else "Conversion timed out. Try a shorter video."})
+            continue
+        video = VideoGeneration(
+            user_id=user.id, project_id=project.id, source_image_url=url, mode="video_to_video",
+            provider="imported", prompt=Path(upload.filename or "Imported video").stem[:255],
+            motion_preset="imported", duration_seconds=max(1, math.ceil(duration)),
+            credits_cost=0, status="completed", result_url=url, file_size_bytes=size,
+            completed_at=datetime.now(timezone.utc).replace(tzinfo=None),
+        )
+        try:
+            db.add(video)
+            db.commit()
+            db.refresh(video)
+        except Exception:
+            db.rollback()
+            from ..config import STORAGE_DIR
+            (STORAGE_DIR / "videos" / Path(url).name).unlink(missing_ok=True)
+            raise
+        videos.append(VideoOut.model_validate(video))
+    return {"videos": videos, "errors": errors}
+
+
 _COMFY_TIMEOUT_SECONDS = 3.0
 _TEXT_TO_VIDEO_REQUIRED_NODES = {
     "CheckpointLoaderSimple",

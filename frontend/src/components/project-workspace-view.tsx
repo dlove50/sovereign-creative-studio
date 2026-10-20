@@ -44,6 +44,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { CreativeBriefsTab } from "@/components/project-workspace/project-briefs-panel";
+import { MediaImportControl } from "@/components/media/media-import-control";
 import { BrandKitEditor, CampaignBundleList, formatDate, ItemGrid, Overview, PreviewModal } from "@/components/project-workspace/project-workspace-sections";
 
 type WorkspaceTab =
@@ -55,6 +56,7 @@ type WorkspaceTab =
   | "scenes"
   | "copy"
   | "videos"
+  | "music"
   | "campaigns";
 
 const TABS: { value: WorkspaceTab; label: string }[] = [
@@ -66,6 +68,7 @@ const TABS: { value: WorkspaceTab; label: string }[] = [
   { value: "scenes", label: "Product Scenes" },
   { value: "copy", label: "Copy" },
   { value: "videos", label: "Videos" },
+  { value: "music", label: "Music" },
   { value: "campaigns", label: "Campaigns / Bundles" },
 ];
 
@@ -231,11 +234,20 @@ export function ProjectWorkspaceView({ projectId }: { projectId: string }) {
         />
       ) : null}
       {activeTab === "videos" ? (
+        <div className="space-y-4">
+        <MediaImportControl kind="video" projectId={projectId} onImported={() => { void api.getProjectWorkspace(projectId).then(setWorkspace); }} />
         <ItemGrid
           empty="No videos yet."
           items={workspace.video_generations}
           onPreview={setSelected}
         />
+        </div>
+      ) : null}
+      {activeTab === "music" ? (
+        <div className="space-y-4">
+          <MediaImportControl kind="music" projectId={projectId} onImported={() => { void api.getProjectWorkspace(projectId).then(setWorkspace); }} />
+          <ItemGrid empty="No music yet." items={workspace.uploaded_assets.filter((i) => i.source_entity_type === "music_song")} onPreview={setSelected} />
+        </div>
       ) : null}
       {activeTab === "campaigns" ? (
         <ItemGrid

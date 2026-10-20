@@ -1,7 +1,7 @@
 "use client";
 import { confirmDialog } from "@/components/ui/confirm-host";
 
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { Download, Loader2, Mic, Monitor, Music, Pencil, Play, Search, Speaker, Star, Trash2, Upload } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -12,11 +12,10 @@ import { musicApi, type Song } from "@/lib/api/music";
 import { cn } from "@/lib/utils";
 
 import { SongArt } from "./song-art";
+import { MediaImportControl } from "@/components/media/media-import-control";
 import type { MusicPlayer } from "./use-music-player";
 
 type Filter = "all" | "favorites" | "imported" | "vocals" | "instrumental";
-
-const IMPORT_ACCEPT = ".mp3,.wav,.m4a,.flac,.ogg,.aac,.opus,.wma,audio/*";
 
 const FILTERS: { id: Filter; label: string }[] = [
   { id: "all", label: "All" },
@@ -39,9 +38,6 @@ export function LibraryPanel({
   onChanged: () => void;
   onOpenStage: () => void;
 }) {
-  const fileInput = useRef<HTMLInputElement | null>(null);
-  const [importing, setImporting] = useState<number | null>(null);
-  const [imported, setImported] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
   const [renaming, setRenaming] = useState<string | null>(null);
@@ -70,27 +66,6 @@ export function LibraryPanel({
       setError(e instanceof Error ? e.message : "That did not work.");
     } finally {
       setBusyId(null);
-    }
-  };
-
-  const importFiles = async (files: File[]) => {
-    if (!files.length) return;
-    setImporting(files.length);
-    setImported(null);
-    setError(null);
-    try {
-      const result = await musicApi.importSongs(files);
-      onChanged();
-      const added = result.songs.length;
-      setImported(added ? `Imported ${added} song${added === 1 ? "" : "s"}.` : null);
-      if (result.errors.length) {
-        setError(result.errors.map((e) => `${e.filename}: ${e.error}`).join(" "));
-      }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "The import did not work.");
-    } finally {
-      setImporting(null);
-      if (fileInput.current) fileInput.current.value = "";
     }
   };
 
@@ -140,25 +115,8 @@ export function LibraryPanel({
             </button>
           ))}
         </div>
-        <input
-          ref={fileInput}
-          type="file"
-          multiple
-          accept={IMPORT_ACCEPT}
-          className="hidden"
-          onChange={(e) => void importFiles(Array.from(e.target.files ?? []))}
-        />
-        <Button onClick={() => fileInput.current?.click()} disabled={importing !== null}>
-          {importing !== null ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Upload className="h-4 w-4" aria-hidden="true" />}
-          {importing !== null ? `Importing ${importing}…` : "Import songs"}
-        </Button>
+        <MediaImportControl kind="music" onImported={onChanged} />
       </div>
-
-      {imported ? (
-        <p role="status" className="rounded-lg border border-primary/30 bg-primary/10 px-4 py-2 text-sm text-primary">
-          {imported} Open one with Vocals &amp; lyrics to hear the singing alone and write down the words.
-        </p>
-      ) : null}
 
       {error ? (
         <p role="alert" className="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-2 text-sm text-destructive">

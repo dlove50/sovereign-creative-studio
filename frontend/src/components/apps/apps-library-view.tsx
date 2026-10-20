@@ -51,15 +51,16 @@ const APPS: AppEntry[] = [
   { name: "Video podcast", blurb: "Two avatars in conversation from one script.", icon: MessagesSquare, category: "create", href: "/podcast" },
   { name: "Slides to video", blurb: "Narrate a PDF or slide deck with your avatar.", icon: FileText, category: "create", href: "/slides" },
   { name: "Batch videos", blurb: "Make many avatar videos from a spreadsheet.", icon: Layers, category: "create", href: "/batch" },
-  { name: "Upscale video", blurb: "Sharpen a finished clip to a higher resolution.", icon: ZoomIn, category: "enhance", href: "/chain" },
+  { name: "Upscale video", blurb: "Sharpen a finished clip to a higher resolution.", icon: ZoomIn, category: "enhance", href: "/videos?mode=video_upscale" },
   { name: "Speech cleanup", blurb: "Cut long pauses and filler words automatically.", icon: Mic, category: "enhance", href: "/speech-cleanup" },
   { name: "Translate video", blurb: "Get subtitles in another language, or have your avatar say the translation.", icon: Languages, category: "enhance", href: "/translate" },
   { name: "Transcribe video", blurb: "Get a text transcript and summary of any video.", icon: Type, category: "edit", href: "/video-to-text" },
+  { name: "Extend video", blurb: "Continue an existing clip with additional footage.", icon: Film, category: "edit", href: "/videos?mode=video_extension" },
+  { name: "Video-to-Video", blurb: "Restyle an existing video with a text prompt.", icon: Wand2, category: "edit", href: "/videos?mode=video_to_video" },
   { name: "OCR studio", blurb: "Pull text out of images and scanned pages.", icon: ScanText, category: "edit", href: "/ocr-studio" },
   { name: "Auto clips", blurb: "Find the best moments in a long video and cut shorts.", icon: Scissors, category: "edit", href: "/auto-clips" },
   { name: "Screen recorder", blurb: "Record your screen and voice, then use the clip in videos and lessons.", icon: Video, category: "interactive", href: "/record" },
   { name: "Interactive video", blurb: "Videos with choices that branch to different scenes.", icon: MousePointerClick, category: "interactive", href: "/interactive" },
-  { name: "Screen recorder", blurb: "Record your screen and voice, then use the clip in videos and lessons.", icon: Video, category: "interactive", href: "/record" },
 ];
 
 function AppRow({ app }: { app: AppEntry }) {

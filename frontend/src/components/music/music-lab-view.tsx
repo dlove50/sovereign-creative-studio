@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { AudioLines, Cpu, Disc3, Library, Wand2 } from "lucide-react";
 
 import { PageHeader } from "@/components/page-header";
+import { MediaImportControl } from "@/components/media/media-import-control";
 import { Badge } from "@/components/ui/badge";
 import { musicApi, type MusicStatus, type Song } from "@/lib/api/music";
 import { cn } from "@/lib/utils";
@@ -106,9 +107,12 @@ export function MusicLabView() {
           title="Music Lab"
           description="Turn an idea or your own lyrics into a complete song with the local YuE2 engine, or import your own music."
         />
+        <div className="min-w-0 space-y-2">
         <Badge aria-live="polite" variant={engine?.ready ? "success" : engine?.online ? "default" : "muted"} className="mt-1">
           {engine?.ready ? "YuE2 ready" : engine?.online ? "YuE2 needs attention" : "YuE2 offline"}
         </Badge>
+        <MediaImportControl kind="music" onImported={() => { refreshSongs(); setTab("library"); }} />
+        </div>
       </div>
 
       <div className="flex gap-1 overflow-x-auto rounded-xl border border-border/80 bg-card/40 px-1" role="tablist" aria-label="Music Lab sections">

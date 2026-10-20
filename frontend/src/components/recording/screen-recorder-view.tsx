@@ -33,7 +33,11 @@ export function ScreenRecorderView() {
   const blob = useRef<Blob | null>(null);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
   const audioContext = useRef<AudioContext | null>(null);
-  const supported = typeof navigator !== "undefined" && !!navigator.mediaDevices?.getDisplayMedia && typeof MediaRecorder !== "undefined";
+  const [supported, setSupported] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    setSupported(!!navigator.mediaDevices?.getDisplayMedia && typeof MediaRecorder !== "undefined");
+  }, []);
 
   function releaseCapture() {
     if (timer.current) { clearInterval(timer.current); timer.current = null; }
@@ -138,7 +142,7 @@ export function ScreenRecorderView() {
       <p className="mx-auto mt-2 max-w-md text-center text-sm text-muted-foreground">
         Record your screen and your voice, then keep the clip in your library to use in videos and interactive lessons. Everything stays on this computer.
       </p>
-      {!supported ? <p className="mt-6 rounded-xl bg-destructive/15 px-3 py-2 text-sm text-destructive">This browser cannot record the screen. Use a recent Chrome, Edge or Firefox.</p> : null}
+      {supported === false ? <p className="mt-6 rounded-xl bg-destructive/15 px-3 py-2 text-sm text-destructive">This browser cannot record the screen. Use a recent Chrome, Edge or Firefox.</p> : null}
       {error ? <p role="alert" className="mt-4 rounded-xl bg-destructive/15 px-3 py-2 text-sm text-destructive">{error}</p> : null}
 
       {phase === "idle" || phase === "recording" ? (

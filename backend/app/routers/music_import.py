@@ -8,11 +8,13 @@ PUT  /api/music/songs/{id}/lyric-lines        save corrected lyric lines (timing
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from sqlalchemy.orm import Session
 from pydantic import BaseModel, Field
 
 from ..deps import get_current_user
-from ..models import User
+from ..database import get_db
+from ..models import User, Project
 from ..services import music, music_import
 
 router = APIRouter(prefix="/api/music", tags=["music"])
@@ -42,12 +44,17 @@ def _song_or_404(song_id: str) -> None:
 
 
 @router.post("/import")
-async def import_songs(files: list[UploadFile] = File(...), _user: User = Depends(get_current_user)):
+def import_songs(files: list[UploadFile] = File(...), project_id: str | None = Form(default=None),
+                 db: Session = Depends(get_db), _user: User = Depends(get_current_user)):
+    if project_id:
+        project = db.get(Project, project_id)
+        if project is None or project.user_id != _user.id:
+            raise HTTPException(status_code=404, detail="Project not found")
     songs, errors = [], []
     for upload in files:
-        data = await upload.read(music_import.MAX_IMPORT_BYTES + 1)
+        data = upload.file.read(music_import.MAX_IMPORT_BYTES + 1)
         try:
-            songs.append(_with_urls(music_import.import_song(upload.filename or "", data)))
+            songs.append(_with_urls(music_import.import_song(upload.filename or "", data, user_id=_user.id, project_id=project_id)))
         except music.MusicError as exc:
             errors.append({"filename": upload.filename, "error": str(exc)})
     return {"songs": songs, "errors": errors}

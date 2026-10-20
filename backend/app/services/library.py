@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -169,11 +171,11 @@ def build_library_items(
                 type="video",
                 project_id=video.project_id,
                 project_name=project_names.get(video.project_id),
-                title=f"{video.motion_preset.replace('_', ' ').title()} video",
+                title=video.prompt if video.provider == "imported" else f"{video.motion_preset.replace('_', ' ').title()} video",
                 prompt=video.prompt,
                 description=video.error,
                 status=video.status,
-                thumbnail_url=video.source_image_url,
+                thumbnail_url=None if video.provider == "imported" else video.source_image_url,
                 asset_url=video.result_url,
                 download_url=f"/api/exports/video/{video.id}"
                 if video.status == "completed" and video.result_url
@@ -310,4 +312,18 @@ def build_library_items(
                 )
             )
 
+    from . import music
+    for song in music.list_songs():
+        if song.get("user_id") != user.id or not song.get("project_id"):
+            continue
+        if song["project_id"] not in project_names:
+            continue
+        items.append(LibraryItemOut(
+            id=f"music:{song['id']}", type="upload", project_id=song["project_id"],
+            project_name=project_names[song["project_id"]], title=song["title"],
+            description="Imported music", status="completed", source_entity_id=song["id"],
+            source_entity_type="music_song", asset_url=f"/api/music/songs/{song['id']}/audio",
+            download_url=f"/api/music/songs/{song['id']}/audio",
+            created_at=datetime.fromisoformat(song["created_at"]).replace(tzinfo=None),
+        ))
     return sorted(items, key=lambda item: item.created_at, reverse=True)

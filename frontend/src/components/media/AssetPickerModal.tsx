@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { Loader2, X } from "lucide-react";
 
 import { api, assetUrl } from "@/lib/api";
@@ -17,11 +18,11 @@ interface Props {
 }
 
 const TYPE_MATCH: Record<MediaType, (item: LibraryItem) => boolean> = {
-  image: (i) => ["image", "upload", "processed_asset", "scene"].includes(i.type),
+  image: (i) => ["image", "upload", "processed_asset", "scene"].includes(i.type) && !["music_song", "local_audio", "voice_asset"].includes(i.source_entity_type),
   product_scene: (i) => i.type === "scene",
   video: (i) => i.type === "video",
   transcript: (i) => i.type === "transcript",
-  audio: () => false,
+  audio: (i) => ["music_song", "local_audio", "voice_asset"].includes(i.source_entity_type),
   avatar_video: (i) => i.type === "video",
 };
 
@@ -45,7 +46,7 @@ export function AssetPickerModal({ open, onClose, onSelect, filterTypes, title }
     (i) => i.status === "completed" && i.asset_url && filterTypes.some((t) => TYPE_MATCH[t]?.(i)),
   );
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
       <div
         className="flex max-h-[80vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-xl"
@@ -98,6 +99,6 @@ export function AssetPickerModal({ open, onClose, onSelect, filterTypes, title }
           )}
         </div>
       </div>
-    </div>
+    </div>, document.body
   );
 }

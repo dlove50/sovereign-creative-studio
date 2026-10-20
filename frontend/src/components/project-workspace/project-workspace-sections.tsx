@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import type React from "react";
 import Link from "next/link";
 import {
@@ -445,6 +446,9 @@ function WorkspaceCard({
 }
 
 function ItemPreview({ item }: { item: LibraryItem }) {
+  if (item.type === "video" && item.asset_url) {
+    return <video src={`${assetUrl(item.asset_url)}#t=0.5`} muted preload="metadata" className="h-full w-full object-cover" />;
+  }
   const thumbnail = assetUrl(item.thumbnail_url);
   if (thumbnail) {
     return <img src={thumbnail} alt="" className="h-full w-full object-cover" />;
@@ -479,10 +483,11 @@ export function PreviewModal({
   const mediaUrl = assetUrl(item.asset_url);
   const imageUrl = assetUrl(item.thumbnail_url);
   const isVideo = item.type === "video" && mediaUrl;
-  const isImage = !isVideo && mediaUrl;
+  const isAudio = item.source_entity_type === "music_song" && mediaUrl;
+  const isImage = !isVideo && !isAudio && mediaUrl;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm">
+  return createPortal(
+    <div role="dialog" aria-modal="true" aria-label={item.title} className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm">
       <div className="flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-lg border border-border bg-card shadow-xl">
         <div className="flex items-start justify-between gap-4 border-b border-border p-4">
           <div className="min-w-0">
@@ -497,13 +502,13 @@ export function PreviewModal({
               {item.project_name ?? "No project"} · {formatDate(item.created_at)}
             </p>
           </div>
-          <Button type="button" variant="outline" size="sm" onClick={onClose}>
+          <Button type="button" variant="outline" size="sm" aria-label="Close preview" onClick={onClose}>
             <X className="h-4 w-4" />
           </Button>
         </div>
         <div className="grid min-h-0 gap-4 overflow-y-auto p-4 lg:grid-cols-[minmax(0,1fr)_320px]">
           <div className="flex min-h-64 items-center justify-center rounded-md bg-background/60">
-            {isVideo ? (
+            {isAudio ? <audio src={mediaUrl || undefined} controls className="w-full p-4" /> : isVideo ? (
               <video
                 src={mediaUrl}
                 controls
@@ -555,7 +560,7 @@ export function PreviewModal({
           </aside>
         </div>
       </div>
-    </div>
+    </div>, document.body
   );
 }
 

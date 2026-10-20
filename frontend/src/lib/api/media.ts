@@ -196,6 +196,12 @@ export const mediaApi = {
       projectId ? `/api/videos?project_id=${projectId}` : "/api/videos",
     ),
   getVideo: (id: string) => request<VideoGeneration>(`/api/videos/${id}`),
+  importVideos: (files: File[], projectId: string) => {
+    const form = new FormData();
+    form.append("project_id", projectId);
+    files.forEach((file) => form.append("files", file));
+    return formRequest<{ videos: VideoGeneration[]; errors: { filename: string; error: string }[] }>("/api/videos/import", form);
+  },
   createVideo: (input: {
     project_id: string;
     product_scene_id?: string | null;

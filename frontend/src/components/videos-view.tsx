@@ -1,6 +1,7 @@
 "use client";
 
 import { PromptAssist } from "@/components/prompt-assist/prompt-assist";
+import { MediaImportControl } from "@/components/media/media-import-control";
 import { confirmDialog } from "@/components/ui/confirm-host";
 
 import { useEffect, useMemo, useState } from "react";
@@ -416,6 +417,7 @@ export function VideosView() {
         refreshing={refreshingStatus}
         onRefresh={refreshStatus}
       />
+      <MediaImportControl kind="video" onImported={() => { void api.listVideos().then(setVideos); }} />
       <p className="text-sm text-muted-foreground">Selected provider: {PROVIDERS.find((item) => item.id === provider)?.label}</p>
       <details className="rounded-lg border border-border bg-card p-4">
         <summary className="cursor-pointer text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary">

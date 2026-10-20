@@ -18,6 +18,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import shutil
 import socket
 import subprocess
@@ -317,7 +318,7 @@ def ensure_paths(skip_comfy: bool) -> None:
 
 
 def ensure_frontend_build() -> None:
-    dist_dir = os.environ.get("NEXT_DIST_DIR", ".next-cinematic-fixed")
+    dist_dir = os.environ.get("NEXT_DIST_DIR", ".next")
     build_id = FRONTEND / dist_dir / "BUILD_ID"
     routes_manifest = FRONTEND / dist_dir / "routes-manifest.json"
     expected_origin = f"http://127.0.0.1:{BACKEND_PORT}"
@@ -330,14 +331,30 @@ def ensure_frontend_build() -> None:
         except OSError:
             pass
     if build_is_current:
+        build_time = build_id.stat().st_mtime
+        source_files = list((FRONTEND / "src").rglob("*")) + list(FRONTEND.glob("next.config.*")) + [FRONTEND / "package.json", FRONTEND / "package-lock.json"]
+        build_is_current = not any(p.is_file() and p.stat().st_mtime > build_time for p in source_files)
+    if build_is_current:
+        for chunk in (FRONTEND / dist_dir / "static" / "chunks").rglob("*.js"):
+            match = re.match(r"(\d+)-", chunk.name)
+            if match:
+                registration = re.search(r"\.push\(\[\[([^\]]+)\]", chunk.read_text(encoding="utf-8"))
+                if not registration or match.group(1) not in registration.group(1).split(","):
+                    build_is_current = False
+                    break
+    if build_is_current:
         return
     if build_id.is_file():
         print(
-            f"Frontend build has a stale backend proxy; rebuilding for {expected_origin}..."
+            f"Frontend build is stale or inconsistent; rebuilding for {expected_origin}..."
         )
     else:
         print("Frontend production build not found. Building frontend once...")
+    # Never overwrite chunks while a production server is serving that build.
+    if port_open(3000):
+        evict_port(3000, "Sovereign Creative Studio frontend")
     build_env = clean_env()
+    build_env["NEXT_DIST_DIR"] = dist_dir
     # CRITICAL: always bake BACKEND_ORIGIN so the proxy points to port 8002,
     # not Next's default 8000. Running `npx next build` without this env var
     # bakes the wrong port into routes-manifest.json and causes 500 proxy errors.
@@ -444,6 +461,9 @@ def start(args: argparse.Namespace) -> int:
     if not wait_url("Backend", SERVICES["backend"]["health"], 45):
         return 1
 
+    if not args.frontend_dev:
+        # Validate before reusing a healthy home page: lazy routes may still be broken.
+        ensure_frontend_build()
     if _check_proxy():
         print("Sovereign Creative Studio frontend already running on port 3000.")
     else:
@@ -459,7 +479,7 @@ def start(args: argparse.Namespace) -> int:
         print(f"[3/3] Starting frontend ({frontend_label}) on http://localhost:3000")
         frontend_env = clean_env()
         frontend_env["BACKEND_ORIGIN"] = f"http://127.0.0.1:{BACKEND_PORT}"
-        frontend_env["NEXT_DIST_DIR"] = os.environ.get("NEXT_DIST_DIR", ".next-cinematic-fixed")
+        frontend_env["NEXT_DIST_DIR"] = os.environ.get("NEXT_DIST_DIR", ".next")
         started.append((
             "Frontend",
             popen(frontend_command, FRONTEND, "Sovereign Frontend", args.hidden, env=frontend_env),
@@ -620,7 +640,7 @@ def clean(args: argparse.Namespace) -> int:
         print("[ERROR] Could not clear ports 3000/3001; aborting.")
         return 1
 
-    next_dir = FRONTEND / ".next"
+    next_dir = FRONTEND / os.environ.get("NEXT_DIST_DIR", ".next")
     if next_dir.exists():
         print("Deleting frontend/.next ...")
         shutil.rmtree(next_dir, ignore_errors=True)
@@ -640,6 +660,7 @@ def clean(args: argparse.Namespace) -> int:
     print("Rebuilding production .next (npm run build)...")
     build_env = clean_env()
     build_env["BACKEND_ORIGIN"] = f"http://127.0.0.1:{BACKEND_PORT}"
+    build_env["NEXT_DIST_DIR"] = next_dir.name
     if subprocess.run(["npm.cmd", "run", "build"], cwd=str(FRONTEND), env=build_env, check=False).returncode != 0:
         print("[ERROR] Frontend production build failed.")
         return 1
@@ -650,6 +671,7 @@ def clean(args: argparse.Namespace) -> int:
     print("Starting production frontend (npm run start) on http://localhost:3000")
     frontend_env = clean_env()
     frontend_env["BACKEND_ORIGIN"] = f"http://127.0.0.1:{BACKEND_PORT}"
+    frontend_env["NEXT_DIST_DIR"] = next_dir.name
     popen(["npm.cmd", "run", "start"], FRONTEND, "Sovereign Frontend", args.hidden, env=frontend_env)
     if not wait_url("Frontend", SERVICES["frontend"]["health"], 60):
         return 1
