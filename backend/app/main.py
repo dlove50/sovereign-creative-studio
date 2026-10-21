@@ -18,6 +18,7 @@ from .routers import music_import as music_import_router
 from .routers import director as director_router
 from .routers import motion_studio as motion_studio_router
 from .routers import performances as performances_router
+from .routers import enhance as enhance_router
 from .routers import (
     admin,
     assets,
@@ -144,6 +145,7 @@ app.include_router(music_import_router.router)
 app.include_router(director_router.router)
 app.include_router(motion_studio_router.router)
 app.include_router(performances_router.router)
+app.include_router(enhance_router.router)
 
 app.include_router(auth.router)
 app.include_router(users.router)

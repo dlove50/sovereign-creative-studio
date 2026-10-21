@@ -60,6 +60,7 @@ export const CREATOR_NAV: NavigationItem[] = [
   { href: "/create", label: "Image Studio", icon: ImageIcon },
   { href: "/music-lab", label: "Music Lab", icon: Music2 },
   { href: "/performance", label: "Dual Performance", icon: Users },
+  { href: "/enhance", label: "AI Enhance", icon: Sparkle },
   { href: "/voice-studio", label: "Voice Studio", icon: Mic },
   { href: "/inspiration", label: "Inspiration", icon: Sparkle },
   { href: "/avatars", label: "Avatars & Voices", icon: PersonStanding },
@@ -101,6 +102,7 @@ export const RAIL_NAV: NavigationItem[] = [
   { href: "/director", label: "Director", icon: Clapperboard },
   { href: "/music-lab", label: "Music", icon: Music2 },
   { href: "/performance", label: "Duet", icon: Users },
+  { href: "/enhance", label: "Enhance", icon: Sparkle },
   { href: "/brand", label: "Brand", icon: Palette },
   { href: "/projects", label: "Projects", icon: Folder },
 ];

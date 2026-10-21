@@ -51,6 +51,7 @@ const APPS: AppEntry[] = [
   { name: "Video podcast", blurb: "Two avatars in conversation from one script.", icon: MessagesSquare, category: "create", href: "/podcast" },
   { name: "Slides to video", blurb: "Narrate a PDF or slide deck with your avatar.", icon: FileText, category: "create", href: "/slides" },
   { name: "Batch videos", blurb: "Make many avatar videos from a spreadsheet.", icon: Layers, category: "create", href: "/batch" },
+  { name: "AI Enhance", blurb: "One workspace to enhance any image, audio or video: denoise, sharpen, colour, loudness, stems, upscale. Compare before applying.", icon: Sparkles, category: "enhance", href: "/enhance" },
   { name: "Upscale video", blurb: "Sharpen a finished clip to a higher resolution.", icon: ZoomIn, category: "enhance", href: "/videos?mode=video_upscale" },
   { name: "Speech cleanup", blurb: "Cut long pauses and filler words automatically.", icon: Mic, category: "enhance", href: "/speech-cleanup" },
   { name: "Translate video", blurb: "Get subtitles in another language, or have your avatar say the translation.", icon: Languages, category: "enhance", href: "/translate" },
