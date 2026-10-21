@@ -17,6 +17,10 @@ POST   /api/performances/{id}/analyze                        find each performer
 POST   /api/performances/{id}/handoffs                       hand parts of a shared vocal to performers
 POST   /api/performances/{id}/drive-audio                    build each performer's lip-sync audio
 GET    /api/performances/{id}/render-plan                    passes, cues, and what is still missing
+POST   /api/performances/{id}/stage-image                    a stage picture already showing every performer
+POST   /api/performances/{id}/render                         render the video (local GPU, background job)
+POST   /api/performances/{id}/render/cancel                  stop a render
+GET    /api/performances/readiness                           model files the renderer still needs
 GET    /api/performances/{id}/files/{name}                   a stored file (owner only)
 """
 from __future__ import annotations
@@ -30,7 +34,7 @@ from pydantic import BaseModel, Field
 
 from ..deps import get_current_user
 from ..models import User
-from ..services import music, performance_engine as pe, stems
+from ..services import music, performance_engine as pe, performance_render as render, stems
 
 router = APIRouter(prefix="/api/performances", tags=["performances"])
 
@@ -150,6 +154,11 @@ def _public(project: dict) -> dict:
         for p in project["performers"]
     ]
     out["sheet"] = pe.director_sheet(project) if project.get("duration") else []
+    out["stage"] = {**project.get("stage", {}), "image_url": _url(project, project.get("stage", {}).get("image"))}
+    if project.get("render"):
+        r = project["render"]
+        out["render"] = {**r, "video_url": _url(project, r.get("video")),
+                         "master_shot_url": _url(project, r.get("master_shot"))}
     return out
 
 
@@ -180,6 +189,12 @@ def _store_upload(project: dict, upload: UploadFile, stem: str, allowed: set[str
 @router.get("/modes")
 def modes(_user: User = Depends(get_current_user)):
     return {"modes": pe.MODES, "states": list(pe.STATES), "voiced": list(pe.VOICED)}
+
+
+@router.get("/readiness")
+def readiness(_user: User = Depends(get_current_user)):
+    missing = render.readiness()
+    return {"ready": not missing, "missing": missing}
 
 
 @router.post("", status_code=201)
@@ -349,6 +364,29 @@ def drive_audio(project_id: str, user: User = Depends(get_current_user)):
 @router.get("/{project_id}/render-plan")
 def render_plan(project_id: str, user: User = Depends(get_current_user)):
     return pe.render_plan(_owned(project_id, user))
+
+
+@router.post("/{project_id}/stage-image")
+def upload_stage(project_id: str, file: UploadFile = File(...), user: User = Depends(get_current_user)):
+    project = _owned(project_id, user)
+    project["stage"]["image"] = _store_upload(project, file, "stage", IMAGE_EXT, MAX_IMAGE_BYTES)
+    return _save(project)
+
+
+@router.post("/{project_id}/render", status_code=202)
+def start_render(project_id: str, user: User = Depends(get_current_user)):
+    _owned(project_id, user)
+    try:
+        return _public(render.start(project_id))
+    except pe.PerformanceError as exc:
+        raise _bad(exc) from exc
+
+
+@router.post("/{project_id}/render/cancel")
+def cancel_render(project_id: str, user: User = Depends(get_current_user)):
+    _owned(project_id, user)
+    render.cancel(project_id)
+    return {"cancelling": True}
 
 
 @router.get("/{project_id}/files/{name}")
