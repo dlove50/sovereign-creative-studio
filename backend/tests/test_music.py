@@ -370,3 +370,23 @@ def test_limits_expose_honest_time_estimates():
         limits = res.json()["limits"]
         assert limits["typical_minutes_per_song_minute"] == music.TYPICAL_MIN_PER_SONG_MIN
         assert limits["slow_minutes_per_song_minute"] == music.SLOW_MIN_PER_SONG_MIN
+
+
+def test_start_engine_never_launches_a_second_comfyui_on_a_busy_port(monkeypatch):
+    import socket
+    from app.services import music as music_service
+
+    server = socket.socket()
+    server.bind(("127.0.0.1", 0))
+    server.listen(1)
+    port = server.getsockname()[1]
+    monkeypatch.setattr(music_service.config, "MUSIC_COMFYUI_URL", f"http://127.0.0.1:{port}")
+    monkeypatch.setattr(music_service, "engine_status", lambda: {"online": False})
+    monkeypatch.setattr(music_service.Path, "exists", lambda self: True)
+    launched = []
+    monkeypatch.setattr(music_service.subprocess, "Popen", lambda *a, **k: launched.append(a))
+    try:
+        result = music_service.start_engine()
+    finally:
+        server.close()
+    assert result["started"] is False and "busy" in result["detail"] and not launched

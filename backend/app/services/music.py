@@ -6,6 +6,7 @@ extra requests wait in the "queued" state.
 """
 from __future__ import annotations
 
+import contextlib
 import json
 import re
 import shutil
@@ -106,6 +107,11 @@ def start_engine() -> dict[str, Any]:
     if not main_py.exists() or not python.exists():
         raise MusicError("The music engine is not installed where Sovereign expects it.")
     port = urllib.parse.urlparse(config.MUSIC_COMFYUI_URL).port or 8199
+    # A ComfyUI that is busy rendering can miss the status timeout. If anything is already listening on
+    # the port (e.g. the shared ComfyUI on Linux), never launch a second copy that would fail to bind.
+    import socket
+    with contextlib.suppress(OSError), socket.create_connection(("127.0.0.1", port), timeout=1.0):
+        return {"started": False, "detail": "the engine is running but busy; try again when the current job ends"}
     flags = 0x08000000 | 0x00000008  # CREATE_NO_WINDOW | DETACHED_PROCESS (Windows)
     _engine_process = subprocess.Popen(
         [str(python), "-s", "main.py", "--listen", "127.0.0.1", "--port", str(port), "--disable-auto-launch"],
