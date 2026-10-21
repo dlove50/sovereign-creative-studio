@@ -31,6 +31,7 @@ import {
   Sparkle,
   Type,
   UserCircle,
+  Users,
   Video,
   Wand2,
   type LucideIcon,
@@ -58,6 +59,7 @@ export const CREATOR_NAV: NavigationItem[] = [
   { href: "/ocr-studio", label: "OCR Studio", icon: ScanText },
   { href: "/create", label: "Image Studio", icon: ImageIcon },
   { href: "/music-lab", label: "Music Lab", icon: Music2 },
+  { href: "/performance", label: "Dual Performance", icon: Users },
   { href: "/voice-studio", label: "Voice Studio", icon: Mic },
   { href: "/inspiration", label: "Inspiration", icon: Sparkle },
   { href: "/avatars", label: "Avatars & Voices", icon: PersonStanding },
@@ -98,6 +100,7 @@ export const RAIL_NAV: NavigationItem[] = [
   { href: "/apps", label: "Apps", icon: Sparkle },
   { href: "/director", label: "Director", icon: Clapperboard },
   { href: "/music-lab", label: "Music", icon: Music2 },
+  { href: "/performance", label: "Duet", icon: Users },
   { href: "/brand", label: "Brand", icon: Palette },
   { href: "/projects", label: "Projects", icon: Folder },
 ];
