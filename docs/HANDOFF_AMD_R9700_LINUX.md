@@ -216,6 +216,18 @@ branch merges cleanly alongside it.
 - `docs/HOW_TO_GUIDE.md` §4 told Linux users to install "an NVIDIA GPU with
   current drivers + CUDA". It now names ROCm alongside CUDA and points here.
 
+- `backend/workflows/product_scene_creative_qwen_edit.json` — GGUF filename
+  case. Nine workflows spell it `Qwen-Image-Edit-2509-Q4_K_M.gguf`; this one
+  spelled it `qwen-...`. Windows resolves both to the same file; **a
+  case-sensitive filesystem does not**, so one group fails with "model not
+  found". The outlier is on the **default** path: `CREATIVE_QWEN_PRECISION`
+  defaults to `gguf` and `product_scene_generators/__init__.py:120` selects this
+  workflow, so Transform Mode's default creative edit is the one that cannot
+  resolve its model on this machine. Aligned to the nine. **If the installed
+  file is actually the lowercase spelling, the fix belongs the other way round
+  and the other nine are broken** — `tools/estimate_vram.py --models-dir` now
+  reports `!! CASE MISMATCH on disk`, which settles it.
+
 ### Related work on `amd-sync`
 
 `tools/verify_krea2_amd.py`, `tools/verify_linux_upscale.py`, and
