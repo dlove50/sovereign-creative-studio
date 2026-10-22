@@ -152,7 +152,7 @@ def _resolve_storage_path(file_url: str) -> Path | None:
     prefix = "/storage/"
     if not path.startswith(prefix):
         return None
-    relative = path[len(prefix) :].replace("/", "\\")
+    relative = path[len(prefix) :]
     candidate = (STORAGE_DIR / relative).resolve()
     try:
         candidate.relative_to(STORAGE_DIR.resolve())

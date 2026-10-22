@@ -396,3 +396,46 @@ def test_openai_rejects_unsafe_output_url(monkeypatch):
     message = str(exc.value)
     assert "unsafe output URL" in message
     assert SECRET not in message
+
+
+def test_resolve_storage_path_handles_nested_posix_path(monkeypatch, tmp_path):
+    """A /storage/ URL with subdirectories must resolve to the real nested file.
+
+    Regression: the separator was rewritten to a backslash, which pathlib treats
+    as a separator on Windows but as a literal filename character on Linux.
+    """
+    nested = tmp_path / "uploads" / "source.png"
+    nested.parent.mkdir(parents=True)
+    nested.write_bytes(b"source bytes")
+    monkeypatch.setattr(openai_image_module, "STORAGE_DIR", tmp_path)
+
+    resolved = openai_image_module._resolve_storage_path("/storage/uploads/source.png")
+
+    assert resolved == nested.resolve()
+    assert resolved.is_file()
+
+
+def test_resolve_storage_path_accepts_absolute_url(monkeypatch, tmp_path):
+    nested = tmp_path / "uploads" / "source.png"
+    nested.parent.mkdir(parents=True)
+    nested.write_bytes(b"source bytes")
+    monkeypatch.setattr(openai_image_module, "STORAGE_DIR", tmp_path)
+
+    resolved = openai_image_module._resolve_storage_path(
+        "https://studio.example/storage/uploads/source.png"
+    )
+
+    assert resolved == nested.resolve()
+
+
+def test_resolve_storage_path_rejects_paths_outside_storage(monkeypatch, tmp_path):
+    storage = tmp_path / "storage"
+    storage.mkdir()
+    (tmp_path / "secret.txt").write_bytes(b"secret")
+    monkeypatch.setattr(openai_image_module, "STORAGE_DIR", storage)
+
+    # Traversal, a leading slash that would otherwise reset the join, and a URL
+    # that is not under /storage/ at all.
+    assert openai_image_module._resolve_storage_path("/storage/../secret.txt") is None
+    assert openai_image_module._resolve_storage_path("/storage//etc/passwd") is None
+    assert openai_image_module._resolve_storage_path("/uploads/source.png") is None
