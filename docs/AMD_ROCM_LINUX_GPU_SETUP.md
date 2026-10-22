@@ -175,6 +175,15 @@ Separately, the kernel log carries **global** OOM events involving
 different trigger from the ComfyUI scope OOM, but they show desktop apps also
 competing for memory on a 30 GiB host.
 
+### How to interpret the results
+
+**`docs/AMD_R9700_SVM_OOM_ANALYSIS.md`** reads the diagnostic output section by
+section and says what each finding implies. Its headline: raising the 22 GiB cap
+cannot fix this, because VRAM (29.8 GiB) and host RAM (30 GiB) are the same size
+on this machine, so a full spill does not fit under *any* cap. It also gives the
+test that distinguishes genuine VRAM overflow from tensors being misplaced into
+host memory — the two have different fixes.
+
 ### Next diagnostic steps
 
 Run in a real desktop terminal — a sandboxed agent shell cannot see host

@@ -188,5 +188,9 @@ done
 echo "  backend/.env COMFYUI_BASE_URL: $(grep -s '^COMFYUI_BASE_URL' backend/.env 2>/dev/null || echo '<not set - defaults to 8001>')"
 
 printf '\n========== END OF REPORT ==========\n'
-echo "Interpretation: docs/AMD_ROCM_LINUX_GPU_SETUP.md section 3."
-echo "Do NOT raise a cgroup memory cap based on this report alone - read why first."
+echo "Interpretation, section by section: docs/AMD_R9700_SVM_OOM_ANALYSIS.md"
+echo "Background: docs/AMD_ROCM_LINUX_GPU_SETUP.md section 3."
+echo
+echo "Do NOT raise the cgroup memory cap based on this report alone. VRAM (29.8"
+echo "GiB) and host RAM (30 GiB) are the same size on this machine, so a full"
+echo "spill fits under no cap - the cap is a safety net, not the bug."

@@ -109,6 +109,12 @@ ComfyUI relaunched at 16:42, 18:00, 19:14, 19:21, 20:35. Last
 **29 GiB used, 1.1 GiB available, 24 GiB swap used** — pressure had returned.
 This is **not** resolved.
 
+Read **`docs/AMD_R9700_SVM_OOM_ANALYSIS.md`** before changing any memory
+setting. It works the arithmetic (VRAM 29.8 GiB vs host RAM 30 GiB — the same
+size, so a full spill fits under no cap), gives the test that separates genuine
+VRAM overflow from misplaced host allocation, ranks the remedies, and maps each
+diagnostic section to a conclusion.
+
 ### Next commands — run in a real desktop terminal
 
 A sandboxed agent shell cannot see host processes, `/dev/kfd`, or systemd
