@@ -301,6 +301,38 @@ worker thread that would have picked it up is gone. Either the startup list
 should use both statuses uniformly, or the difference deserves a comment saying
 why those two queues survive a restart when the others do not.
 
+### `generation_jobs.py` needs the same worker-resilience fix
+
+The other six job services now survive a job that raises: their `_worker_loop`
+catches `Exception`, logs it with `logger.exception`, and continues.
+`generation_jobs.py` still uses bare `try/finally`, so an exception escaping
+`_run_generation_job` kills the worker thread silently and strands whatever is
+already queued until the next `enqueue_generation` triggers the `is_alive()`
+restart.
+
+Not fixed here for one narrow reason: `amd-sync` inserts `import json` into the
+same import block that this fix needs for `import logging`, which is precisely
+the adjacency git cannot merge cleanly. The change is three lines, identical to
+the other six:
+
+```python
+        try:
+            _run_generation_job(generation_id)
+        except Exception:  # noqa: BLE001 - one bad job must not kill the worker
+            logger.exception("Unhandled error in base generation job %s",
+                             generation_id)
+        finally:
+            _job_queue.task_done()
+```
+
+plus `import logging` and
+`logger = logging.getLogger("sovereign.generation_jobs")`.
+
+`backend/tests/test_z_worker_resilience.py` is parameterised over the six that
+were fixed; add `("app.services.generation_jobs", "_run_generation_job",
+"_job_queue")` to its `SERVICES` list once the import lands and it is covered
+by all four tests with no other change.
+
 ### Related work on `amd-sync`
 
 `tools/verify_krea2_amd.py`, `tools/verify_linux_upscale.py`, and
