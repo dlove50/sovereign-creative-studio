@@ -254,6 +254,59 @@ ComfyUI on this machine until that or the ComfyUI port is aligned.
 
 ---
 
+## 5a. Two findings for whoever owns `image_presets.py`
+
+Not patched here on purpose: `amd-sync` is actively reworking
+`_preset_missing`, so an edit from this branch would likely conflict with
+`3680b3c`. Both belong to whoever owns that function.
+
+### Preset readiness is case-insensitive and can mask a real load failure
+
+`backend/app/services/image_presets.py` (master lines 217-218):
+
+```python
+options = [o.lower() for o in _combo_options(info, node, field)]
+if not any(any(n.lower() in o for o in options) for n in needles):
+```
+
+Both sides are lowercased. ComfyUI loads a model by its exact name, and on a
+case-sensitive filesystem a case-only difference fails with "model not found" —
+but this probe passes. So a preset can report **Ready** and then fail at render
+time. That is exactly the bug fixed in
+`backend/workflows/product_scene_creative_qwen_edit.json`, and this probe would
+have hidden it.
+
+Case-insensitivity is deliberate for the fuzzy needles (`"sdxl"`, `"klein"`,
+`"noobai"`, `"flux2-vae"`), which match model families rather than filenames, so
+a blanket switch to case-sensitive matching would break intentional behaviour.
+
+Suggested shape: keep fuzzy matching for fragments, and treat a needle that
+carries a model extension (`.safetensors`, `.gguf`, `.ckpt`) as a full filename
+needing exact case. When such a needle matches only case-insensitively, report
+it as its own problem — "installed as X, workflow expects Y, case differs" —
+rather than as Ready or as a plain absence. `_preset_missing` takes `info` as a
+parameter, so this is unit-testable with a synthetic `object_info` dict and
+needs no running ComfyUI.
+
+### `test_z_image_presets.py` is stale against amd-sync's new semantics
+
+On `origin/amd-sync`, `tests/test_z_image_presets.py::test_presets_endpoint_lists_quality_and_style`
+fails at line 36:
+
+```python
+assert local["is_default"] is True and local["ready"] is True  # always safe
+E   assert (True is True and False is True)
+```
+
+Cause is an intentional change on that branch: `_preset_missing` now checks
+`info is None` **before** `always_available`, and `preset_ready` no longer
+short-circuits on `always_available`. So with ComfyUI unreachable, `local_fast`
+reports not-ready instead of ready. The new behaviour is arguably more honest —
+nothing is ready if ComfyUI is down — but the test still encodes the old
+contract and its "always safe" comment no longer holds. Either the test or the
+reordering needs to change. `3680b3c` reports 922 passed, so this may already be
+resolved there; flagged in case it is not.
+
 ## 6. Blocker: GitHub write access
 
 Commit `6637510` is committed locally but **could not be pushed**:
