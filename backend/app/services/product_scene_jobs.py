@@ -1,5 +1,6 @@
 """In-process product-scene generation jobs."""
 import asyncio
+import logging
 import queue
 import threading
 from datetime import datetime, timezone
@@ -9,6 +10,8 @@ from ..models import ProductAsset, ProductSceneGeneration
 from ..product_scene_generators import get_product_scene_generator
 
 _scene_queue: "queue.Queue[str | None]" = queue.Queue()
+logger = logging.getLogger("sovereign.product_scene_jobs")
+
 _worker_lock = threading.Lock()
 _worker: threading.Thread | None = None
 
@@ -37,6 +40,8 @@ def _worker_loop() -> None:
             break
         try:
             _run_product_scene(scene_id)
+        except Exception:  # noqa: BLE001 - one bad job must not kill the worker
+            logger.exception("Unhandled error in product scene job %s", scene_id)
         finally:
             _scene_queue.task_done()
 

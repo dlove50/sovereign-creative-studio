@@ -2,6 +2,7 @@
 other generators)."""
 import asyncio
 import inspect
+import logging
 import queue
 import threading
 from datetime import datetime, timezone
@@ -16,6 +17,8 @@ from ..models import CreditTransaction, User, VideoGeneration
 from ..video_generators import get_video_generator
 
 _video_queue: "queue.Queue[str | None]" = queue.Queue()
+logger = logging.getLogger("sovereign.video_jobs")
+
 _worker_lock = threading.Lock()
 _worker: threading.Thread | None = None
 
@@ -42,6 +45,8 @@ def _worker_loop() -> None:
             break
         try:
             _run_video(video_id)
+        except Exception:  # noqa: BLE001 - one bad job must not kill the worker
+            logger.exception("Unhandled error in video generation job %s", video_id)
         finally:
             _video_queue.task_done()
 

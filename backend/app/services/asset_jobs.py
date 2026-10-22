@@ -1,4 +1,5 @@
 """In-process product asset processing jobs."""
+import logging
 import queue
 import threading
 from pathlib import Path
@@ -9,6 +10,8 @@ from ..database import SessionLocal
 from ..models import ProductAsset
 
 _asset_queue: "queue.Queue[str | None]" = queue.Queue()
+logger = logging.getLogger("sovereign.asset_jobs")
+
 _worker_lock = threading.Lock()
 _worker: threading.Thread | None = None
 
@@ -37,6 +40,8 @@ def _worker_loop() -> None:
             break
         try:
             _run_background_removal(asset_id)
+        except Exception:  # noqa: BLE001 - one bad job must not kill the worker
+            logger.exception("Unhandled error in asset processing job %s", asset_id)
         finally:
             _asset_queue.task_done()
 

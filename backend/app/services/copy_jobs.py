@@ -1,6 +1,7 @@
 """In-process copy generation jobs (same lightweight worker pattern as the
 generation and product-scene workers)."""
 import asyncio
+import logging
 import queue
 import threading
 from datetime import datetime, timezone
@@ -10,6 +11,8 @@ from ..database import SessionLocal
 from ..models import CopyGeneration, ProductAsset, ProductSceneGeneration
 
 _copy_queue: "queue.Queue[str | None]" = queue.Queue()
+logger = logging.getLogger("sovereign.copy_jobs")
+
 _worker_lock = threading.Lock()
 _worker: threading.Thread | None = None
 
@@ -36,6 +39,8 @@ def _worker_loop() -> None:
             break
         try:
             _run_copy(copy_id)
+        except Exception:  # noqa: BLE001 - one bad job must not kill the worker
+            logger.exception("Unhandled error in copy generation job %s", copy_id)
         finally:
             _copy_queue.task_done()
 

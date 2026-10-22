@@ -7,6 +7,7 @@ Tests use the mock adapter so CI stays offline and fast.
 from __future__ import annotations
 
 import importlib.util
+import logging
 import queue
 import shutil
 import threading
@@ -149,6 +150,8 @@ def _ffmpeg_path() -> str | None:
 
 
 _queue: "queue.Queue[str | None]" = queue.Queue()
+logger = logging.getLogger("sovereign.transcription")
+
 _worker_lock = threading.Lock()
 _worker: threading.Thread | None = None
 
@@ -177,6 +180,8 @@ def _worker_loop() -> None:
             break
         try:
             _run(job_id)
+        except Exception:  # noqa: BLE001 - one bad job must not kill the worker
+            logger.exception("Unhandled error in transcription job %s", job_id)
         finally:
             _queue.task_done()
 

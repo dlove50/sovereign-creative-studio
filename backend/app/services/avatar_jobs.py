@@ -8,6 +8,7 @@ when a provider is wired later, billing is already correct and tested.
 from __future__ import annotations
 
 import asyncio
+import logging
 import queue
 import re
 import threading
@@ -119,6 +120,8 @@ def create_greeting_job(
 
 # --- talking-avatar job (Phase 16C) ------------------------------------------
 _avatar_queue: "queue.Queue[str | None]" = queue.Queue()
+logger = logging.getLogger("sovereign.avatar_jobs")
+
 _worker_lock = threading.Lock()
 _worker: threading.Thread | None = None
 
@@ -145,6 +148,8 @@ def _worker_loop() -> None:
             break
         try:
             _run_avatar_video(job_id)
+        except Exception:  # noqa: BLE001 - one bad job must not kill the worker
+            logger.exception("Unhandled error in avatar video job %s", job_id)
         finally:
             _avatar_queue.task_done()
 
