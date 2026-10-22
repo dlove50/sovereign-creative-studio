@@ -262,6 +262,45 @@ override. An operator on a slow or memory-pressured machine cannot raise it
 without editing code, and the values were tuned on the 16 GB Windows box.
 Worth making configurable at the same time.
 
+### Startup recovery still misses three job tables
+
+`main.py::_recover_interrupted_jobs` marks jobs left mid-flight as failed on the
+next boot, so the UI does not show permanently-spinning work. `amd-sync` has
+already extended it — not edited here for that reason — but its version covers:
+
+```
+VideoGeneration      ("running",)
+TranscriptionJob     ("running",)
+AvatarJob            ("queued", "running")
+Movie                ("rendering",)
+CinematicProduction  ("assembling",)
+```
+
+**Three job tables that `stale_jobs.py` and `job_monitor.py` both track are
+absent**, and all three have the columns the loop needs (the `hasattr` checks
+already cope with `error` vs `error_message`, and with a missing
+`completed_at`):
+
+| model | columns | consequence |
+|---|---|---|
+| `Generation` | `status`, `error` | base image jobs stick in `running` |
+| `ProductSceneGeneration` | `status`, `error`, `completed_at` | **the default product-scene path** sticks |
+| `CopyGeneration` | `status`, `error`, `completed_at` | copy jobs stick |
+
+This bites on this machine specifically. ComfyUI is wedged, product-scene
+renders are hitting the poll timeout, and `tools/start-sovereign-linux.sh`
+restarts the backend — so a render interrupted by a restart leaves a
+`ProductSceneGeneration` row in `running` with no recovery path except an admin
+manually invoking `stale_jobs`.
+
+**Second, smaller asymmetry:** `VideoGeneration` and `TranscriptionJob` recover
+only `"running"`, while `AvatarJob` recovers `("queued", "running")` and
+`stale_jobs._ACTIVE` is `("queued", "running")` for everything. A job that was
+queued when the process died therefore stays `queued` forever — the in-process
+worker thread that would have picked it up is gone. Either the startup list
+should use both statuses uniformly, or the difference deserves a comment saying
+why those two queues survive a restart when the others do not.
+
 ### Related work on `amd-sync`
 
 `tools/verify_krea2_amd.py`, `tools/verify_linux_upscale.py`, and
