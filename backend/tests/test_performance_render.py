@@ -97,6 +97,7 @@ def test_full_render_job_with_fake_comfyui(duet, monkeypatch):
     monkeypatch.setattr(pr, "_submit", fake_submit)
     monkeypatch.setattr(pr, "readiness", lambda: [])
     monkeypatch.setattr(pr, "CHUNK_FRAMES", 61)
+    monkeypatch.setattr(pr, "UPSCALE", 0)  # the Real-ESRGAN pass is covered separately
     pr.start(duet["id"])
     for _ in range(300):
         render = pe.get(duet["id"]).get("render", {})
@@ -114,3 +115,12 @@ def test_full_render_job_with_fake_comfyui(duet, monkeypatch):
     streams = json.loads(probe.stdout)["streams"]
     assert {s["codec_type"] for s in streams} == {"video", "audio"}
     assert next(s for s in streams if s["codec_type"] == "video")["width"] == pr.WIDTH
+
+
+def test_upscale_is_skipped_not_faked_when_unavailable(tmp_path, monkeypatch):
+    from app.services import enhance
+    monkeypatch.setattr(enhance, "_available", lambda op: (False, "missing"))
+    src = tmp_path / "in.mp4"
+    src.write_bytes(b"x")
+    assert pr._upscale("abc", src, tmp_path / "out.mp4") is None
+    assert not (tmp_path / "out.mp4").exists()

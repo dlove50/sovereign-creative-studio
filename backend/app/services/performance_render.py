@@ -34,6 +34,7 @@ CHUNK_FRAMES = int(os.getenv("PERFORMANCE_CHUNK_FRAMES", "81"))
 STEPS = int(os.getenv("PERFORMANCE_STEPS", "4"))
 CFG = float(os.getenv("PERFORMANCE_CFG", "1.0"))
 MULTI_PATCH = os.getenv("PERFORMANCE_MULTI_PATCH", "infinitetalk_multi.safetensors")
+UPSCALE = int(os.getenv("PERFORMANCE_UPSCALE", "2"))
 SPEED_LORA = os.getenv("PERFORMANCE_LORA", "lightx2v_I2V_14B_480p_cfg_step_distill_rank64_bf16.safetensors")
 CHUNK_TIMEOUT = 1800
 POLL = 3.0
@@ -322,10 +323,30 @@ async def _render(project_id: str) -> None:
         final = folder / "performance.mp4"
         _run_ffmpeg(["-i", str(framed), "-i", str(project["master_audio"]), "-map", "0:v", "-map", "1:a",
                      "-c:v", "copy", "-c:a", "aac", "-b:a", "256k", "-shortest", str(final)])
-        _status(project_id, status="done", stage="Done", progress=1.0, video=str(final),
-                master_shot=str(master_shot), chunks=len(plans))
+        hd = _upscale(project_id, final, folder / "performance-hd.mp4")
+        _status(project_id, status="done", stage="Done", progress=1.0, video=str(hd or final),
+                video_sd=str(final), master_shot=str(master_shot), chunks=len(plans),
+                upscaled=bool(hd))
     finally:
         shutil.rmtree(work, ignore_errors=True)
+
+
+def _upscale(project_id: str, src: Path, dst: Path) -> Path | None:
+    """Real-ESRGAN x{UPSCALE} on the finished video (Universal Enhance worker). Skipped, not faked, if absent."""
+    import subprocess
+
+    from . import enhance
+
+    if UPSCALE < 2 or not enhance._available(enhance.OPERATIONS["upscale_ai"])[0]:
+        return None
+    _status(project_id, stage=f"Upscaling x{UPSCALE} (Real-ESRGAN)", progress=0.98)
+    proc = subprocess.run([config.MUSIC_STEMS_PYTHON, str(Path(enhance.__file__).with_name("enhance_worker.py")),
+                           "upscale_ai", json.dumps({"scale": UPSCALE}), str(src), str(dst)],
+                          capture_output=True, text=True, timeout=6 * 3600)
+    if proc.returncode != 0 or not dst.is_file():
+        return None  # the standard-resolution result is still delivered
+    return dst
+
 
 
 async def _submit(client: httpx.AsyncClient, workflow: dict[str, Any], out: Path, project_id: str) -> None:
