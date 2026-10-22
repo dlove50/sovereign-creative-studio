@@ -9,7 +9,7 @@
   "2": {
     "class_type": "UnetLoaderGGUF",
     "inputs": {
-      "unet_name": "qwen-image-edit-2509-Q4_K_M.gguf"
+      "unet_name": "Qwen-Image-Edit-2509-Q4_K_M.gguf"
     }
   },
   "3": {
