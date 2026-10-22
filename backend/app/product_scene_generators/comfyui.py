@@ -698,6 +698,51 @@ class ComfyUIProductSceneGenerator(ProductSceneGenerator):
             raise RuntimeError("ComfyUI did not return a prompt_id")
         return prompt_id
 
+    @staticmethod
+    def _queued_prompt_ids(queue: dict, section: str) -> set[str]:
+        """Prompt ids in one /queue section. Entries are [index, prompt_id, ...]."""
+        found: set[str] = set()
+        for item in queue.get(section) or []:
+            if isinstance(item, (list, tuple)) and len(item) >= 2 and isinstance(item[1], str):
+                found.add(item[1])
+            elif isinstance(item, dict) and isinstance(item.get("prompt_id"), str):
+                found.add(item["prompt_id"])
+        return found
+
+    async def _abandon(self, client: httpx.AsyncClient, prompt_id: str) -> str:
+        """Stop a prompt we have stopped waiting for; return what happened.
+
+        Without this, a timed-out render keeps running on the GPU with nobody
+        waiting for it, holding VRAM while the next submission stacks on top.
+
+        A blind POST /interrupt would be unsafe: ComfyUI's interrupt takes no
+        prompt_id and cancels whatever is currently executing, which may be a
+        different job. So delete by id while the prompt is still pending, and
+        only interrupt once /queue confirms the running prompt is ours.
+        """
+        try:
+            resp = await client.get("/queue")
+            resp.raise_for_status()
+            queue = resp.json()
+        except Exception:  # noqa: BLE001 - best-effort cleanup, never masks the timeout
+            return "could not reach /queue, so it may still be running"
+        if not isinstance(queue, dict):
+            return "could not read /queue, so it may still be running"
+
+        if prompt_id in self._queued_prompt_ids(queue, "queue_pending"):
+            try:
+                await client.post("/queue", json={"delete": [prompt_id]})
+                return "removed from the pending queue"
+            except Exception:  # noqa: BLE001
+                return "still pending; delete failed"
+        if prompt_id in self._queued_prompt_ids(queue, "queue_running"):
+            try:
+                await client.post("/interrupt")
+                return "interrupted while running"
+            except Exception:  # noqa: BLE001
+                return "still running; interrupt failed"
+        return "no longer queued"
+
     async def _await_outputs(
         self, client: httpx.AsyncClient, prompt_id: str
     ) -> dict:
@@ -708,7 +753,12 @@ class ComfyUIProductSceneGenerator(ProductSceneGenerator):
             if entry and entry.get("outputs"):
                 return entry["outputs"]
             await asyncio.sleep(_POLL_INTERVAL_SECONDS)
-        raise TimeoutError(f"ComfyUI product scene {prompt_id} timed out")
+        budget = int(_POLL_MAX_ATTEMPTS * _POLL_INTERVAL_SECONDS)
+        outcome = await self._abandon(client, prompt_id)
+        raise TimeoutError(
+            f"ComfyUI product scene {prompt_id} timed out after ~{budget}s; "
+            f"{outcome}."
+        )
 
     @staticmethod
     def _first_image(outputs: dict) -> dict:
