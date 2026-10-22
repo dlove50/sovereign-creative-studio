@@ -17,6 +17,7 @@ Honesty rules: classic upscaling and interpolation are labelled as such; nothing
 from __future__ import annotations
 
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -104,6 +105,17 @@ MODEL_HINTS = {
 }
 
 
+ENHANCE_MODELS = Path(os.getenv("SOVEREIGN_ENHANCE_MODELS", "/mnt/storage/AI-Models/enhance"))
+UPSCALE_MODELS = Path(os.getenv("SOVEREIGN_UPSCALE_MODELS", "/mnt/storage/AI-Models/comfyui/upscale_models"))
+MODEL_FILES = {
+    "realesrgan": [UPSCALE_MODELS / "RealESRGAN_x2plus.pth", UPSCALE_MODELS / "RealESRGAN_x4plus.safetensors"],
+    "gfpgan": [ENHANCE_MODELS / "gfpgan" / "GFPGANv1.4.pth", ENHANCE_MODELS / "facexlib" / "detection_Resnet50_Final.pth",
+               ENHANCE_MODELS / "facexlib" / "parsing_parsenet.pth"],
+    "rife": [ENHANCE_MODELS / "rife" / "RIFEv4.26_0921" / "flownet.pkl"],
+}
+_WORKER = Path(__file__).with_name("enhance_worker.py")
+
+
 def kind_of(path: Path | str) -> str:
     ext = Path(path).suffix.lower()
     if ext in IMAGE_EXT:
@@ -122,7 +134,14 @@ def _available(op: dict[str, Any]) -> tuple[bool, str]:
     if engine == "demucs":
         ok = Path(config.MUSIC_STEMS_PYTHON).is_file()
         return ok, "" if ok else "Demucs is not installed."
-    return False, MODEL_HINTS.get(engine.split(":", 1)[1], "Model not installed.")
+    name = engine.split(":", 1)[1]
+    files = MODEL_FILES.get(name)
+    if not files:
+        return False, MODEL_HINTS.get(name, "Model not installed.")
+    if not Path(config.MUSIC_STEMS_PYTHON).is_file():
+        return False, "The GPU model environment (stems venv) is not installed."
+    missing = [f.name for f in files if not f.is_file()]
+    return (not missing), (MODEL_HINTS[name] + f" Missing: {', '.join(missing)}") if missing else ""
 
 
 def catalog() -> list[dict[str, Any]]:
@@ -350,7 +369,7 @@ def _run(job_id: str) -> None:
         if job["ops"][0]["op"] == "separate":
             outputs = _separate(job_id, source, folder)
         else:
-            outputs = [_ffmpeg(job_id, source, folder, job["kind"], job["ops"])]
+            outputs = [_chain(job_id, source, folder, job["kind"], job["ops"])]
         job = get_job(job_id) or job
         job.update(status="done", progress=1.0, outputs=outputs)
     except _Cancelled:
@@ -368,12 +387,68 @@ class _Cancelled(Exception):
     pass
 
 
-def _ffmpeg(job_id: str, source: Path, folder: Path, kind: str, ops: list[dict[str, Any]]) -> dict[str, Any]:
-    ffmpeg = find_ffmpeg_tool("ffmpeg")
+def _passes(ops: list[dict[str, Any]]) -> list[list[dict[str, Any]]]:
+    passes: list[list[dict[str, Any]]] = []
+    for o in ops:
+        is_model = OPERATIONS[o["op"]]["engine"].startswith("model:")
+        if passes and not is_model and not OPERATIONS[passes[-1][0]["op"]]["engine"].startswith("model:"):
+            passes[-1].append(o)
+        else:
+            passes.append([o])
+    return passes
+
+
+def _set_progress(job_id: str, value: float) -> None:
+    job = get_job(job_id)
+    if job:
+        job["progress"] = round(min(0.99, value), 3)
+        _save(job)
+
+
+def _chain(job_id: str, source: Path, folder: Path, kind: str, ops: list[dict[str, Any]]) -> dict[str, Any]:
     ext = {"image": ".png", "audio": ".wav", "video": ".mp4"}[kind]
     if kind == "image" and source.suffix.lower() in (".jpg", ".jpeg"):
         ext = ".jpg"
-    dst = folder / f"enhanced{ext}"
+    passes = _passes(ops)
+    current = source
+    for i, group in enumerate(passes):
+        dst = folder / (f"enhanced{ext}" if i == len(passes) - 1 else f"step-{i}{ext}")
+        span = (i / len(passes), (i + 1) / len(passes))
+        if OPERATIONS[group[0]["op"]]["engine"].startswith("model:"):
+            _model(job_id, current, dst, group[0], span)
+        else:
+            _ffmpeg(job_id, current, dst, kind, group, span)
+        if current != source:
+            current.unlink(missing_ok=True)
+        current = dst
+    return {"label": "Enhanced", "path": str(current), "kind": kind}
+
+
+def _model(job_id: str, src: Path, dst: Path, op: dict[str, Any], span: tuple[float, float]) -> None:
+    proc = subprocess.Popen([config.MUSIC_STEMS_PYTHON, str(_WORKER), op["op"], json.dumps(op["params"]), str(src), str(dst)],
+                            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    _procs[job_id] = proc
+    for line in proc.stdout:
+        if job_id in _cancelled:
+            proc.terminate()
+            break
+        if line.startswith("PROGRESS "):
+            try:
+                _set_progress(job_id, span[0] + (span[1] - span[0]) * float(line.split()[1]))
+            except ValueError:
+                pass
+    proc.wait(timeout=JOB_TIMEOUT)
+    if job_id in _cancelled:
+        dst.unlink(missing_ok=True)
+        raise _Cancelled()
+    if proc.returncode != 0 or not dst.is_file():
+        err = [l for l in (proc.stderr.read() or "").splitlines() if l.strip() and "Warning" not in l]
+        raise EnhanceError(f"{OPERATIONS[op['op']]['label']} failed: {(err or ['unknown error'])[-1][:300]}")
+
+
+def _ffmpeg(job_id: str, source: Path, dst: Path, kind: str, ops: list[dict[str, Any]],
+            span: tuple[float, float] = (0.0, 1.0)) -> None:
+    ffmpeg = find_ffmpeg_tool("ffmpeg")
     total = _media_seconds(source) if kind != "image" else None
     proc = subprocess.Popen([ffmpeg, *ffmpeg_args(source, dst, kind, ops)], stdout=subprocess.PIPE,
                             stderr=subprocess.PIPE, text=True)
@@ -388,20 +463,16 @@ def _ffmpeg(job_id: str, source: Path, folder: Path, kind: str, ops: list[dict[s
                 done = int(line.split("=", 1)[1]) / 1e6
             except ValueError:
                 continue
-            frac = min(0.99, done / total)
+            frac = span[0] + (span[1] - span[0]) * min(1.0, done / total)
             if frac - last >= 0.02:
                 last = frac
-                job = get_job(job_id)
-                if job:
-                    job["progress"] = round(frac, 3)
-                    _save(job)
+                _set_progress(job_id, frac)
     proc.wait(timeout=JOB_TIMEOUT)
     if job_id in _cancelled:
         dst.unlink(missing_ok=True)
         raise _Cancelled()
     if proc.returncode != 0 or not dst.is_file():
         raise EnhanceError(f"Enhancement failed: {(proc.stderr.read() or '').strip()[-300:]}")
-    return {"label": "Enhanced", "path": str(dst), "kind": kind}
 
 
 def _separate(job_id: str, source: Path, folder: Path) -> list[dict[str, Any]]:

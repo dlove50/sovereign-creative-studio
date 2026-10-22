@@ -45,8 +45,9 @@ def _noisy_png(path):
 def test_catalog_marks_models_unavailable_instead_of_faking_them(client):
     ops = {o["id"]: o for o in client.get("/api/enhance/operations").json()["operations"]}
     assert ops["denoise"]["available"] is True
-    assert ops["upscale_ai"]["available"] is False and "Real-ESRGAN" in ops["upscale_ai"]["unavailable_reason"]
-    assert ops["dereverb"]["available"] is False
+    assert ops["dereverb"]["available"] is False and ops["dereverb"]["unavailable_reason"]
+    for model_op in ("upscale_ai", "face_restore", "interpolate_ai"):  # installed or honestly explained
+        assert ops[model_op]["available"] or ops[model_op]["unavailable_reason"]
     assert "no new detail" in ops["upscale_classic"]["label"]
 
 
@@ -101,7 +102,7 @@ def test_video_denoise_deflicker_interpolate(client, tmp_path):
 
 def test_bad_requests_are_refused(client, tmp_path):
     png = _noisy_png(tmp_path / "x.png").read_bytes()
-    for ops, msg in (([{"op": "upscale_ai"}], "Real-ESRGAN"), ([{"op": "eq"}], "does not apply"),
+    for ops, msg in (([{"op": "dereverb"}], "does not apply"), ([{"op": "eq"}], "does not apply"),
                      ([{"op": "nope"}], "Unknown")):
         r = client.post("/api/enhance/jobs", files={"file": ("x.png", png)}, data={"ops": json.dumps(ops)})
         assert r.status_code == 400 and msg in r.json()["detail"]
@@ -137,3 +138,20 @@ def test_ffmpeg_graph_is_built_from_params():
                                [{"op": "upscale_classic", "params": {"target": 2160}},
                                 {"op": "loudness", "params": {"lufs": -14}}])
     assert "scale=-2:2160:flags=lanczos" in args and "loudnorm=I=-14:TP=-1.0:LRA=11" in args
+
+
+def test_passes_group_ffmpeg_ops_and_isolate_models():
+    ops = [{"op": "denoise"}, {"op": "color"}, {"op": "upscale_ai"}, {"op": "sharpen"}]
+    assert [[o["op"] for o in g] for g in enhance._passes(ops)] == [["denoise", "color"], ["upscale_ai"], ["sharpen"]]
+
+
+@pytest.mark.skipif(not enhance._available(enhance.OPERATIONS["upscale_ai"])[0], reason="Real-ESRGAN not installed")
+def test_real_esrgan_chain_on_gpu(client, tmp_path):
+    src = _noisy_png(tmp_path / "small.png")
+    ops = [{"op": "denoise", "params": {"strength": 0.5}}, {"op": "upscale_ai", "params": {"scale": 2}}]
+    r = client.post("/api/enhance/jobs", files={"file": ("small.png", src.read_bytes())}, data={"ops": json.dumps(ops)})
+    job = _wait(client, r.json()["id"], timeout=300)
+    assert job["status"] == "done", job
+    out = tmp_path / "out.png"
+    out.write_bytes(client.get(job["outputs"][0]["url"]).content)
+    assert Image.open(out).size == (320, 240)
