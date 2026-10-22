@@ -44,14 +44,24 @@ warn() { printf '[warn] %s\n' "$*" >&2; }
 die()  { printf '[error] %s\n' "$*" >&2; exit 1; }
 
 # --- port helpers -----------------------------------------------------------
+# Try each detector until one yields PIDs. No single one is reliable
+# everywhere: lsof cannot see Next.js's listening socket in some containers
+# (it reports nothing for a port that is demonstrably serving), while fuser
+# finds it. Order matters, so do not collapse this into one command.
 port_pids() {
-  local port="$1"
+  local port="$1" pids=""
   if command -v lsof >/dev/null 2>&1; then
-    lsof -t -i "TCP:${port}" -s TCP:LISTEN 2>/dev/null
-  elif command -v ss >/dev/null 2>&1; then
-    ss -ltnp "sport = :${port}" 2>/dev/null \
-      | grep -oE 'pid=[0-9]+' | cut -d= -f2 | sort -u
+    pids=$(lsof -t -i "TCP:${port}" -s TCP:LISTEN 2>/dev/null)
   fi
+  if [ -z "$pids" ] && command -v fuser >/dev/null 2>&1; then
+    # fuser prints "<port>/tcp:" on stderr and the PIDs on stdout.
+    pids=$(fuser -n tcp "$port" 2>/dev/null | tr -s ' ' '\n' | grep -E '^[0-9]+$')
+  fi
+  if [ -z "$pids" ] && command -v ss >/dev/null 2>&1; then
+    pids=$(ss -ltnp "sport = :${port}" 2>/dev/null \
+      | grep -oE 'pid=[0-9]+' | cut -d= -f2 | sort -u)
+  fi
+  printf '%s' "$pids"
 }
 
 port_open() { [ -n "$(port_pids "$1")" ]; }
@@ -92,22 +102,23 @@ wait_backend() {
 
 # --- commands ---------------------------------------------------------------
 do_status() {
-  printf '%-10s %-6s %s\n' SERVICE PORT STATE
-  local pids
+  # HEALTH is the authoritative column. PIDs can be blank for a service that is
+  # genuinely serving, because process/port attribution is not reliable in every
+  # environment, so never conclude "down" from a missing PID alone.
+  printf '%-10s %-6s %-16s %s\n' SERVICE PORT PID HEALTH
+  local pids health
   for spec in "ComfyUI:$COMFY_PORT" "Backend:$BACKEND_PORT" "Frontend:$FRONTEND_PORT"; do
     local name="${spec%%:*}" port="${spec##*:}"
     pids=$(port_pids "$port" | tr '\n' ' ')
-    if [ -n "$pids" ]; then
-      printf '%-10s %-6s listening (pid %s)\n' "$name" "$port" "${pids% }"
-    else
-      printf '%-10s %-6s not running\n' "$name" "$port"
-    fi
+    case "$name" in
+      ComfyUI)  http_ok "http://127.0.0.1:${port}/system_stats" && health=serving || health="not responding" ;;
+      Backend)  backend_healthy && health=serving || health="not responding" ;;
+      Frontend) http_ok "http://127.0.0.1:${port}" && health=serving || health="not responding" ;;
+    esac
+    printf '%-10s %-6s %-16s %s\n' "$name" "$port" "${pids:-"-"}" "$health"
   done
   echo
   echo "COMFYUI_BASE_URL=$COMFYUI_BASE_URL"
-  backend_healthy && echo "backend health: OK" || echo "backend health: not responding"
-  http_ok "http://127.0.0.1:${COMFY_PORT}/system_stats" \
-    && echo "comfyui health: OK" || echo "comfyui health: not responding"
 }
 
 do_stop() {
