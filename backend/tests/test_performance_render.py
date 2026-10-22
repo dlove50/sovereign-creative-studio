@@ -36,12 +36,14 @@ def test_two_speaker_workflow_binds_each_voice_to_its_mask():
                            prompt="p", seed=7, length=81)
     talk = wf["7"]["inputs"]
     assert talk["mode"] == "two_speakers" and wf["15"]["inputs"]["name"] == pr.MULTI_PATCH
+    assert wf["7"]["class_type"] == "SovereignInfiniteTalkParallel"  # voices on one timeline, not turn-taking
     assert wf[talk["audio_encoder_output_1"][0]]["inputs"]["audio"] == ["12", 0] and wf["12"]["inputs"]["audio"] == "a.wav"
     assert wf[talk["mode.audio_encoder_output_2"][0]]["inputs"]["audio"] == ["22", 0] and wf["22"]["inputs"]["audio"] == "b.wav"
     assert wf[talk["mode.mask_1"][0]]["inputs"]["image"] == "m0.png"
     assert wf[talk["mode.mask_2"][0]]["inputs"]["image"] == "m1.png"
     single = pr.build_workflow(image="s.png", audios=["a.wav"], masks=[], prompt="p", seed=1, length=81)
     assert single["7"]["inputs"]["mode"] == "single_speaker" and "22" not in single
+    assert single["7"]["class_type"] == "WanInfiniteTalkToVideo"
 
 
 def test_masks_split_the_stage_between_performers(duet, tmp_path):

@@ -38,6 +38,7 @@ UPSCALE = int(os.getenv("PERFORMANCE_UPSCALE", "2"))
 # InfiniteTalk audio conditioning strength. Distilled 4-step sampling with cfg 1 under-articulates singing
 # at 1.0, especially on faces turned away from the camera.
 AUDIO_SCALE = float(os.getenv("PERFORMANCE_AUDIO_SCALE", "1.0"))
+PARALLEL_NODE = "SovereignInfiniteTalkParallel"
 SPEED_LORA = os.getenv("PERFORMANCE_LORA", "lightx2v_I2V_14B_480p_cfg_step_distill_rank64_bf16.safetensors")
 CHUNK_TIMEOUT = 1800
 POLL = 3.0
@@ -169,7 +170,9 @@ def build_workflow(*, image: str, audios: list[str], masks: list[str], prompt: s
         wf["90"] = {"class_type": "LoadVideo", "inputs": {"file": prev_video}}
         wf["91"] = {"class_type": "GetVideoComponents", "inputs": {"video": ["90", 0]}}
         talk["previous_frames"] = ["91", 0]
-    wf["7"] = {"class_type": "WanInfiniteTalkToVideo", "inputs": talk}
+    # Two performers: Sovereign's parallel-voices node (both tracks on the song's timeline; the stock node
+    # lays speaker 2 after speaker 1). tools/comfyui_nodes/sovereign_infinitetalk_parallel.py
+    wf["7"] = {"class_type": PARALLEL_NODE if two else "WanInfiniteTalkToVideo", "inputs": talk}
     wf["8"] = {"class_type": "KSampler", "inputs": {
         "model": ["7", 0], "seed": seed, "steps": STEPS, "cfg": CFG, "sampler_name": "euler",
         "scheduler": "simple", "positive": ["7", 1], "negative": ["7", 2], "latent_image": ["7", 3], "denoise": 1.0}}
