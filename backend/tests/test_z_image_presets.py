@@ -26,14 +26,15 @@ def _client():
     return TestClient(app)
 
 
-def test_presets_endpoint_lists_quality_and_style():
+def test_presets_endpoint_lists_quality_and_style(monkeypatch):
+    monkeypatch.setattr(image_presets, "_object_info", lambda: {})
     body = _client().get("/api/generations/presets").json()
     ids = {p["id"] for p in body["quality_presets"]}
     assert {"local_fast", "flux2_klein", "flux1_dev", "sdxl"} <= ids
     flux2 = next(p for p in body["quality_presets"] if p["id"] == "flux2_klein")
     assert flux2["recommended"] is True
     local = next(p for p in body["quality_presets"] if p["id"] == "local_fast")
-    assert local["is_default"] is True and local["ready"] is True  # always safe
+    assert local["is_default"] is True and local["ready"] is True  # reachable local workflow
     style_ids = {s["id"] for s in body["style_presets"]}
     assert {"none", "animal_portrait"} <= style_ids
 

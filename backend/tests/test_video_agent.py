@@ -81,6 +81,9 @@ def test_api_returns_script_and_validates_input(monkeypatch):
 
 
 def test_api_reports_ollama_down_as_503(monkeypatch):
+    def idle_queue(url, **kw):
+        return httpx.Response(200, json={"queue_running": [], "queue_pending": []}, request=httpx.Request("GET", url))
+
     def down(url, **kw):
         if url.endswith("/free"):
             return httpx.Response(200, json={})
@@ -88,6 +91,7 @@ def test_api_reports_ollama_down_as_503(monkeypatch):
 
     monkeypatch.setattr(va.httpx, "post", down)
     monkeypatch.setattr("app.services.voice.httpx.post", down)
+    monkeypatch.setattr("app.services.voice.httpx.get", idle_queue)
     c = TestClient(app)
     c.post("/api/auth/signup", json={"username": "agent_down", "password": "agentpass1", "name": "B"})
     r = c.post("/api/video-agent/script", json={"prompt": "a launch video"})

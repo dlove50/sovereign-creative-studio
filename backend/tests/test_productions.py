@@ -18,6 +18,11 @@ from app.main import app  # noqa: E402
 @pytest.fixture(scope="module")
 def client():
     with TestClient(app) as c:
+        response = c.post("/api/admin/family-users", json={
+            "display_name": "Production workspace tests", "role": "family_user", "initial_credits": 100,
+        })
+        assert response.status_code == 201, response.text
+        c.headers["X-SCS-Family-User-Id"] = response.json()["id"]
         yield c
 
 
@@ -45,7 +50,7 @@ def _storyboard_and_shot(client, project_id):
 
 
 def _video(client, project_id):
-    return client.post(
+    response = client.post(
         "/api/videos",
         json={
             "project_id": project_id,
@@ -55,7 +60,9 @@ def _video(client, project_id):
             "motion_preset": "slow_zoom",
             "duration_seconds": 5,
         },
-    ).json()
+    )
+    assert response.status_code == 201, response.text
+    return response.json()
 
 
 def _scene(client, project_id):

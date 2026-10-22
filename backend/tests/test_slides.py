@@ -311,7 +311,8 @@ def test_document_brief_reads_scans_and_pictures_and_scanned_decks_become_scenes
     _scan(scan, [["Safety basics"], ["Wear protective gloves"]])
     picture = tmp_path / "page.png"
     page = Image.new("RGB", (1200, 400), "white")
-    ImageDraw.Draw(page).text((60, 120), "Opening hours are nine to five", font=ImageFont.truetype("C:/Windows/Fonts/arial.ttf", 50), fill="black")
+    font = ImageFont.truetype("C:/Windows/Fonts/arial.ttf", 50) if os.path.exists("C:/Windows/Fonts/arial.ttf") else ImageFont.load_default(50)
+    ImageDraw.Draw(page).text((60, 120), "Opening hours are nine to five", font=font, fill="black")
     page.save(picture)
     with TestClient(app) as c:
         assert c.post("/api/auth/signup", json={"username": "ocr_user", "password": "ocrpass12", "name": "O"}).status_code == 201

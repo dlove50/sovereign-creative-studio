@@ -375,7 +375,7 @@ function Editor({ id, onClose }: { id: string; onClose: () => void }) {
               <div className="h-1.5 overflow-hidden rounded-full bg-white/10"><div className="h-full bg-gradient-to-r from-fuchsia-400 to-violet-400 transition-[width]" style={{ width: `${render.progress * 100}%` }} /></div>
               {render.error ? <p className="text-xs text-destructive">{render.error}</p> : null}
             </div>
-          ) : <p className="text-xs text-muted-foreground">Renders locally on the R9700 with Wan 2.1 + InfiniteTalk (two-speaker). Each singer&apos;s mouth follows only their own parts.</p>}
+          ) : <p className="text-xs text-muted-foreground">Render two performers locally with Wan 2.1 + InfiniteTalk, using each performer&apos;s assigned vocal audio. Available Real-ESRGAN enhancement runs after rendering. Review the result for lip timing and identity consistency.</p>}
           <div className="flex gap-2">
             <Button className="flex-1 gap-2" disabled={!!rendering || !!busy} onClick={() => void run("Starting the render", () => performancesApi.render(id))}>
               <Film className="h-4 w-4" /> {render?.status === "done" ? "Render again" : "Render video"}
@@ -424,7 +424,7 @@ export function PerformanceStudioView() {
     <div className="space-y-6">
       <header className="max-w-3xl">
         <h1 className="text-2xl font-semibold tracking-[-0.025em] md:text-3xl">Dual Performance Studio</h1>
-        <p className="mt-2 text-sm text-muted-foreground">Put two (or more) performers on one stage. Each follows only their own vocal parts, listens and reacts when silent, and moves independently. Built on the Multi-Performer Director engine.</p>
+        <p className="mt-2 text-sm text-muted-foreground">Direct a duet on one stage with separate vocal assignments and performer states. The timeline supports larger casts; video rendering currently supports two performers. Review silent reactions and lip timing in the rendered preview.</p>
       </header>
       <div className={cn(glass, "flex flex-wrap items-end gap-3 p-4")}>
         <label className="min-w-[16rem] flex-1 text-xs text-muted-foreground">

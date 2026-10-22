@@ -20,6 +20,11 @@ from app.main import app  # noqa: E402
 @pytest.fixture(scope="module")
 def client():
     with TestClient(app) as c:
+        response = c.post("/api/admin/family-users", json={
+            "display_name": "Project workspace tests", "role": "family_user", "initial_credits": 100,
+        })
+        assert response.status_code == 201, response.text
+        c.headers["X-SCS-Family-User-Id"] = response.json()["id"]
         yield c
 
 
@@ -98,7 +103,7 @@ def test_project_workspace_returns_project_media_and_counts(client):
     ).json()
     copy = _wait(client, f"/api/copy/{copy['id']}", "completed")
 
-    video = client.post(
+    video_response = client.post(
         "/api/videos",
         json={
             "project_id": project["id"],
@@ -108,7 +113,9 @@ def test_project_workspace_returns_project_media_and_counts(client):
             "duration_seconds": 3,
             "provider": "local_ltx",
         },
-    ).json()
+    )
+    assert video_response.status_code == 201, video_response.text
+    video = video_response.json()
     video = _wait(client, f"/api/videos/{video['id']}", "completed")
 
     resp = client.get(f"/api/projects/{project['id']}/workspace")

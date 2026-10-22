@@ -33,7 +33,7 @@ def _page_with_text(text: str) -> str:
     try:
         font = ImageFont.truetype("arial.ttf", 64)
     except OSError:
-        font = ImageFont.load_default()
+        font = ImageFont.load_default(64)
     draw.text((30, 60), text, fill="black", font=font)
     buffer = io.BytesIO()
     image.save(buffer, format="PNG")
