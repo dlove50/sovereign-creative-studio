@@ -387,6 +387,9 @@ def main(argv: list[str]) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("workflows", nargs="*", type=Path)
     ap.add_argument("--all", action="store_true")
+    ap.add_argument("--workflows-dir", type=Path, default=None,
+                    help="where the workflow .json files are; only needed with "
+                         "--all when this script is run from outside the repo")
     ap.add_argument("--models-dir", type=Path, default=None)
     ap.add_argument("--budget", type=float, default=32.0)
     ap.add_argument("--json", action="store_true", dest="as_json")
@@ -394,7 +397,24 @@ def main(argv: list[str]) -> int:
 
     paths = list(args.workflows)
     if args.all:
-        root = Path(__file__).resolve().parent.parent / "backend" / "workflows"
+        # This script is often copied out of the repo, so do not assume its own
+        # location implies where the workflows are.
+        candidates = []
+        if args.workflows_dir:
+            candidates.append(args.workflows_dir)
+        candidates += [
+            Path(__file__).resolve().parent.parent / "backend" / "workflows",
+            Path.cwd() / "backend" / "workflows",
+            Path.cwd() / "workflows",
+            Path.cwd(),
+        ]
+        root = next((c for c in candidates
+                     if c.is_dir() and any(c.glob("*.json"))), None)
+        if root is None:
+            ap.error("--all found no workflow .json files. Tried: "
+                     + ", ".join(str(c) for c in candidates)
+                     + ". Pass --workflows-dir.")
+        print(f"[info] workflows: {root}", file=sys.stderr)
         paths += sorted(root.glob("*.json"))
     if not paths:
         ap.error("name at least one workflow, or pass --all")
