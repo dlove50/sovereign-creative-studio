@@ -35,6 +35,9 @@ STEPS = int(os.getenv("PERFORMANCE_STEPS", "4"))
 CFG = float(os.getenv("PERFORMANCE_CFG", "1.0"))
 MULTI_PATCH = os.getenv("PERFORMANCE_MULTI_PATCH", "infinitetalk_multi.safetensors")
 UPSCALE = int(os.getenv("PERFORMANCE_UPSCALE", "2"))
+# InfiniteTalk audio conditioning strength. Distilled 4-step sampling with cfg 1 under-articulates singing
+# at 1.0, especially on faces turned away from the camera.
+AUDIO_SCALE = float(os.getenv("PERFORMANCE_AUDIO_SCALE", "1.0"))
 SPEED_LORA = os.getenv("PERFORMANCE_LORA", "lightx2v_I2V_14B_480p_cfg_step_distill_rank64_bf16.safetensors")
 CHUNK_TIMEOUT = 1800
 POLL = 3.0
@@ -152,7 +155,7 @@ def build_workflow(*, image: str, audios: list[str], masks: list[str], prompt: s
     talk: dict[str, Any] = {
         "mode": "single_speaker", "model": model, "model_patch": ["15", 0], "positive": ["5", 0],
         "negative": ["6", 0], "vae": ["3", 0], "width": WIDTH, "height": HEIGHT, "length": length,
-        "audio_encoder_output_1": ["14", 0], "motion_frame_count": MOTION_FRAMES, "audio_scale": 1.0,
+        "audio_encoder_output_1": ["14", 0], "motion_frame_count": MOTION_FRAMES, "audio_scale": AUDIO_SCALE,
         "start_image": ["4", 0],
     }
     if two:
