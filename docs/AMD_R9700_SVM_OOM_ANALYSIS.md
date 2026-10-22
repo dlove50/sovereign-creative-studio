@@ -97,6 +97,101 @@ UNMEASURED, in the output itself.
 Steps 3–4 are the livelock. Step 1 is the cause. Fixing 3–4 without fixing 1
 buys a slower failure.
 
+## 2a. Host evidence, 2026-10-22 15:55 EDT — the cap was raised, and it got worse
+
+Codex read the host journal and cgroups. This settles several open questions and
+refutes one of this document's own hypotheses.
+
+### The cap is a literal, and someone raised it
+
+| | bytes | |
+|---|---|---|
+| dead scope (OOM'd 2026-10-21 16:41) | 23,622,320,128 | **exactly 22.000 GiB** |
+| live scope `memory.max` | 30,064,771,072 | **exactly 28.000 GiB** |
+
+Both are exact GiB values. Neither is a round percentage of ~30 GiB total
+(22 GiB = 73.3%, 28 GiB = 93.3%). **The `MemoryMax=75%` hypothesis in §3 is
+refuted** — these are explicit literals, and the limit was raised from 22 GiB
+to 28 GiB between the OOM and the current launch.
+
+The scopes are different (`run-rfdf54a8c…` died; `run-rae310026…` is live), so
+this is a new launch with a higher cap, not the same process.
+
+### Current state of the live ComfyUI scope
+
+| | |
+|---|---|
+| `memory.current` | 25.77 GiB (**92% of its 28 GiB cap**) |
+| `memory.swap.current` | 15.09 GiB |
+| host-side total charged | **40.86 GiB** |
+| GPU 0 VRAM | **31.93 / 32.06 GB — 99.6% full**, 46% utilisation |
+| host | 30 GiB used, **378 MiB available**, 24 GiB of 49 GiB swap used |
+| load average | **8.29, 7.81, 7.27** sustained |
+
+A 28 GiB cap on a 30 GiB host leaves **2 GiB** for the OS, desktop, backend and
+frontend combined. The host is at 378 MiB available. This is the outcome §1
+predicted: raising the cap did not create headroom, it moved the wall from one
+process to the whole machine.
+
+### The working set is not marginally too large
+
+~29.8 GiB of VRAM plus 40.86 GiB charged host-side is roughly **70 GiB for one
+ComfyUI process**. (Part of `memory.current` may be reclaimable page cache from
+reading model files, so treat the host figure as an upper bound.) Either way it
+is not a near-miss that a few GiB of cap would fix. **Identifying what this job
+actually is matters more than any memory setting** — a ~70 GiB working set for
+a single render is anomalous for this hardware.
+
+### It is probably not the SVM livelock any more
+
+Last `svm_range_restore_work` warning Codex could read: **08:32**, about seven
+hours before the check. The counter had reached 16387 at 23:20 on the 21st.
+Seven quiet hours argues the restore livelock is not the current mechanism;
+sustained load 8.3 with 15 GiB swapped out and the GPU at 46% argues for plain,
+catastrophic **swap thrashing** instead.
+
+Caveat: absence of recent warnings could also mean the kernel ring buffer
+rotated. `journalctl -k --since` over the gap would distinguish those.
+
+So there appear to be two phases, not one failure: an SVM restore livelock under
+the 22 GiB cap on the 21st, and swap thrashing under the 28 GiB cap since. They
+need different responses.
+
+### Launch flags also changed between the two
+
+| | dead scope | live scope |
+|---|---|---|
+| `--disable-pinned-memory` | yes | yes |
+| `--cache-none` | **yes** | **no** |
+| `--fp8_e4m3fn-text-enc` | no | **yes** |
+| `--disable-smart-memory` | no | no |
+
+Dropping `--cache-none` lets ComfyUI keep intermediate node results, which
+increases memory use. Combined with the cap going up, both changes pushed toward
+the current state. `--disable-smart-memory` — which stops models staying
+resident in VRAM between runs — has never been applied in either launch.
+
+### Before deciding anything: is it progressing?
+
+A stalled job and a slow-but-advancing one look identical from a VRAM reading.
+These distinguish them, all read-only:
+
+```bash
+vmstat 5 6                      # si/so columns: the decisive signal
+ls -lt ~/ai/ComfyUI/output | head   # are output files appearing?
+ps -o pid,etime,time,stat -p <comfy_pid>   # is CPU TIME advancing?
+curl -s --max-time 5 127.0.0.1:8188/queue  # does the API answer at all?
+```
+
+Sustained large `si`/`so` with no new output and no advancing `TIME` means the
+job cannot finish: its working set is roughly twice the host. Near-zero `si`/`so`
+with the GPU busy and output appearing means it is advancing and should be left
+alone.
+
+**Do not raise the cap again.** It went 22 → 28 GiB and the host went to 378 MiB
+available. At 30 GiB the kernel OOM killer starts choosing victims machine-wide,
+including the desktop session.
+
 ## 3. Two numbers worth noticing
 
 ### 21.9 GiB exceeded the 15 GiB GTT default
@@ -115,7 +210,12 @@ diagnostic) distinguishes the first from the others. This matters because the
 remedies differ: a raised `gttsize` is a configuration decision someone made
 and can unmake, whereas SVM userptr growth is driven by the workload.
 
-### 22 GiB is not a round number for a 30 GiB box
+### 22 GiB is not a round number for a 30 GiB box — RESOLVED, see §2a
+
+**Superseded.** Host evidence shows both caps are exact GiB literals
+(22.000 and 28.000 GiB), so the percentage hypothesis below is wrong.
+Kept for the reasoning about why the *form* of the setting matters.
+
 
 It is, however, almost exactly **75% of 29.3 GiB**. `free -h` reporting "30Gi"
 is consistent with `MemTotal` in the 29.3–30.0 GiB range, so a systemd
