@@ -142,23 +142,80 @@ underneath. `tools/start-comfyui-rocm.sh` exposes it behind
 
 ## 4. What exists in the repo already
 
-Added on branch `claude/amd-radeon-vram-crash-9yah9m` (commit `6637510`,
-**unpushed** — see §6):
+Seven commits on branch `claude/amd-radeon-vram-crash-9yah9m`, **unpushed** —
+see §6. Every change is additive or in a file `amd-sync` does not touch, so the
+branch merges cleanly alongside it.
+
+### Tested in a cloud container (no GPU)
+
+| What | Result |
+|---|---|
+| Backend suite | **486 passed, 0 failed** (baseline on `master`: 472 passed, 1 failed) |
+| `npm ci` + `npm run build` | clean, Next 14.2.5 |
+| Launcher `start --skip-comfy` | **exit 0** — backend up, frontend built, frontend up |
+| Frontend → backend proxy | `localhost:3000/api/health` → 200 `{"status":"ok"}`, identical to backend direct |
+| Launcher `status` / `stop` | correct PIDs, both ports released, no strays |
+| `start-comfyui-rocm.sh` | arg/env assembly against a **stub** ComfyUI only |
+| `diagnose-svm-oom.sh` | runs clean with no GPU and no sudo; every probe degrades to a readable note |
+
+### Still blocked — needs `AiServerR9700`
+
+- `start-comfyui-rocm.sh` has **never run against real ComfyUI or a real GPU.**
+- `diagnose-svm-oom.sh` has never run anywhere `/dev/kfd` exists.
+- Nothing here has touched the R9700. No GPU workload has been started from the
+  cloud session, and none should be.
+
+### The files
 
 - `docs/AMD_ROCM_LINUX_GPU_SETUP.md` — verified machine state, the OOM
   diagnosis, and a clear split between what was read off the hardware and what
   is unconfirmed community reporting. None of the cited SVM reports are from
   `gfx1201` hardware.
-- `tools/start-comfyui-rocm.sh` — ROCm-safe Linux launcher. Pins
+- `tools/start-comfyui-rocm.sh` — ROCm-safe ComfyUI launcher. Pins
   `HIP_VISIBLE_DEVICES=0`, sets `PYTORCH_HIP_ALLOC_CONF`, adds
   `--disable-smart-memory` and `--reserve-vram 0.05` (both missing from the
-  observed launch command). Changes no system state. Tested against a stub
-  ComfyUI: env propagation, flag assembly, extra-arg append, opt-in gate, and
-  clean exit-1 on a bad path. **Never run against the real ComfyUI.**
+  observed launch command). Changes no system state.
+- `tools/diagnose-svm-oom.sh` — read-only collector for §3. Hunts every
+  transient `run-*.scope` rather than the one expired hash, and *measures*
+  whether the SVM loop is live instead of inferring it from a timestamp.
+- `tools/start-sovereign-linux.sh` — `start` / `stop` / `status`.
+  `tools/local_launcher.py` cannot run on Linux: it hardcodes
+  `backend/.venv/Scripts/python.exe` in three places, plus `npm.cmd`,
+  `taskkill` and `node.exe` matching. `amd-sync` does **not** fix this — it adds
+  `SOVEREIGN_COMFY_*` overrides and one `os.name == "nt"` guard but leaves the
+  venv paths Windows-only. Two details worth keeping: `BACKEND_ORIGIN` is
+  exported for the frontend **build** (`next.config.mjs:15` otherwise defaults
+  the proxy target to port 8000 and nothing reaches the backend), and
+  `COMFYUI_BASE_URL` is derived from `COMFY_PORT` so the 8188-vs-8001 mismatch
+  is resolved rather than merely documented.
 
-On branch `amd-sync` (a concurrent session's work, 1054 files):
+### Bug fixes carried on this branch
+
+- `backend/app/generators/openai_image.py` — `_resolve_storage_path` rewrote the
+  URL separator to a backslash. Correct on Windows, broken on Linux where `\` is
+  a legal filename character, so `/storage/uploads/source.png` became one
+  literal file named `uploads\source.png`. **Every OpenAI image edit with a
+  nested source path failed on Linux.** This was the pre-existing test failure on
+  `master`. Note `generators/comfyui.py` does `.replace("\\", "/")` — the correct
+  direction; one of the two had it backwards.
+- `services/exports.py` and `services/asset_jobs.py` — the two `/storage/` path
+  mappers lacking a containment check now reject absolute components and `..`.
+  **Not a live vulnerability**: both only ever receive backend-generated URLs,
+  and the third unguarded one (`video_generators/comfyui.py`, left alone because
+  `amd-sync` rewrites it) is already guarded upstream by
+  `validate_source_media_url` at `routers/videos.py:635`. The check is
+  deliberately **lexical, not `resolve()`-based**, because
+  `HANDOFF_CLAUDE_CODE.md` records that old export folders are junctions and
+  resolving those would reject legitimate export reads.
+- `docs/HOW_TO_GUIDE.md` §4 told Linux users to install "an NVIDIA GPU with
+  current drivers + CUDA". It now names ROCm alongside CUDA and points here.
+
+### Related work on `amd-sync`
+
 `tools/verify_krea2_amd.py`, `tools/verify_linux_upscale.py`, and
-`SOVEREIGN_COMFY_*` env overrides in `tools/local_launcher.py`.
+`SOVEREIGN_COMFY_*` env overrides in `tools/local_launcher.py`. Note that
+`verify_krea2_amd.py` hardcodes `http://127.0.0.1:8001`, so it will not reach
+ComfyUI on this machine until that or the ComfyUI port is aligned.
 
 ---
 
@@ -222,3 +279,19 @@ Recorded so the next agent does not waste rounds rediscovering them:
   behaviour can be triggered by running low.
 - **No agent can hand its live session to another model.** Handoff happens
   through documents like this one.
+- **A cloud session must not start a GPU workload** on `AiServerR9700`, even
+  once it has a route there. Owner's instruction, 2026-10-22.
+
+### Correction to an earlier assumption
+
+An earlier revision of this document implied the DeepSeek/Alfred harness and
+GLM were Windows-only, inferred from `HANDOFF_DEEPSEEK_HARNESS.md` §1 listing
+the harness under `C:\Users\David\Documents\Codex\deepseek-harness`. **The
+owner states the Alfred and GLM launchers are confirmed working on Linux**, so
+do not treat them as Windows-only. That is the owner's report, not something
+verified from this session.
+
+The owner also states Codex can read this session and can coordinate local
+`AiServerR9700` checks. So the §3 commands do not have to wait for David at the
+keyboard — a locally running agent can run them and bring the output back. They
+still cannot be run from a cloud container.
