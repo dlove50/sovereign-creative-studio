@@ -133,11 +133,13 @@ version.
 
 ## 4. Running on Linux (unofficial / manual)
 
-> The `.bat` launcher and `tools/local_launcher.py` assume Windows paths, so on
-> Linux you **start the three services by hand** (or with the small script at the
-> end of this section). GPU image/video generation needs an **NVIDIA GPU with
-> current drivers + CUDA**; CPU-only will run the app but generation will be very
-> slow or unavailable.
+> The `.bat` launcher and `tools/local_launcher.py` assume Windows paths
+> (`.venv\Scripts\python.exe`, `npm.cmd`, `taskkill`), so they cannot run here.
+> Use **`tools/start-sovereign-linux.sh {start|stop|status}`**, or start the
+> three services by hand as below. GPU image/video generation needs either an
+> **NVIDIA GPU with current drivers + CUDA** or an **AMD GPU with ROCm**
+> (see `docs/AMD_ROCM_LINUX_GPU_SETUP.md` for the Radeon AI PRO R9700 machine);
+> CPU-only will run the app but generation will be very slow or unavailable.
 
 ### 4.1 Install prerequisites
 
@@ -155,8 +157,11 @@ ollama pull qwen3:4b
 ```
 
 You also need **ComfyUI** installed separately (its own repo + Python venv +
-model files) and, for GPU work, the matching **NVIDIA driver + CUDA** for your
-card.
+model files) and, for GPU work, the matching driver stack for your card:
+**NVIDIA driver + CUDA**, or **ROCm** on AMD. Note that
+`backend/workflows/comfyui_extra_model_paths.yaml` is a Windows reference copy
+(`base_path: C:/Users/David/...`); nothing in the backend reads it, but if you
+pass an extra-model-paths file to ComfyUI you need one with Linux paths.
 
 ### 4.2 Get the project and build it
 
