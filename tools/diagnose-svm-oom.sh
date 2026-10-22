@@ -12,11 +12,17 @@
 #
 # Prompts once for sudo (kernel log and /dev/kfd holders need it).
 #   SKIP_SUDO=1        omit everything needing sudo
-#   SAMPLE_SECONDS=30  live-loop sample window; 0 disables it
+#   SAMPLE_SECONDS=30     live-loop sample window; 0 disables it
+#   GPU_QUERY_TIMEOUT=25  seconds before a GPU query is called unresponsive
+#   SUDO_TIMEOUT=60       seconds before a sudo call is abandoned
 
 set -uo pipefail
 
 SAMPLE_SECONDS="${SAMPLE_SECONDS:-30}"
+# Seconds to allow a GPU query before declaring the driver unresponsive.
+# Lowered by the test suite; leave alone in normal use.
+GPU_QUERY_TIMEOUT="${GPU_QUERY_TIMEOUT:-25}"
+SUDO_TIMEOUT="${SUDO_TIMEOUT:-60}"
 h() { printf '\n========== %s ==========\n' "$1"; }
 have() { command -v "$1" >/dev/null 2>&1; }
 
@@ -32,7 +38,7 @@ SUDO_OK=0
 if [ "${SKIP_SUDO:-0}" != "1" ]; then
   if have sudo && sudo -v >/dev/null 2>&1; then SUDO_OK=1; fi
 fi
-ksudo() { if [ "$SUDO_OK" = "1" ]; then tmo 60 sudo "$@"; else return 1; fi; }
+ksudo() { if [ "$SUDO_OK" = "1" ]; then tmo "$SUDO_TIMEOUT" sudo "$@"; else return 1; fi; }
 
 h "WHEN AND WHERE"
 date
@@ -168,17 +174,17 @@ h "GPU STATE"
 # cannot stall the report. A timeout here is itself a finding: it means the
 # driver is not answering, which is worth more than the output would have been.
 if have rocm-smi; then
-  tmo 20 rocm-smi --showproductname 2>&1 | head -12
+  tmo "$GPU_QUERY_TIMEOUT" rocm-smi --showproductname 2>&1 | head -12
   [ "${PIPESTATUS[0]}" = "124" ] && echo "  !! rocm-smi TIMED OUT - driver not responding"
   echo "---"
-  tmo 20 rocm-smi --showmeminfo vram 2>&1 | head -16
+  tmo "$GPU_QUERY_TIMEOUT" rocm-smi --showmeminfo vram 2>&1 | head -16
   [ "${PIPESTATUS[0]}" = "124" ] && echo "  !! rocm-smi TIMED OUT - driver not responding"
 else
   echo "(rocm-smi not on PATH)"
 fi
 echo "--- agents rocminfo reports ---"
 if have rocminfo; then
-  tmo 25 rocminfo 2>&1 | grep -iE 'Marketing|^  Name:|gfx' | head -14
+  tmo "$GPU_QUERY_TIMEOUT" rocminfo 2>&1 | grep -iE 'Marketing|^  Name:|gfx' | head -14
   if [ "${PIPESTATUS[0]}" = "124" ]; then
     echo "  !! rocminfo TIMED OUT opening /dev/kfd - strong sign the GPU is wedged"
   fi
