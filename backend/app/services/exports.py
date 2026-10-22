@@ -15,7 +15,14 @@ def storage_path_for(file_url: str | None) -> Path | None:
     """Map a public /storage/... URL to its local file path, or None."""
     if not file_url or not file_url.startswith(_STORAGE_URL_PREFIX):
         return None
-    return STORAGE_DIR / file_url[len(_STORAGE_URL_PREFIX) :]
+    relative = Path(file_url[len(_STORAGE_URL_PREFIX) :])
+    # Reject traversal and absolute components, which would escape STORAGE_DIR
+    # (an absolute right-hand side replaces the left when joined). Deliberately
+    # not resolve()d: export folders can be junctions, and resolving them would
+    # reject legitimate reads.
+    if relative.is_absolute() or ".." in relative.parts:
+        return None
+    return STORAGE_DIR / relative
 
 
 def build_campaign_zip(

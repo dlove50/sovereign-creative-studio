@@ -77,7 +77,12 @@ def _storage_path_from_url(url: str) -> Path:
     prefix = "/storage/"
     if not url.startswith(prefix):
         raise ValueError("Asset URL is not in local storage")
-    return STORAGE_DIR / url[len(prefix) :]
+    relative = Path(url[len(prefix) :])
+    # See services/exports.storage_path_for: block traversal and absolute
+    # components without resolve(), so junctioned folders keep working.
+    if relative.is_absolute() or ".." in relative.parts:
+        raise ValueError("Asset URL is not in local storage")
+    return STORAGE_DIR / relative
 
 
 def _url_from_storage_path(path: Path) -> str:
