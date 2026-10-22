@@ -33,6 +33,60 @@ So the cap is not the bug. It is the thing that converted a machine-wide
 failure into a single-process failure. **Treat it as a safety net that fired
 correctly, and fix what overflowed.**
 
+## 1a. Probable cause, found by budgeting the workflows
+
+`tools/estimate_vram.py` estimates peak VRAM from a workflow graph before it
+runs. Pointed at this repo's 47 workflows it produces a specific suspect.
+
+**The repo's default product-scene path loads 29.28 GiB of weights onto a
+29.80 GiB card.**
+
+`config.py` defaults `PRODUCT_SCENE_MODEL=flux-kontext` and
+`COMFYUI_PRODUCT_SCENE_MODE=segmented_composite_polished`, which resolves to
+`backend/workflows/product_scene_segmented_composite_polished.json`:
+
+| | |
+|---|---|
+| `flux1-dev.safetensors` (bf16) | 23.80 GiB |
+| `t5xxl_fp8_e4m3fn_scaled.safetensors` | 4.90 GiB |
+| `ae.safetensors` + `clip_l.safetensors` | 0.58 GiB |
+| **weights total** | **29.28 GiB** |
+| R9700 VRAM | **29.80 GiB** |
+| **headroom for latents, activations, VAE decode** | **0.52 GiB** |
+
+Half a gibibyte cannot hold the activation working set of a 768×1024 Flux
+render, let alone its VAE decode. The overflow goes to host memory, and §1's
+arithmetic takes over from there.
+
+**Eight workflows load full bf16 `flux1-dev`:**
+`product_scene_segmented_composite_polished` (the default),
+`product_scene_flux_kontext`, `product_scene_advertising_scene`,
+`product_scene_fashion_editorial`, `product_scene_creative_fashion_edit`,
+`product_scene_flux_background_composite_experimental`,
+`product_scene_flux_background_composite_refined_experimental`, and
+`text_to_image_flux1_dev`. All estimate 29.28–29.78 GiB, i.e. 92–93% of the
+card before activations.
+
+For contrast, `text_to_image_flux1_krea.json` uses an **fp8** Flux
+(`flux1-krea-dev_fp8_scaled.safetensors`, 11.9 GiB) and estimates 17.66 GiB —
+comfortable on this card. So the fix is already in the repo's vocabulary:
+substituting an fp8 Flux in those eight graphs drops weights from 29.28 GiB to
+roughly 17.4 GiB.
+
+**Caveat, and it matters.** The 23.80 GiB figure for `flux1-dev.safetensors` is
+an approximation from the tool's table, not a measurement — a 12B-parameter
+model at bf16 is ~24 GB, which is why it is in the table, but the whole finding
+rests on it. Confirm on the GPU host with one command:
+
+```bash
+python3 tools/estimate_vram.py --all --models-dir ~/ai/ComfyUI/models
+```
+
+That reads real file sizes and relabels every weight `measured`. If the
+installed `flux1-dev.safetensors` turns out to be an fp8 or GGUF variant
+despite the filename, this section is wrong and §4's discriminating test is
+back to being the first step.
+
 ## 2. What actually happened
 
 1. A ComfyUI render's working set exceeded 32 GB of VRAM.
@@ -118,11 +172,22 @@ unverified in practice.
 
 Assuming the discriminating test confirms genuine overflow.
 
-**1. Shrink the working set so it fits in VRAM.** The only durable fix.
-Lower resolution, smaller batch, fewer concurrent models, or a quantized
-model (GGUF variants of the same checkpoint are substantially smaller). The
-studio's own preset machinery exists for exactly this —
-`backend/app/services/image_presets.py`.
+**1. Shrink the weights, starting with the eight bf16 Flux graphs.** The only
+durable fix, and §1a makes it specific rather than general: replace
+`flux1-dev.safetensors` (23.80 GiB) with an fp8 variant in those eight
+workflows and weights drop from 29.28 GiB to roughly 17.4 GiB, which leaves
+real headroom on a 29.80 GiB card. `text_to_image_flux1_krea.json` already does
+this and estimates 17.66 GiB.
+
+Verify first with `--models-dir` (see §1a's caveat), then re-check with:
+
+```bash
+python3 tools/estimate_vram.py --all --models-dir ~/ai/ComfyUI/models --budget 32
+```
+
+Lower resolution, smaller batch and fewer concurrent models all help too, but
+they trim the small terms. On this hardware weights are ~98% of the estimate,
+so weights are where the fix lives.
 
 **2. Keep `--disable-smart-memory` and `--reserve-vram`.** Already in
 `tools/start-comfyui-rocm.sh`. Smart memory deliberately keeps models resident
