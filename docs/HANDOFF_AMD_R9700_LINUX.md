@@ -228,6 +228,40 @@ branch merges cleanly alongside it.
   and the other nine are broken** — `tools/estimate_vram.py --models-dir` now
   reports `!! CASE MISMATCH on disk`, which settles it.
 
+### Three more adapters abandon timed-out prompts without stopping them
+
+Fixed in `product_scene_generators/comfyui.py` (the default product-scene path,
+which `amd-sync` does not touch). The same gap remains in three files
+`amd-sync` is rewriting, so they are left alone here:
+
+| file | poll budget |
+|---|---|
+| `generators/comfyui.py` | 200 x 1.5s = ~5 min |
+| `video_generators/comfyui.py` | 240 x 1.5s = ~6 min |
+| `services/avatar_comfyui.py` | 300 x 2.0s = ~10 min |
+
+When the budget expires each raises `TimeoutError` and the job is marked
+failed, but **ComfyUI keeps rendering** — holding VRAM with nobody waiting for
+the result, so the next submission stacks on top. Under the thrashing in
+`docs/AMD_R9700_SVM_OOM_ANALYSIS.md` a render that normally takes under a
+minute can exceed five, so the timeout fires on work that is still progressing.
+
+Do **not** fix this with a bare `POST /interrupt`. ComfyUI's interrupt takes no
+`prompt_id` and cancels whatever is executing, so it can kill an unrelated job
+— a live risk here, with more than one agent able to drive the same ComfyUI.
+The pattern in `product_scene_generators/comfyui.py:_abandon` reads `/queue`
+first and acts only on its own prompt: delete by id while pending, interrupt
+only once `/queue` confirms the running prompt is ours, otherwise nothing. It
+also folds the outcome into the error message, so "removed from the pending
+queue" is distinguishable from "could not reach /queue, so it may still be
+running". `backend/tests/test_product_scene_timeout_abandon.py` covers it,
+including the never-interrupt-someone-else property.
+
+**Related:** every poll budget above is a hardcoded module constant with no env
+override. An operator on a slow or memory-pressured machine cannot raise it
+without editing code, and the values were tuned on the 16 GB Windows box.
+Worth making configurable at the same time.
+
 ### Related work on `amd-sync`
 
 `tools/verify_krea2_amd.py`, `tools/verify_linux_upscale.py`, and
