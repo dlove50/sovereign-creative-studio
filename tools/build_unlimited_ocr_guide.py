@@ -7,7 +7,10 @@ from docx.enum.section import WD_SECTION
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 
-ROOT = Path(r"C:\Users\David\Documents\Codex\sovereign-creative-studio")
+# Derived from this file's location, matching check_transcription_deps.py and
+# local_launcher.py. A hardcoded absolute path broke this script on Linux and on
+# any Windows machine where the repo lives somewhere else (e.g. the laptop kit).
+ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "outputs" / "how-to-guides" / "Baidu_Unlimited_OCR_Installation_and_Sovereign_Integration_Guide.docx"
 ICON = ROOT / "assets" / "ocr-launcher" / "unlimited-ocr-icon.png"
 

@@ -49,10 +49,16 @@ def main() -> int:
     print(f"ffmpeg path: {ffmpeg_path or '(missing)'}")
     print(f"faster-whisper importable: {'yes' if faster else 'no'}")
     print("")
+    # This is a diagnostic the operator reads, so the remedy has to name the
+    # right binary and the right venv layout for the machine they are on.
+    windows = os.name == "nt"
     if not ffmpeg_path:
-        print("Install ffmpeg and ensure ffmpeg.exe is on PATH, or set FFMPEG_PATH in backend/.env.")
+        exe = "ffmpeg.exe" if windows else "ffmpeg"
+        print(f"Install ffmpeg and ensure {exe} is on PATH, or set FFMPEG_PATH in backend/.env.")
     if not faster:
-        print("Install faster-whisper with: backend\\.venv\\Scripts\\python.exe -m pip install -r backend\\requirements.txt")
+        py = r"backend\.venv\Scripts\python.exe" if windows else "backend/.venv/bin/python"
+        req = r"backend\requirements.txt" if windows else "backend/requirements.txt"
+        print(f"Install faster-whisper with: {py} -m pip install -r {req}")
     return 0 if ffmpeg_path and faster else 1
 
 
