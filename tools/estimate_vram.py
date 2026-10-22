@@ -70,6 +70,21 @@ DTYPE_BYTES = {
     "F8_E4M3": 1, "F8_E5M2": 1, "I8": 1, "U8": 1, "BOOL": 1,
 }
 
+# GGML type id -> (name, elements per block, bytes per block).
+# ComfyUI-GGUF keeps quantised weights quantised in VRAM and dequantises per
+# operation, so residency tracks the quantised size rather than an fp16
+# expansion. That is the point of using GGUF on a tight card.
+GGML_TYPES: dict[int, tuple[str, int, int]] = {
+    0: ("F32", 1, 4), 1: ("F16", 1, 2),
+    2: ("Q4_0", 32, 18), 3: ("Q4_1", 32, 20),
+    6: ("Q5_0", 32, 22), 7: ("Q5_1", 32, 24),
+    8: ("Q8_0", 32, 34), 9: ("Q8_1", 32, 36),
+    10: ("Q2_K", 256, 84), 11: ("Q3_K", 256, 110), 12: ("Q4_K", 256, 144),
+    13: ("Q5_K", 256, 176), 14: ("Q6_K", 256, 210), 15: ("Q8_K", 256, 292),
+    24: ("I8", 1, 1), 25: ("I16", 1, 2), 26: ("I32", 1, 4),
+    27: ("I64", 1, 8), 28: ("F64", 1, 8), 30: ("BF16", 1, 2),
+}
+
 # What a requested weight_dtype costs per element. None = keep on-disk dtype.
 REQUESTED_BYTES = {
     "default": None,
@@ -167,6 +182,68 @@ def read_safetensors_dtypes(path: Path) -> dict[str, int] | None:
     return counts or None
 
 
+def read_gguf_tensors(path: Path) -> dict[str, int] | None:
+    """{ggml_type_name: bytes} from a GGUF header. No tensor data is read."""
+    try:
+        with path.open("rb") as fh:
+            if fh.read(4) != b"GGUF":
+                return None
+            ver, = struct.unpack("<I", fh.read(4))
+            if ver not in (2, 3):
+                return None
+            n_tensors, n_kv = struct.unpack("<QQ", fh.read(16))
+            if n_tensors > 1_000_000 or n_kv > 1_000_000:
+                return None
+
+            def rd(fmt: str):
+                size = struct.calcsize(fmt)
+                return struct.unpack(fmt, fh.read(size))
+
+            def rstr() -> None:
+                (ln,) = rd("<Q")
+                fh.seek(ln, 1)
+
+            def skip_value(vt: int) -> None:
+                fixed = {0: 1, 1: 1, 2: 2, 3: 2, 4: 4, 5: 4, 6: 4, 7: 1,
+                         10: 8, 11: 8, 12: 8}
+                if vt in fixed:
+                    fh.seek(fixed[vt], 1)
+                elif vt == 8:          # string
+                    rstr()
+                elif vt == 9:          # array
+                    et, ln = struct.unpack("<IQ", fh.read(12))
+                    for _ in range(ln):
+                        skip_value(et)
+                else:
+                    raise ValueError(f"unknown GGUF value type {vt}")
+
+            for _ in range(n_kv):      # metadata, skipped to reach tensor info
+                rstr()
+                (vt,) = rd("<I")
+                skip_value(vt)
+
+            out: dict[str, int] = {}
+            for _ in range(n_tensors):
+                rstr()                 # tensor name
+                (ndim,) = rd("<I")
+                if ndim > 8:
+                    return None
+                dims = rd("<" + "Q" * ndim) if ndim else ()
+                (tid,) = rd("<I")
+                rd("<Q")               # offset
+                n = 1
+                for d in dims:
+                    n *= d
+                spec = GGML_TYPES.get(tid)
+                if spec is None:
+                    return None        # unknown quant: refuse to guess
+                name, blk, bsz = spec
+                out[name] = out.get(name, 0) + (n // blk) * bsz
+            return out or None
+    except Exception:  # noqa: BLE001 - unreadable or not GGUF
+        return None
+
+
 def resident_from_dtypes(counts: dict[str, int], requested: int | None) -> int:
     """Bytes held in VRAM, honouring a requested per-element width."""
     total = 0
@@ -190,18 +267,37 @@ def load_workflow(path: Path) -> dict:
     return data
 
 
-def find_file(name: str, models_dir: Path | None) -> Path | None:
+def find_file(name: str, models_dir: Path | None) -> tuple[Path | None, bool]:
+    """(path, exact_case). A case-only match is reported, not silently accepted.
+
+    Windows resolves filenames case-insensitively and Linux does not, so a
+    workflow carrying the wrong case loads fine on one machine and fails with
+    "model not found" on the other. Returning exact_case=False makes that
+    visible instead of hiding it.
+    """
     if not models_dir:
-        return None
+        return None, True
     if (models_dir / name).is_file():
-        return models_dir / name
+        return models_dir / name, True
     for sub in MODEL_SUBDIRS:
         if (models_dir / sub / name).is_file():
-            return models_dir / sub / name
+            return models_dir / sub / name, True
     for cand in models_dir.glob(f"*/*/{name}"):
         if cand.is_file():
-            return cand
-    return None
+            return cand, True
+    # Nothing matched exactly. Look for a case-only difference.
+    lower = name.lower()
+    for sub in ("",) + MODEL_SUBDIRS:
+        d = models_dir / sub if sub else models_dir
+        if not d.is_dir():
+            continue
+        try:
+            for cand in d.iterdir():
+                if cand.is_file() and cand.name.lower() == lower:
+                    return cand, False
+        except OSError:
+            continue
+    return None, True
 
 
 def collect_weights(wf: dict, models_dir: Path | None) -> list[dict]:
@@ -225,22 +321,31 @@ def collect_weights(wf: dict, models_dir: Path | None) -> list[dict]:
             if name.startswith("__") and name.endswith("__"):
                 seen[name] = dict(file=name, loader=node["class_type"],
                                   disk=None, resident=None, provenance="placeholder",
-                                  requested=requested_name, dtypes=None)
+                                  requested=requested_name, dtypes=None,
+                                  case_mismatch=False)
                 continue
 
-            path = find_file(name, models_dir)
-            dtypes = read_safetensors_dtypes(path) if path else None
+            path, exact_case = find_file(name, models_dir)
             requested_width = REQUESTED_BYTES.get(requested_name or "default")
+            dtypes = None
 
             if path:
                 disk = path.stat().st_size
+                dtypes = read_safetensors_dtypes(path)
                 if dtypes:
                     resident = resident_from_dtypes(dtypes, requested_width)
                     prov = "measured"
                 else:
-                    # GGUF or an unparsable container: dequantisation behaviour
-                    # is not modelled, so do not pretend to know residency.
-                    disk, resident, prov = disk, None, "measured-disk-only"
+                    gguf = read_gguf_tensors(path)
+                    if gguf:
+                        # Quantised blocks stay quantised in VRAM under
+                        # ComfyUI-GGUF, so residency tracks the quantised size
+                        # and a requested weight_dtype does not apply.
+                        dtypes, resident, prov = gguf, sum(gguf.values()), "measured-gguf"
+                    else:
+                        # Unrecognised container, or a quant type not in
+                        # GGML_TYPES: refuse to guess at residency.
+                        resident, prov = None, "measured-disk-only"
             elif name in KNOWN_DISK_SIZES:
                 disk = KNOWN_DISK_SIZES[name]
                 # Without a header we cannot know the dtype mix. Assume 2 bytes
@@ -252,7 +357,8 @@ def collect_weights(wf: dict, models_dir: Path | None) -> list[dict]:
 
             seen[name] = dict(file=name, loader=node["class_type"], disk=disk,
                               resident=resident, provenance=prov,
-                              requested=requested_name, dtypes=dtypes)
+                              requested=requested_name, dtypes=dtypes,
+                              case_mismatch=not exact_case)
     return sorted(seen.values(), key=lambda w: -(w["resident"] or w["disk"] or 0))
 
 
@@ -292,6 +398,7 @@ def estimate(path: Path, models_dir: Path | None) -> dict:
     unsized = [w["file"] for w in weights
                if w["provenance"] in ("unknown", "measured-disk-only")]
     placeholders = [w["file"] for w in weights if w["provenance"] == "placeholder"]
+    case_bad = [w["file"] for w in weights if w.get("case_mismatch")]
 
     latent_bytes = max((l["latent_bytes"] for l in latents), default=0)
     pixels = max((l["pixel_count"] for l in latents), default=0)
@@ -305,8 +412,10 @@ def estimate(path: Path, models_dir: Path | None) -> dict:
                 latent_bytes=latent_bytes, activation_bytes=activation_bytes,
                 vae_bytes=vae_bytes, peak_bytes=peak,
                 unsized_files=unsized, placeholder_files=placeholders,
+                case_mismatch_files=case_bad,
                 lower_bound=bool(unsized or placeholders),
-                any_measured=any(w["provenance"] == "measured" for w in weights),
+                any_measured=any(w["provenance"].startswith("measured")
+                                 for w in weights),
                 suggest_tiled_vae=max_edge > VAE_TILING_THRESHOLD)
 
 
@@ -314,6 +423,7 @@ def estimate(path: Path, models_dir: Path | None) -> dict:
 
 FLAGS = {
     "measured": "",
+    "measured-gguf": "  (GGUF: stays quantised in VRAM)",
     "measured-disk-only": "  (disk measured; residency NOT modelled)",
     "approx": "  (approx disk size)",
     "placeholder": "  (runtime placeholder - excluded)",
@@ -332,8 +442,9 @@ def report(e: dict, budget_gib: float) -> None:
         mix = ""
         if w["dtypes"]:
             mix = " [" + ",".join(sorted(w["dtypes"])) + "]"
+        case = "  !! CASE MISMATCH on disk" if w.get("case_mismatch") else ""
         print(f"  {human(w['disk']):>10}  {human(w['resident']):>10}  "
-              f"{req:<12}  {w['loader']} {w['file']}{mix}{FLAGS[w['provenance']]}")
+              f"{req:<12}  {w['loader']} {w['file']}{mix}{FLAGS[w['provenance']]}{case}")
 
     for l in e["latents"]:
         dims = f"{l['width']}x{l['height']}"
@@ -379,6 +490,10 @@ def report(e: dict, budget_gib: float) -> None:
         print("  not modelled: " + ", ".join(e["unsized_files"]))
     if e["placeholder_files"]:
         print("  substituted at submit time: " + ", ".join(e["placeholder_files"]))
+    if e["case_mismatch_files"]:
+        print("  !! filename case differs from disk: "
+              + ", ".join(e["case_mismatch_files"]))
+        print("     Windows resolves this; a case-sensitive filesystem will not.")
     if e["suggest_tiled_vae"]:
         print(f"  note: edge > {VAE_TILING_THRESHOLD}px - use a tiled VAE decode")
 
