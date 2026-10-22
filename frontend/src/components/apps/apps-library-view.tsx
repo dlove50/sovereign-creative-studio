@@ -42,6 +42,7 @@ const APPS: AppEntry[] = [
   { name: "Scene by scene", blurb: "Plan a video as a storyboard of scenes.", icon: Clapperboard, category: "create", href: "/storyboard-studio" },
   { name: "Quick Chain", blurb: "Image, motion, upscale and voice in one guided flow.", icon: Wand2, category: "create", href: "/chain" },
   { name: "AI video generator", blurb: "Turn a photo and a prompt into a short video clip.", icon: Video, category: "create", href: "/videos" },
+  { name: "Image templates", blurb: "48 one-click templates: try-ons, product shots, posters, stickers, interiors, tattoos and more.", icon: ImageIcon, category: "create", href: "/image-templates" },
   { name: "Image studio", blurb: "Make or edit images from a text prompt.", icon: ImageIcon, category: "create", href: "/create" },
   { name: "Director", blurb: "Pick a format (short film, ad, trailer, micro drama) and get a finished video with voice and music.", icon: Clapperboard, category: "create", href: "/director" },
   { name: "Voice Studio", blurb: "Scripts to speech with up to four cloned voices, or instant preset voices, locally with VibeVoice.", icon: Mic, category: "create", href: "/voice-studio" },

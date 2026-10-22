@@ -58,6 +58,7 @@ export const CREATOR_NAV: NavigationItem[] = [
   { href: "/video-to-text", label: "Transcribe Video", icon: Type },
   { href: "/ocr-studio", label: "OCR Studio", icon: ScanText },
   { href: "/create", label: "Image Studio", icon: ImageIcon },
+  { href: "/image-templates", label: "Image Templates", icon: LayoutGrid },
   { href: "/music-lab", label: "Music Lab", icon: Music2 },
   { href: "/performance", label: "Dual Performance", icon: Users },
   { href: "/enhance", label: "AI Enhance", icon: Sparkle },
@@ -103,6 +104,7 @@ export const RAIL_NAV: NavigationItem[] = [
   { href: "/music-lab", label: "Music", icon: Music2 },
   { href: "/performance", label: "Duet", icon: Users },
   { href: "/enhance", label: "Enhance", icon: Sparkle },
+  { href: "/image-templates", label: "Templates", icon: LayoutGrid },
   { href: "/brand", label: "Brand", icon: Palette },
   { href: "/projects", label: "Projects", icon: Folder },
 ];
