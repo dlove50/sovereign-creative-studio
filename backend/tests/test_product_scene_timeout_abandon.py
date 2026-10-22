@@ -172,3 +172,92 @@ def test_successful_render_never_touches_the_queue():
 def test_queue_parsing_tolerates_shape_variation(queue, expected):
     got = psc.ComfyUIProductSceneGenerator._queued_prompt_ids(queue, "queue_pending")
     assert got == expected
+
+
+# --- transport failures must name the endpoint -------------------------------
+#
+# product_scene_jobs persists str(exc) as the job's error, so whatever these
+# raise is what the operator reads in the UI. A bare httpx ConnectError says
+# only "All connection attempts failed", which does not say which endpoint was
+# tried -- unhelpful precisely when COMFYUI_BASE_URL is pointing at the wrong
+# port, the live misconfiguration on AiServerR9700 (ComfyUI on 8188, default
+# 8001).
+
+import httpx  # noqa: E402
+
+
+class _Boom:
+    """A client whose every call raises the given transport error."""
+
+    def __init__(self, exc):
+        self.exc = exc
+
+    async def get(self, url, params=None):
+        raise self.exc
+
+    async def post(self, url, json=None, files=None, data=None):
+        raise self.exc
+
+
+def _adapter_with_url(url="http://127.0.0.1:8001"):
+    a = _adapter()
+    a.base_url = url
+    return a
+
+
+def test_connect_error_names_the_base_url_the_operator_configured():
+    a = _adapter_with_url()
+    client = _Boom(httpx.ConnectError("All connection attempts failed"))
+    with pytest.raises(RuntimeError) as exc:
+        asyncio.run(a._request(client.get, "/object_info"))
+    msg = str(exc.value)
+    assert "offline" in msg
+    assert "http://127.0.0.1:8001" in msg, (
+        "the message must name the endpoint; otherwise a wrong "
+        "COMFYUI_BASE_URL is undiagnosable from the UI")
+    assert msg != "All connection attempts failed"
+
+
+def test_timeout_is_reported_as_a_timeout_not_an_offline_server():
+    a = _adapter_with_url("http://127.0.0.1:8188")
+    client = _Boom(httpx.ReadTimeout("timed out"))
+    with pytest.raises(TimeoutError) as exc:
+        asyncio.run(a._request(client.get, "/object_info"))
+    msg = str(exc.value)
+    assert "timed out" in msg and "http://127.0.0.1:8188" in msg
+    assert "offline" not in msg, "a slow server is not an absent one"
+
+
+def test_http_status_errors_surface_the_code_and_body():
+    a = _adapter_with_url()
+
+    class _Bad:
+        async def post(self, url, json=None, files=None, data=None):
+            request = httpx.Request("POST", "http://x/prompt")
+            response = httpx.Response(500, text="workflow node missing",
+                                      request=request)
+            raise httpx.HTTPStatusError("boom", request=request,
+                                        response=response)
+
+    with pytest.raises(RuntimeError) as exc:
+        asyncio.run(a._request(_Bad().post, "/prompt", json={}))
+    msg = str(exc.value)
+    assert "HTTP 500" in msg
+    assert "workflow node missing" in msg, "ComfyUI's own reason must survive"
+
+
+def test_successful_request_returns_the_response_and_checks_status():
+    a = _adapter_with_url()
+    checked = []
+
+    class _Ok:
+        async def get(self, url, params=None):
+            class _R:
+                @staticmethod
+                def raise_for_status():
+                    checked.append(True)
+            return _R()
+
+    resp = asyncio.run(a._request(_Ok().get, "/object_info"))
+    assert resp is not None
+    assert checked == [True], "_request must still validate the status"

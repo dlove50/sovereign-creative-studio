@@ -573,10 +573,9 @@ class ComfyUIProductSceneGenerator(ProductSceneGenerator):
     ) -> str:
         content_type = mimetypes.guess_type(local_path.name)[0] or "image/png"
         files = {"image": (local_path.name, local_path.read_bytes(), content_type)}
-        resp = await client.post(
-            "/upload/image", files=files, data={"overwrite": "true"}
+        resp = await self._request(
+            client.post, "/upload/image", files=files, data={"overwrite": "true"}
         )
-        resp.raise_for_status()
         body = resp.json()
         name = body.get("name")
         if not name:
@@ -630,8 +629,7 @@ class ComfyUIProductSceneGenerator(ProductSceneGenerator):
     async def _verify_nodes_registered(
         self, client: httpx.AsyncClient, required: list[str], remedy: str
     ) -> None:
-        resp = await client.get("/object_info")
-        resp.raise_for_status()
+        resp = await self._request(client.get, "/object_info")
         available = resp.json()
         missing = [ct for ct in required if ct not in available]
         if missing:
@@ -646,8 +644,7 @@ class ComfyUIProductSceneGenerator(ProductSceneGenerator):
         if not required:
             return
 
-        resp = await client.get("/object_info")
-        resp.raise_for_status()
+        resp = await self._request(client.get, "/object_info")
         object_info = resp.json()
         # A requirement may be a single node name, or a tuple of acceptable
         # alternatives (e.g. TextEncodeQwenImageEdit OR TextEncodeQwenImageEditPlus).
@@ -690,9 +687,32 @@ class ComfyUIProductSceneGenerator(ProductSceneGenerator):
                 "PRODUCT_SCENE_MODEL."
             )
 
+    async def _request(self, method, *args, **kwargs) -> httpx.Response:
+        """Call ComfyUI and translate transport failures into useful errors.
+
+        product_scene_jobs persists str(exc) as the job's error, so a bare
+        httpx failure surfaces to the operator as "All connection attempts
+        failed" with no clue which endpoint was tried. Naming base_url turns a
+        wrong COMFYUI_BASE_URL into a self-diagnosing message. Mirrors
+        video_generators/comfyui.py::_request.
+        """
+        try:
+            resp = await method(*args, **kwargs)
+            resp.raise_for_status()
+            return resp
+        except httpx.ConnectError as exc:
+            raise RuntimeError(f"ComfyUI is offline at {self.base_url}") from exc
+        except httpx.TimeoutException as exc:
+            raise TimeoutError(
+                f"ComfyUI request timed out at {self.base_url}") from exc
+        except httpx.HTTPStatusError as exc:
+            raise RuntimeError(
+                f"ComfyUI request failed with HTTP {exc.response.status_code}: "
+                f"{exc.response.text}"
+            ) from exc
+
     async def _submit(self, client: httpx.AsyncClient, workflow: dict) -> str:
-        resp = await client.post("/prompt", json={"prompt": workflow})
-        resp.raise_for_status()
+        resp = await self._request(client.post, "/prompt", json={"prompt": workflow})
         prompt_id = resp.json().get("prompt_id")
         if not prompt_id:
             raise RuntimeError("ComfyUI did not return a prompt_id")
@@ -747,8 +767,7 @@ class ComfyUIProductSceneGenerator(ProductSceneGenerator):
         self, client: httpx.AsyncClient, prompt_id: str
     ) -> dict:
         for _ in range(_POLL_MAX_ATTEMPTS):
-            resp = await client.get(f"/history/{prompt_id}")
-            resp.raise_for_status()
+            resp = await self._request(client.get, f"/history/{prompt_id}")
             entry = resp.json().get(prompt_id)
             if entry and entry.get("outputs"):
                 return entry["outputs"]
@@ -774,8 +793,7 @@ class ComfyUIProductSceneGenerator(ProductSceneGenerator):
             "subfolder": image.get("subfolder", ""),
             "type": image.get("type", "output"),
         }
-        resp = await client.get("/view", params=params)
-        resp.raise_for_status()
+        resp = await self._request(client.get, "/view", params=params)
         return resp.content
 
     # --- public API ----------------------------------------------------------
