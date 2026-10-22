@@ -1,86 +1,99 @@
 #!/usr/bin/env python3
-"""Estimate peak VRAM for a ComfyUI workflow, before running it.
+"""Estimate ComfyUI workflow VRAM, keeping four different quantities apart.
 
-Motivation: on AiServerR9700 a render that exceeds the R9700's 32 GB spills into
-host memory, and host RAM (30 GiB) is the same size as VRAM (29.8 GiB), so the
-spill cannot fit and the process is OOM-killed mid-SVM-fault. See
-docs/AMD_R9700_SVM_OOM_ANALYSIS.md. Checking a workflow against the budget
-beforehand is cheaper than discovering it afterwards.
+The four are deliberately never collapsed into one number, because conflating
+them is exactly how this tool produced a wrong answer once already:
+
+  1. DISK BYTES        what the file occupies on disk. Measurable.
+  2. REQUESTED DTYPE   the precision the graph asks the loader for
+                       (UNETLoader's `weight_dtype`). Read from the graph.
+  3. EST. RESIDENT     weights held in VRAM, derived from 1 and 2.
+                       An ESTIMATE, never a measurement.
+  4. PEAK              residency plus activations and VAE decode.
+                       UNMEASURED. Crude multipliers, reported separately.
+
+Disk size does not prove runtime residency. A bf16 checkpoint requested at
+`fp8_e4m3fn` occupies roughly half its disk size in VRAM. When the real file is
+available (--models-dir) this tool reads the safetensors header -- a few KB, no
+weights loaded -- to get the exact on-disk dtype composition, then applies the
+requested dtype to estimate residency.
 
     python3 tools/estimate_vram.py backend/workflows/text_to_image.json
-    python3 tools/estimate_vram.py --models-dir ~/ai/ComfyUI/models WORKFLOW...
-    python3 tools/estimate_vram.py --all --budget 32
-    python3 tools/estimate_vram.py --all --json
+    python3 tools/estimate_vram.py --all --models-dir ~/ai/ComfyUI/models
+    python3 tools/estimate_vram.py --all --budget 32 --json
 
-Accuracy, stated honestly:
+Peak is not a prediction of what the GPU will report. Allocator overhead,
+fragmentation, tiling behaviour and concurrent jobs are all outside the model.
+Treat it as a screen for "obviously will not fit", not as a budget guarantee.
 
-* Model weights dominate and are the reliable part. With --models-dir the tool
-  reads real file sizes off disk ("measured"). Without it, it falls back to a
-  table of approximate published sizes ("approx"), and reports anything it
-  cannot size at all as "unknown" -- in which case the total is a LOWER BOUND
-  and is labelled as such.
-* Latent tensors are computed exactly from the workflow's own width/height/
-  batch/length and the latent geometry of the model family.
-* Activation and VAE-decode peaks are crude multipliers, not measurements. They
-  are deliberately conservative and are called out separately in the output so
-  they are never mistaken for the weight figure.
-
-Stdlib only. Reads nothing but the files named. Starts no GPU work.
+Stdlib only. Reads only the files named. Starts no GPU work.
 """
 from __future__ import annotations
 
 import argparse
 import json
+import struct
 import sys
 from pathlib import Path
 
 GIB = 1024 ** 3
 
-# --- what occupies VRAM -----------------------------------------------------
-
-# Loader class_type -> input fields that name a weights file.
-WEIGHT_FIELDS: dict[str, tuple[str, ...]] = {
-    "CheckpointLoaderSimple": ("ckpt_name",),
-    "UNETLoader": ("unet_name",),
-    "UnetLoaderGGUF": ("unet_name",),
-    "VAELoader": ("vae_name",),
-    "CLIPLoader": ("clip_name",),
-    "DualCLIPLoader": ("clip_name1", "clip_name2"),
-    "CLIPVisionLoader": ("clip_name",),
-    "ControlNetLoader": ("control_net_name",),
-    "LoraLoaderModelOnly": ("lora_name",),
-    "LoraLoader": ("lora_name",),
-    "LTXAVTextEncoderLoader": ("text_encoder",),
-    "StyleModelLoader": ("style_model_name",),
-    "UpscaleModelLoader": ("model_name",),
-    "IPAdapterModelLoader": ("ipadapter_file",),
+# Loader class_type -> (weight-file fields, dtype field or None)
+LOADERS: dict[str, tuple[tuple[str, ...], str | None]] = {
+    "CheckpointLoaderSimple": (("ckpt_name",), None),
+    "UNETLoader": (("unet_name",), "weight_dtype"),
+    "UnetLoaderGGUF": (("unet_name",), None),
+    "VAELoader": (("vae_name",), None),
+    "CLIPLoader": (("clip_name",), None),
+    "DualCLIPLoader": (("clip_name1", "clip_name2"), None),
+    "CLIPVisionLoader": (("clip_name",), None),
+    "ControlNetLoader": (("control_net_name",), None),
+    "LoraLoaderModelOnly": (("lora_name",), None),
+    "LoraLoader": (("lora_name",), None),
+    "LTXAVTextEncoderLoader": (("text_encoder",), None),
+    "StyleModelLoader": (("style_model_name",), None),
+    "UpscaleModelLoader": (("model_name",), None),
+    "IPAdapterModelLoader": (("ipadapter_file",), None),
 }
 
-# ComfyUI model subdirectories to search when resolving a filename.
 MODEL_SUBDIRS = (
     "checkpoints", "diffusion_models", "unet", "vae", "clip", "text_encoders",
     "clip_vision", "controlnet", "loras", "style_models", "upscale_models",
     "ipadapter",
 )
 
-# Latent geometry per family: (channels, spatial_divisor, temporal_divisor).
-# A latent element is stored at 2 bytes (fp16/bf16) unless overridden.
+# safetensors dtype -> bytes per element
+DTYPE_BYTES = {
+    "F64": 8, "I64": 8, "U64": 8,
+    "F32": 4, "I32": 4, "U32": 4,
+    "F16": 2, "BF16": 2, "I16": 2, "U16": 2,
+    "F8_E4M3": 1, "F8_E5M2": 1, "I8": 1, "U8": 1, "BOOL": 1,
+}
+
+# What a requested weight_dtype costs per element. None = keep on-disk dtype.
+REQUESTED_BYTES = {
+    "default": None,
+    "fp8_e4m3fn": 1,
+    "fp8_e4m3fn_fast": 1,
+    "fp8_e5m2": 1,
+}
+
 LATENT_NODES: dict[str, tuple[int, int, int]] = {
-    "EmptyLatentImage":      (4, 8, 1),    # SD1.5 / SDXL
-    "EmptySD3LatentImage":   (16, 8, 1),   # SD3 / Flux / Qwen-Image family
-    "EmptyFlux2LatentImage": (16, 8, 1),
-    "EmptyLTXVLatentVideo":  (128, 32, 8),
-    "LTXVImgToVideo":        (128, 32, 8),
-    "WanImageToVideo":       (16, 8, 4),
+    "EmptyLatentImage":       (4, 8, 1),
+    "EmptySD3LatentImage":    (16, 8, 1),
+    "EmptyFlux2LatentImage":  (16, 8, 1),
+    "EmptyLTXVLatentVideo":   (128, 32, 8),
+    "LTXVImgToVideo":         (128, 32, 8),
+    "WanImageToVideo":        (16, 8, 4),
     "WanInfiniteTalkToVideo": (16, 8, 4),
 }
 
-# Approximate published sizes in bytes, used ONLY when the file is not on disk.
-# Always reported as "approx" so it is never confused with a measurement.
-KNOWN_SIZES: dict[str, int] = {
+# Approximate DISK sizes, used only when the file is absent. Reported "approx".
+# Confirmed against the real install where noted.
+KNOWN_DISK_SIZES: dict[str, int] = {
+    # Codex measured on AiServerR9700: 22.17 GiB of BF16 tensors.
+    "flux1-dev.safetensors": int(22.17 * GIB),
     "sd_xl_base_1.0.safetensors": int(6.94 * GIB),
-    "flux1-dev.safetensors": int(23.8 * GIB),
-    "flux1-dev_fp8_scaled.safetensors": int(11.9 * GIB),
     "flux1-fill-dev.safetensors": int(23.8 * GIB),
     "flux1-krea-dev_fp8_scaled.safetensors": int(11.9 * GIB),
     "flux-2-klein-4b.safetensors": int(8.0 * GIB),
@@ -97,25 +110,23 @@ KNOWN_SIZES: dict[str, int] = {
     "CLIP-ViT-H-14-laion2B-s32B-b79K.safetensors": int(2.5 * GIB),
     "control-openpose-sdxl-1.0.safetensors": int(2.5 * GIB),
     "v1-5-pruned-emaonly-fp16.safetensors": int(2.13 * GIB),
-    "Illustrious-XL-v0.1.safetensors": int(6.9 * GIB),   # SDXL architecture
+    "Illustrious-XL-v0.1.safetensors": int(6.9 * GIB),
     "umt5_xxl_fp8_e4m3fn_scaled.safetensors": int(5.0 * GIB),
     "wan_2.1_vae.safetensors": int(0.25 * GIB),
 }
 # Deliberately absent: hidream-e1-full, krea2_turbo_fp8_scaled, z_image_turbo_bf16,
-# NetaYumev35, the Qwen-Image-Edit GGUFs, gemma_3_12B_it_fp4_mixed and the LTX
-# LoRA. Their sizes are not known here with enough confidence, and a wrong entry
-# would produce a false "fits" verdict -- the one failure mode this tool must
-# not have. They report as unknown, which makes the total an explicit lower
-# bound. Pass --models-dir on the GPU host to size them for real.
+# NetaYumev35, the Qwen-Image-Edit GGUFs, gemma_3_12B_it_fp4_mixed, the LTX LoRA.
+# A wrong entry would produce a false "fits", the one failure this tool must not
+# have. They report unknown, which makes the figure an explicit lower bound.
 
-# Crude non-weight multipliers. Documented, conservative, and reported apart
-# from the weight figure so they cannot be mistaken for it.
-ACTIVATION_FACTOR = 3.0      # x latent bytes, sampling-time working set
-VAE_BYTES_PER_PIXEL = 512    # x W*H*batch, decoder feature maps at full res
-VAE_TILING_THRESHOLD = 1536  # above this edge, recommend tiled VAE decode
+ACTIVATION_FACTOR = 3.0
+VAE_BYTES_PER_PIXEL = 512
+VAE_TILING_THRESHOLD = 1536
 
 
-def human(n: float) -> str:
+def human(n: float | None) -> str:
+    if n is None:
+        return "?"
     if n >= GIB:
         return f"{n / GIB:.2f} GiB"
     if n >= 1024 ** 2:
@@ -123,43 +134,74 @@ def human(n: float) -> str:
     return f"{int(n)} B"
 
 
-# --- workflow inspection ----------------------------------------------------
+# --- safetensors header ------------------------------------------------------
+
+def read_safetensors_dtypes(path: Path) -> dict[str, int] | None:
+    """{dtype: element_count} from the header alone. No weights are loaded."""
+    try:
+        with path.open("rb") as fh:
+            raw = fh.read(8)
+            if len(raw) < 8:
+                return None
+            hlen = struct.unpack("<Q", raw)[0]
+            if not (0 < hlen <= 100 * 1024 * 1024):
+                return None
+            header = json.loads(fh.read(hlen).decode("utf-8"))
+    except Exception:  # noqa: BLE001 - unreadable or not safetensors
+        return None
+    counts: dict[str, int] = {}
+    for key, meta in header.items():
+        if key == "__metadata__" or not isinstance(meta, dict):
+            continue
+        dtype, shape = meta.get("dtype"), meta.get("shape")
+        if not isinstance(dtype, str) or not isinstance(shape, list):
+            continue
+        n = 1
+        for d in shape:
+            if not isinstance(d, int):
+                n = 0
+                break
+            n *= d
+        if n:
+            counts[dtype] = counts.get(dtype, 0) + n
+    return counts or None
+
+
+def resident_from_dtypes(counts: dict[str, int], requested: int | None) -> int:
+    """Bytes held in VRAM, honouring a requested per-element width."""
+    total = 0
+    for dtype, n in counts.items():
+        on_disk = DTYPE_BYTES.get(dtype, 2)
+        # A request only narrows; it never widens a tensor that is already smaller.
+        width = min(on_disk, requested) if requested else on_disk
+        total += n * width
+    return total
+
+
+# --- workflow inspection -----------------------------------------------------
 
 def load_workflow(path: Path) -> dict:
     data = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(data, dict):
         raise ValueError("not an API-format workflow (expected a JSON object)")
-    # API format maps node id -> {class_type, inputs}. The UI format has a
-    # top-level "nodes" list and is not what the backend submits.
-    if "nodes" in data and isinstance(data.get("nodes"), list):
-        raise ValueError(
-            "this is a UI-format workflow; export it in API format "
-            "(ComfyUI: Workflow > Export (API))"
-        )
+    if isinstance(data.get("nodes"), list):
+        raise ValueError("this is a UI-format workflow; export API format "
+                         "(ComfyUI: Workflow > Export (API))")
     return data
 
 
-def resolve_size(name: str, models_dir: Path | None) -> tuple[int | None, str]:
-    """Return (bytes, provenance): measured / approx / placeholder / unknown."""
-    # The backend substitutes __NAME__ tokens at submit time (e.g.
-    # __VIDEO_MODEL__ from COMFYUI_VIDEO_MODEL_NAME). Not a missing file.
-    if name.startswith("__") and name.endswith("__"):
-        return None, "placeholder"
-    if models_dir:
-        direct = models_dir / name
-        if direct.is_file():
-            return direct.stat().st_size, "measured"
-        for sub in MODEL_SUBDIRS:
-            cand = models_dir / sub / name
-            if cand.is_file():
-                return cand.stat().st_size, "measured"
-        # Some installs nest by family; fall back to a bounded search.
-        for cand in models_dir.glob(f"*/*/{name}"):
-            if cand.is_file():
-                return cand.stat().st_size, "measured"
-    if name in KNOWN_SIZES:
-        return KNOWN_SIZES[name], "approx"
-    return None, "unknown"
+def find_file(name: str, models_dir: Path | None) -> Path | None:
+    if not models_dir:
+        return None
+    if (models_dir / name).is_file():
+        return models_dir / name
+    for sub in MODEL_SUBDIRS:
+        if (models_dir / sub / name).is_file():
+            return models_dir / sub / name
+    for cand in models_dir.glob(f"*/*/{name}"):
+        if cand.is_file():
+            return cand
+    return None
 
 
 def collect_weights(wf: dict, models_dir: Path | None) -> list[dict]:
@@ -167,24 +209,51 @@ def collect_weights(wf: dict, models_dir: Path | None) -> list[dict]:
     for node in wf.values():
         if not isinstance(node, dict):
             continue
-        fields = WEIGHT_FIELDS.get(node.get("class_type", ""))
-        if not fields:
+        spec = LOADERS.get(node.get("class_type", ""))
+        if not spec:
             continue
-        inputs = node.get("inputs") or {}
+        fields, dtype_field = spec
+        ins = node.get("inputs") or {}
+        requested_name = ins.get(dtype_field) if dtype_field else None
         for f in fields:
-            name = inputs.get(f)
+            name = ins.get(f)
             if not isinstance(name, str) or not name:
                 continue
-            if name in seen:          # loaded once, resident once
+            if name in seen:
                 continue
-            size, prov = resolve_size(name, models_dir)
-            seen[name] = {
-                "file": name,
-                "loader": node.get("class_type"),
-                "bytes": size,
-                "provenance": prov,
-            }
-    return sorted(seen.values(), key=lambda w: -(w["bytes"] or 0))
+
+            if name.startswith("__") and name.endswith("__"):
+                seen[name] = dict(file=name, loader=node["class_type"],
+                                  disk=None, resident=None, provenance="placeholder",
+                                  requested=requested_name, dtypes=None)
+                continue
+
+            path = find_file(name, models_dir)
+            dtypes = read_safetensors_dtypes(path) if path else None
+            requested_width = REQUESTED_BYTES.get(requested_name or "default")
+
+            if path:
+                disk = path.stat().st_size
+                if dtypes:
+                    resident = resident_from_dtypes(dtypes, requested_width)
+                    prov = "measured"
+                else:
+                    # GGUF or an unparsable container: dequantisation behaviour
+                    # is not modelled, so do not pretend to know residency.
+                    disk, resident, prov = disk, None, "measured-disk-only"
+            elif name in KNOWN_DISK_SIZES:
+                disk = KNOWN_DISK_SIZES[name]
+                # Without a header we cannot know the dtype mix. Assume 2 bytes
+                # per element, which is right for bf16/fp16 checkpoints.
+                resident = disk // 2 if requested_width == 1 else disk
+                prov = "approx"
+            else:
+                disk, resident, prov = None, None, "unknown"
+
+            seen[name] = dict(file=name, loader=node["class_type"], disk=disk,
+                              resident=resident, provenance=prov,
+                              requested=requested_name, dtypes=dtypes)
+    return sorted(seen.values(), key=lambda w: -(w["resident"] or w["disk"] or 0))
 
 
 def collect_latents(wf: dict) -> list[dict]:
@@ -206,24 +275,11 @@ def collect_latents(wf: dict) -> list[dict]:
         ch, sdiv, tdiv = geom
         lw, lh = max(1, w // sdiv), max(1, h // sdiv)
         lf = max(1, ((frames - 1) // tdiv) + 1) if frames > 1 else 1
-        elems = lw * lh * lf * ch * batch
-        out.append({
-            "node": nid, "class_type": node["class_type"],
-            "width": w, "height": h, "batch": batch, "frames": frames,
-            "latent_bytes": elems * 2,
-            "pixel_count": w * h * batch * (frames if frames > 1 else 1),
-        })
+        out.append(dict(node=nid, class_type=node["class_type"], width=w, height=h,
+                        batch=batch, frames=frames,
+                        latent_bytes=lw * lh * lf * ch * batch * 2,
+                        pixel_count=w * h * batch * (frames if frames > 1 else 1)))
     return out
-
-
-def steps_of(wf: dict) -> list[int]:
-    s = []
-    for node in wf.values():
-        if isinstance(node, dict) and "steps" in (node.get("inputs") or {}):
-            v = node["inputs"]["steps"]
-            if isinstance(v, int):
-                s.append(v)
-    return s
 
 
 def estimate(path: Path, models_dir: Path | None) -> dict:
@@ -231,55 +287,53 @@ def estimate(path: Path, models_dir: Path | None) -> dict:
     weights = collect_weights(wf, models_dir)
     latents = collect_latents(wf)
 
-    weight_bytes = sum(w["bytes"] or 0 for w in weights)
-    unknown = [w["file"] for w in weights if w["provenance"] == "unknown"]
+    disk_total = sum(w["disk"] or 0 for w in weights)
+    resident_total = sum(w["resident"] or 0 for w in weights)
+    unsized = [w["file"] for w in weights
+               if w["provenance"] in ("unknown", "measured-disk-only")]
     placeholders = [w["file"] for w in weights if w["provenance"] == "placeholder"]
-    approx = [w["file"] for w in weights if w["provenance"] == "approx"]
 
-    # Worst single latent drives the peak; concurrent latents are rare and the
-    # term is small next to weights.
     latent_bytes = max((l["latent_bytes"] for l in latents), default=0)
     pixels = max((l["pixel_count"] for l in latents), default=0)
     activation_bytes = int(latent_bytes * ACTIVATION_FACTOR)
     vae_bytes = pixels * VAE_BYTES_PER_PIXEL
-
-    total = weight_bytes + latent_bytes + activation_bytes + vae_bytes
+    peak = resident_total + latent_bytes + activation_bytes + vae_bytes
     max_edge = max((max(l["width"], l["height"]) for l in latents), default=0)
 
-    return {
-        "workflow": str(path),
-        "weights": weights,
-        "latents": latents,
-        "steps": steps_of(wf),
-        "weight_bytes": weight_bytes,
-        "latent_bytes": latent_bytes,
-        "activation_bytes": activation_bytes,
-        "vae_bytes": vae_bytes,
-        "total_bytes": total,
-        "unknown_files": unknown,
-        "placeholder_files": placeholders,
-        "approx_files": approx,
-        "lower_bound": bool(unknown) or bool(placeholders),
-        "suggest_tiled_vae": max_edge > VAE_TILING_THRESHOLD,
-    }
+    return dict(workflow=str(path), weights=weights, latents=latents,
+                disk_bytes=disk_total, resident_bytes=resident_total,
+                latent_bytes=latent_bytes, activation_bytes=activation_bytes,
+                vae_bytes=vae_bytes, peak_bytes=peak,
+                unsized_files=unsized, placeholder_files=placeholders,
+                lower_bound=bool(unsized or placeholders),
+                any_measured=any(w["provenance"] == "measured" for w in weights),
+                suggest_tiled_vae=max_edge > VAE_TILING_THRESHOLD)
 
 
-# --- reporting --------------------------------------------------------------
+# --- reporting ---------------------------------------------------------------
+
+FLAGS = {
+    "measured": "",
+    "measured-disk-only": "  (disk measured; residency NOT modelled)",
+    "approx": "  (approx disk size)",
+    "placeholder": "  (runtime placeholder - excluded)",
+    "unknown": "  (UNKNOWN - excluded)",
+}
+
 
 def report(e: dict, budget_gib: float) -> None:
     print(f"\n=== {e['workflow']} ===")
     if not e["weights"]:
-        print("  no weight-loading nodes recognised "
-              "(a mask/preview-only graph, or an unknown loader type)")
+        print("  no weight-loading nodes recognised")
+    else:
+        print(f"  {'disk':>10}  {'resident':>10}  requested     loader / file")
     for w in e["weights"]:
-        size = human(w["bytes"]) if w["bytes"] is not None else "   ?    "
-        flag = {
-            "measured": "",
-            "approx": "  (approx)",
-            "placeholder": "  (runtime placeholder - excluded)",
-            "unknown": "  (UNKNOWN - excluded)",
-        }[w["provenance"]]
-        print(f"  {size:>10}  {w['loader']:<24} {w['file']}{flag}")
+        req = w["requested"] or "-"
+        mix = ""
+        if w["dtypes"]:
+            mix = " [" + ",".join(sorted(w["dtypes"])) + "]"
+        print(f"  {human(w['disk']):>10}  {human(w['resident']):>10}  "
+              f"{req:<12}  {w['loader']} {w['file']}{mix}{FLAGS[w['provenance']]}")
 
     for l in e["latents"]:
         dims = f"{l['width']}x{l['height']}"
@@ -287,57 +341,54 @@ def report(e: dict, budget_gib: float) -> None:
             dims += f"x{l['frames']}f"
         if l["batch"] > 1:
             dims += f" batch={l['batch']}"
-        print(f"  {human(l['latent_bytes']):>10}  latent {l['class_type']} {dims}")
+        print(f"  {'':>10}  {human(l['latent_bytes']):>10}  "
+              f"{'latent':<12}  {l['class_type']} {dims}")
 
-    print(f"  {'-' * 58}")
-    print(f"  {human(e['weight_bytes']):>10}  model weights"
+    print(f"  {'-' * 66}")
+    print(f"  {human(e['disk_bytes']):>10}  {'':>10}  on disk")
+    print(f"  {'':>10}  {human(e['resident_bytes']):>10}  EST. RESIDENT weights"
           f"{'  (LOWER BOUND)' if e['lower_bound'] else ''}")
-    print(f"  {human(e['latent_bytes']):>10}  latent tensors")
-    print(f"  {human(e['activation_bytes']):>10}  activations     (x{ACTIVATION_FACTOR:g} latent, rough)")
-    print(f"  {human(e['vae_bytes']):>10}  VAE decode peak ({VAE_BYTES_PER_PIXEL} B/px, rough)")
-    print(f"  {human(e['total_bytes']):>10}  ESTIMATED PEAK")
+    print(f"  {'':>10}  {human(e['latent_bytes']):>10}  latent tensors")
+    print(f"  {'':>10}  {human(e['activation_bytes']):>10}  activations "
+          f"(x{ACTIVATION_FACTOR:g} latent, UNMEASURED)")
+    print(f"  {'':>10}  {human(e['vae_bytes']):>10}  VAE decode "
+          f"({VAE_BYTES_PER_PIXEL} B/px, UNMEASURED)")
+    print(f"  {'':>10}  {human(e['peak_bytes']):>10}  EST. PEAK")
 
     budget = budget_gib * GIB
-    pct = e["total_bytes"] / budget * 100 if budget else 0
+    pct = e["peak_bytes"] / budget * 100 if budget else 0
     if e["lower_bound"]:
         why = []
-        if e["unknown_files"]:
-            why.append("unsized weights")
+        if e["unsized_files"]:
+            why.append("unmodelled weights")
         if e["placeholder_files"]:
             why.append("runtime-substituted model")
         verdict = "INDETERMINATE - " + " and ".join(why)
-    elif e["total_bytes"] > budget:
-        verdict = f"OVER BUDGET by {human(e['total_bytes'] - budget)}"
+    elif e["peak_bytes"] > budget:
+        verdict = f"OVER BUDGET by {human(e['peak_bytes'] - budget)}"
     elif pct > 85:
         verdict = f"TIGHT - {pct:.0f}% of budget"
     else:
         verdict = f"fits - {pct:.0f}% of budget"
     print(f"  budget {budget_gib:g} GiB -> {verdict}")
 
-    if e["unknown_files"]:
-        print("  unsized (add --models-dir to measure): "
-              + ", ".join(e["unknown_files"]))
+    if not e["any_measured"] and e["weights"]:
+        print("  NOTE: no file was read. Residency is inferred from approximate "
+              "disk sizes; pass --models-dir on the GPU host.")
+    if e["unsized_files"]:
+        print("  not modelled: " + ", ".join(e["unsized_files"]))
     if e["placeholder_files"]:
-        print("  substituted at submit time, size unknowable from the graph: "
-              + ", ".join(e["placeholder_files"]))
+        print("  substituted at submit time: " + ", ".join(e["placeholder_files"]))
     if e["suggest_tiled_vae"]:
-        print(f"  note: edge > {VAE_TILING_THRESHOLD}px - use a tiled VAE decode; "
-              "full-frame decode is often the true peak")
-    if e["steps"]:
-        print(f"  steps in graph: {sorted(set(e['steps']))} "
-              "(affects time, not peak VRAM)")
+        print(f"  note: edge > {VAE_TILING_THRESHOLD}px - use a tiled VAE decode")
 
 
 def main(argv: list[str]) -> int:
-    ap = argparse.ArgumentParser(
-        description="Estimate peak VRAM for ComfyUI workflows.")
+    ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("workflows", nargs="*", type=Path)
-    ap.add_argument("--all", action="store_true",
-                    help="every .json under backend/workflows/")
-    ap.add_argument("--models-dir", type=Path, default=None,
-                    help="ComfyUI models dir; enables real file sizes")
-    ap.add_argument("--budget", type=float, default=32.0,
-                    help="VRAM budget in GiB (default 32, the R9700)")
+    ap.add_argument("--all", action="store_true")
+    ap.add_argument("--models-dir", type=Path, default=None)
+    ap.add_argument("--budget", type=float, default=32.0)
     ap.add_argument("--json", action="store_true", dest="as_json")
     args = ap.parse_args(argv)
 
@@ -349,19 +400,17 @@ def main(argv: list[str]) -> int:
         ap.error("name at least one workflow, or pass --all")
 
     if args.models_dir and not args.models_dir.is_dir():
-        print(f"[warn] --models-dir not found: {args.models_dir}; "
-              "falling back to approximate sizes", file=sys.stderr)
+        print(f"[warn] --models-dir not found: {args.models_dir}", file=sys.stderr)
         args.models_dir = None
     if not args.models_dir:
-        print("[warn] no --models-dir: weights use approximate published sizes "
-              "where known. Pass it on the GPU host for real figures.",
-              file=sys.stderr)
+        print("[warn] no --models-dir: residency is inferred from approximate "
+              "disk sizes, not read from file headers.", file=sys.stderr)
 
     results, failed = [], 0
     for p in paths:
         try:
             results.append(estimate(p, args.models_dir))
-        except Exception as exc:  # noqa: BLE001 - report and continue
+        except Exception as exc:  # noqa: BLE001
             failed += 1
             print(f"[error] {p}: {exc}", file=sys.stderr)
 
@@ -372,13 +421,15 @@ def main(argv: list[str]) -> int:
     for e in results:
         report(e, args.budget)
 
-    over = [e for e in results if not e["lower_bound"]
-            and e["total_bytes"] > args.budget * GIB]
+    over = [e for e in results
+            if not e["lower_bound"] and e["peak_bytes"] > args.budget * GIB]
     indet = [e for e in results if e["lower_bound"]]
     print(f"\n=== {len(results)} workflow(s): {len(over)} over a "
           f"{args.budget:g} GiB budget, {len(indet)} indeterminate ===")
     for e in over:
-        print(f"  OVER  {human(e['total_bytes'])}  {Path(e['workflow']).name}")
+        print(f"  OVER  {human(e['peak_bytes'])}  {Path(e['workflow']).name}")
+    print("EST. PEAK is a screen, not a guarantee: allocator overhead, "
+          "fragmentation and concurrent jobs are outside the model.")
     return 1 if (over or failed) else 0
 
 

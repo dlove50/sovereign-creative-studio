@@ -33,59 +33,52 @@ So the cap is not the bug. It is the thing that converted a machine-wide
 failure into a single-process failure. **Treat it as a safety net that fired
 correctly, and fix what overflowed.**
 
-## 1a. Probable cause, found by budgeting the workflows
+## 1a. RETRACTED — the "weights do not fit" finding was wrong
 
-`tools/estimate_vram.py` estimates peak VRAM from a workflow graph before it
-runs. Pointed at this repo's 47 workflows it produces a specific suspect.
+An earlier revision of this section claimed the repo's default product-scene
+workflow loaded 29.28 GiB of weights onto a 29.80 GiB card, and named that as
+the probable cause. **That was wrong.** Codex checked the real files on
+`AiServerR9700` and refuted it. The claim is withdrawn.
 
-**The repo's default product-scene path loads 29.28 GiB of weights onto a
-29.80 GiB card.**
+What was wrong, and why:
 
-`config.py` defaults `PRODUCT_SCENE_MODEL=flux-kontext` and
-`COMFYUI_PRODUCT_SCENE_MODE=segmented_composite_polished`, which resolves to
-`backend/workflows/product_scene_segmented_composite_polished.json`:
+- `tools/estimate_vram.py` read each loader's model filename and **ignored
+  `weight_dtype`**. All eight cited workflows specify
+  `weight_dtype: fp8_e4m3fn` on their `UNETLoader` — 15 of the 47 workflows do.
+  The installed ComfyUI passes that FP8 dtype to the model loader, so a bf16
+  checkpoint does not occupy its disk size in VRAM.
+- The analysis then treated **disk size as proof of runtime residency**. It is
+  not. That conflation is the whole error.
+- Codex's measurements: `flux1-dev.safetensors` holds **22.17 GiB of BF16
+  tensors** (not the 23.8 GiB this document estimated), and the four cited
+  files total **27.51 GiB on disk** (not 29.28 GiB).
+
+Corrected figures, from the rebuilt estimator reading real safetensors headers:
 
 | | |
 |---|---|
-| `flux1-dev.safetensors` (bf16) | 23.80 GiB |
-| `t5xxl_fp8_e4m3fn_scaled.safetensors` | 4.90 GiB |
-| `ae.safetensors` + `clip_l.safetensors` | 0.58 GiB |
-| **weights total** | **29.28 GiB** |
-| R9700 VRAM | **29.80 GiB** |
-| **headroom for latents, activations, VAE decode** | **0.52 GiB** |
+| four model files, on disk | ~27.5 GiB |
+| `flux1-dev` requested at `fp8_e4m3fn` | 22.17 → **~11.1 GiB resident** |
+| **estimated resident weights** | **~16.6 GiB** |
+| estimated peak incl. latents + VAE | **~16.9 GiB** |
+| R9700 VRAM | 29.80 GiB |
 
-Half a gibibyte cannot hold the activation working set of a 768×1024 Flux
-render, let alone its VAE decode. The overflow goes to host memory, and §1's
-arithmetic takes over from there.
+So the default workflow sits near **53% of the card**, not 93%. No workflow in
+this repo is over budget on the corrected model.
 
-**Eight workflows load full bf16 `flux1-dev`:**
-`product_scene_segmented_composite_polished` (the default),
-`product_scene_flux_kontext`, `product_scene_advertising_scene`,
-`product_scene_fashion_editorial`, `product_scene_creative_fashion_edit`,
-`product_scene_flux_background_composite_experimental`,
-`product_scene_flux_background_composite_refined_experimental`, and
-`text_to_image_flux1_dev`. All estimate 29.28–29.78 GiB, i.e. 92–93% of the
-card before activations.
+**Do not substitute models or raise memory limits on the strength of the
+retracted finding.** There was nothing to fix in those eight workflows: they
+already request fp8.
 
-For contrast, `text_to_image_flux1_krea.json` uses an **fp8** Flux
-(`flux1-krea-dev_fp8_scaled.safetensors`, 11.9 GiB) and estimates 17.66 GiB —
-comfortable on this card. So the fix is already in the repo's vocabulary:
-substituting an fp8 Flux in those eight graphs drops weights from 29.28 GiB to
-roughly 17.4 GiB.
+One further caution Codex raised: local `backend/.env` sets
+`PRODUCT_SCENE_BACKEND=mock`. Before attributing any process's memory use to a
+ComfyUI workflow, confirm the running process's *effective* configuration —
+the default in `config.py` is not necessarily what the running backend used.
 
-**Caveat, and it matters.** The 23.80 GiB figure for `flux1-dev.safetensors` is
-an approximation from the tool's table, not a measurement — a 12B-parameter
-model at bf16 is ~24 GB, which is why it is in the table, but the whole finding
-rests on it. Confirm on the GPU host with one command:
-
-```bash
-python3 tools/estimate_vram.py --all --models-dir ~/ai/ComfyUI/models
-```
-
-That reads real file sizes and relabels every weight `measured`. If the
-installed `flux1-dev.safetensors` turns out to be an fp8 or GGUF variant
-despite the filename, this section is wrong and §4's discriminating test is
-back to being the first step.
+The estimator now keeps four quantities apart — disk bytes, requested loading
+precision, estimated residency, and unmeasured peak — precisely so this class
+of error cannot recur. Residency is labelled an estimate and peak is labelled
+UNMEASURED, in the output itself.
 
 ## 2. What actually happened
 
@@ -172,22 +165,14 @@ unverified in practice.
 
 Assuming the discriminating test confirms genuine overflow.
 
-**1. Shrink the weights, starting with the eight bf16 Flux graphs.** The only
-durable fix, and §1a makes it specific rather than general: replace
-`flux1-dev.safetensors` (23.80 GiB) with an fp8 variant in those eight
-workflows and weights drop from 29.28 GiB to roughly 17.4 GiB, which leaves
-real headroom on a 29.80 GiB card. `text_to_image_flux1_krea.json` already does
-this and estimates 17.66 GiB.
-
-Verify first with `--models-dir` (see §1a's caveat), then re-check with:
-
-```bash
-python3 tools/estimate_vram.py --all --models-dir ~/ai/ComfyUI/models --budget 32
-```
-
-Lower resolution, smaller batch and fewer concurrent models all help too, but
-they trim the small terms. On this hardware weights are ~98% of the estimate,
-so weights are where the fix lives.
+**1. Establish what actually overflowed, before changing anything.** The
+original "weights do not fit" theory is retracted (§1a): on the corrected model
+no workflow in this repo exceeds the card, and the default sits near 53%. So
+the overflow, if it was an overflow, came from something this estimator does
+not model -- activations at an unusual resolution, a tiled-decode path, two
+jobs resident at once, allocator fragmentation, or a workload that was not this
+workflow at all (note `PRODUCT_SCENE_BACKEND=mock`). Run §4's discriminating
+test and the estimator with `--models-dir` before acting.
 
 **2. Keep `--disable-smart-memory` and `--reserve-vram`.** Already in
 `tools/start-comfyui-rocm.sh`. Smart memory deliberately keeps models resident
