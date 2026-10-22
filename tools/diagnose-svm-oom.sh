@@ -20,12 +20,19 @@ SAMPLE_SECONDS="${SAMPLE_SECONDS:-30}"
 h() { printf '\n========== %s ==========\n' "$1"; }
 have() { command -v "$1" >/dev/null 2>&1; }
 
+# Bound anything that can block. rocminfo opens /dev/kfd, and on a wedged GPU
+# that never returns -- which would hang this whole report exactly when it is
+# most needed. Falls back to running unbounded if coreutils timeout is absent.
+tmo() {
+  if have timeout; then timeout --signal=TERM "$@"; else shift; "$@"; fi
+}
+
 # Wrap sudo so one failure does not abort the run.
 SUDO_OK=0
 if [ "${SKIP_SUDO:-0}" != "1" ]; then
   if have sudo && sudo -v >/dev/null 2>&1; then SUDO_OK=1; fi
 fi
-ksudo() { if [ "$SUDO_OK" = "1" ]; then sudo "$@"; else return 1; fi; }
+ksudo() { if [ "$SUDO_OK" = "1" ]; then tmo 60 sudo "$@"; else return 1; fi; }
 
 h "WHEN AND WHERE"
 date
@@ -157,11 +164,27 @@ else
 fi
 
 h "GPU STATE"
-have rocm-smi && { rocm-smi --showproductname 2>&1 | head -12; echo "---"; \
-  rocm-smi --showmeminfo vram 2>&1 | head -16; } || echo "(rocm-smi not on PATH)"
+# rocm-smi reads sysfs; rocminfo opens /dev/kfd. Both are bounded so a hung GPU
+# cannot stall the report. A timeout here is itself a finding: it means the
+# driver is not answering, which is worth more than the output would have been.
+if have rocm-smi; then
+  tmo 20 rocm-smi --showproductname 2>&1 | head -12
+  [ "${PIPESTATUS[0]}" = "124" ] && echo "  !! rocm-smi TIMED OUT - driver not responding"
+  echo "---"
+  tmo 20 rocm-smi --showmeminfo vram 2>&1 | head -16
+  [ "${PIPESTATUS[0]}" = "124" ] && echo "  !! rocm-smi TIMED OUT - driver not responding"
+else
+  echo "(rocm-smi not on PATH)"
+fi
 echo "--- agents rocminfo reports ---"
-have rocminfo && rocminfo 2>&1 | grep -iE 'Marketing|^  Name:|gfx' | head -14 \
-  || echo "(rocminfo absent, or cannot open /dev/kfd - check render group membership)"
+if have rocminfo; then
+  tmo 25 rocminfo 2>&1 | grep -iE 'Marketing|^  Name:|gfx' | head -14
+  if [ "${PIPESTATUS[0]}" = "124" ]; then
+    echo "  !! rocminfo TIMED OUT opening /dev/kfd - strong sign the GPU is wedged"
+  fi
+else
+  echo "(rocminfo absent - or it cannot open /dev/kfd; check render group)"
+fi
 echo "--- relevant env in this shell ---"
 for v in HIP_VISIBLE_DEVICES ROCR_VISIBLE_DEVICES HSA_OVERRIDE_GFX_VERSION \
          HSA_USERPTR_FOR_PAGED_MEM PYTORCH_HIP_ALLOC_CONF GPU_MAX_HW_QUEUES; do
