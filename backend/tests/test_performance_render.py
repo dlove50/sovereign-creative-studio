@@ -296,3 +296,33 @@ def test_visual_timing_preserves_audio_and_duration(tmp_path, delay):
     hashes = [subprocess.run([FFMPEG, "-v", "error", "-i", str(path), "-map", "0:a", "-f", "md5", "-"],
                              capture_output=True, check=True).stdout for path in [source, target]]
     assert hashes[0] == hashes[1]
+
+
+def test_browser_preview_uses_portable_codecs_and_preserves_export(tmp_path):
+    import hashlib
+    source = tmp_path / "source.mp4"
+    pr._run_ffmpeg(["-f", "lavfi", "-i", "testsrc2=size=64x64:rate=25:duration=0.4",
+                    "-f", "lavfi", "-i", "sine=frequency=440:duration=0.4",
+                    "-c:v", "libx264", "-c:a", "aac", "-shortest", str(source)])
+    original = hashlib.sha256(source.read_bytes()).hexdigest()
+    preview = pr._browser_preview(source, tmp_path)
+    assert preview == tmp_path / "preview.webm"
+    probe = json.loads(subprocess.run(["ffprobe", "-v", "error", "-show_streams", "-of", "json", str(preview)],
+                                      capture_output=True, text=True, check=True).stdout)
+    assert {s["codec_name"] for s in probe["streams"]} == {"vp9", "opus"}
+    assert hashlib.sha256(source.read_bytes()).hexdigest() == original
+    assert not (tmp_path / "preview.partial.webm").exists()
+
+
+def test_public_preview_does_not_serve_an_older_render(duet):
+    import os
+    from app.routers.performances import _public
+    folder = pe.media_dir(duet["id"])
+    source, preview = folder / "performance.mp4", folder / "preview.webm"
+    source.write_bytes(b"new export")
+    preview.write_bytes(b"portable preview")
+    duet["render"] = {"status": "done", "video": str(source)}
+    assert _public(duet)["render"]["preview_url"].endswith("/preview.webm")
+    later = preview.stat().st_mtime + 2
+    os.utime(source, (later, later))
+    assert _public(duet)["render"]["preview_url"] is None

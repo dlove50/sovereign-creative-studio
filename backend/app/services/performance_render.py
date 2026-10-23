@@ -361,6 +361,8 @@ async def _render(project_id: str) -> None:
         _run_ffmpeg(["-i", str(framed), "-i", str(project["master_audio"]), "-map", "0:v", "-map", "1:a",
                      "-c:v", "copy", "-c:a", "aac", "-b:a", "256k", "-shortest", str(final)])
         hd = _upscale(project_id, final, folder / "performance-hd.mp4")
+        _status(project_id, stage="Encoding browser preview", progress=.99)
+        _browser_preview(hd or final, folder)
         _status(project_id, status="done", stage="Done", progress=1.0, video=str(hd or final),
                 video_sd=str(final), master_shot=str(master_shot), chunks=len(plans),
                 upscaled=bool(hd), visual_delay_ms=round(float(project.get("visual_delay_ms", 0)) * FPS / 1000) * 1000 / FPS)
@@ -520,10 +522,27 @@ async def _render_layers(project: dict[str, Any], folder: Path, work: Path, tag:
     _run_ffmpeg(["-i", str(framed), "-i", str(project["master_audio"]), "-map", "0:v", "-map", "1:a",
                  "-c:v", "copy", "-c:a", "aac", "-b:a", "256k", "-shortest", str(final)])
     hd = _upscale(project_id, final, folder / "performance-hd.mp4")
+    _status(project_id, stage="Encoding browser preview", progress=.99)
+    _browser_preview(hd or final, folder)
     (folder / "layer-manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
     _status(project_id, status="done", stage="Done", progress=1.0, video=str(hd or final),
             video_sd=str(final), master_shot=str(folder / "master-shot.mp4"),
             chunks=len(plans), layers=manifest, upscaled=bool(hd), visual_delay_ms=round(float(project.get("visual_delay_ms", 0)) * FPS / 1000) * 1000 / FPS)
+
+
+def _browser_preview(source: Path, folder: Path) -> Path | None:
+    """Portable VP9/Opus preview; retain the full-resolution MP4 export."""
+    target = folder / "preview.webm"
+    pending = folder / "preview.partial.webm"
+    try:
+        _run_ffmpeg(["-i", str(source), "-vf", "scale=640:-2", "-c:v", "libvpx-vp9",
+                     "-deadline", "realtime", "-cpu-used", "6", "-row-mt", "1", "-threads", "2",
+                     "-crf", "32", "-b:v", "0", "-c:a", "libopus", "-b:a", "128k", str(pending)])
+        pending.replace(target)
+        return target
+    except (RuntimeError, OSError):
+        pending.unlink(missing_ok=True)
+        return None
 
 
 def _upscale(project_id: str, src: Path, dst: Path) -> Path | None:

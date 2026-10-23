@@ -400,7 +400,13 @@ function Editor({ id, onClose }: { id: string; onClose: () => void }) {
           <h2 className="flex items-center gap-2 text-sm font-semibold"><Film className="h-4 w-4" /> Render</h2>
           {missing.length ? <p className="text-xs text-amber-200">Model files still missing: {missing.join(", ")}</p> : null}
           {render?.video_url && render.status === "done" ? (
-            <video src={assetUrl(render.video_url) ?? undefined} controls className="w-full rounded-xl" />
+            <div className="space-y-2">
+              <video controls className="w-full rounded-xl" key={`${render.video_url}-${render.preview_url}`}>
+                {render.preview_url ? <source src={assetUrl(render.preview_url) ?? undefined} type="video/webm" /> : null}
+                <source src={assetUrl(render.video_url) ?? undefined} type="video/mp4" />
+              </video>
+              <a className="inline-block text-xs text-primary underline" href={assetUrl(render.video_url) ?? undefined} download>Download full-resolution MP4</a>
+            </div>
           ) : null}
           {render ? (
             <div className="space-y-1.5">

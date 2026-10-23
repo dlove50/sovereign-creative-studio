@@ -165,7 +165,12 @@ def _public(project: dict) -> dict:
     out["stage"] = {**project.get("stage", {}), "image_url": _url(project, project.get("stage", {}).get("image"))}
     if project.get("render"):
         r = project["render"]
-        out["render"] = {**r, "video_url": _url(project, r.get("video")),
+        preview = pe.media_dir(project["id"]) / "preview.webm"
+        source = Path(r["video"]) if r.get("video") else None
+        # Never advertise a stale preview after a new render or failed encode.
+        preview_url = (_url(project, str(preview)) if source and source.is_file() and preview.is_file()
+                       and preview.stat().st_mtime_ns >= source.stat().st_mtime_ns else None)
+        out["render"] = {**r, "preview_url": preview_url, "video_url": _url(project, r.get("video")),
                          "master_shot_url": _url(project, r.get("master_shot"))}
     return out
 

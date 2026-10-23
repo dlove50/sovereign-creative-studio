@@ -43,6 +43,7 @@ export type PerformanceRender = {
   progress: number;
   error: string | null;
   video_url: string | null;
+  preview_url?: string | null;
   master_shot_url: string | null;
 };
 
