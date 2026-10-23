@@ -21,7 +21,14 @@ _BASELINE_REVISION = "0001"
 def get_alembic_config() -> Config:
     cfg = Config(str(BASE_DIR / "alembic.ini"))
     cfg.set_main_option("script_location", str(BASE_DIR / "migrations"))
-    cfg.set_main_option("sqlalchemy.url", DATABASE_URL)
+    # Alembic stores options in a ConfigParser, which treats "%" as
+    # interpolation syntax. A DATABASE_URL containing one -- which any
+    # URL-encoded password has, since "@" in a password must be written %40 --
+    # raised "invalid interpolation syntax" during startup, before anything
+    # touched the database, and the error named neither DATABASE_URL nor the
+    # password. Doubling it is the documented escape; ConfigParser restores
+    # the single "%" on read.
+    cfg.set_main_option("sqlalchemy.url", DATABASE_URL.replace("%", "%%"))
     return cfg
 
 
