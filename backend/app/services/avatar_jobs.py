@@ -15,14 +15,14 @@ import threading
 import time
 from datetime import datetime, timezone
 
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from .. import config
 from ..database import SessionLocal
-from ..models import AvatarAsset, AvatarJob, CreditTransaction, User, VoiceAsset
+from ..models import AvatarAsset, AvatarJob, User, VoiceAsset
 from . import avatar as avatar_provider
 from . import avatar_comfyui
+from . import credit_guard
 from .avatar_presets import resolve_preset
 from .transcription import resolve_storage_url
 
@@ -40,37 +40,13 @@ def _scrub_paths(message: str) -> str:
     return _PATH_RE.sub("<path>", message or "").strip() or "Avatar generation failed."
 
 
-def _charge(db: Session, user: User, amount: int, *, feature: str, related_id: str, provider: str, reason: str) -> None:
-    user.credits -= amount
-    db.add(
-        CreditTransaction(
-            user_id=user.id,
-            amount=-amount,
-            reason=reason,
-            transaction_type="generation_charge",
-            related_feature=feature,
-            related_id=related_id,
-            status="completed",
-            note=f"{reason} via {provider}",
-            balance_after=user.credits,
-            generation_id=None,
-        )
-    )
-
-
 def charge_for_avatar_job(db: Session, user: User, job: AvatarJob) -> None:
     """Charge for a completed avatar video (call only on real success). Idempotent:
     a second completion will not double-charge."""
-    already = db.scalar(
-        select(CreditTransaction).where(
-            CreditTransaction.related_id == job.id,
-            CreditTransaction.transaction_type == "generation_charge",
-        )
-    )
-    if already is not None:
+    if credit_guard.already_charged(db, job.id):
         return
     job.credits_cost = config.CREDITS_PER_AVATAR_VIDEO
-    _charge(
+    credit_guard.apply_charge(
         db, user, config.CREDITS_PER_AVATAR_VIDEO,
         feature="avatar_video", related_id=job.id,
         provider=f"{job.provider}:{config.AVATAR_WAN_MODEL_NAME or 'wan'}", reason="avatar video",
@@ -78,10 +54,18 @@ def charge_for_avatar_job(db: Session, user: User, job: AvatarJob) -> None:
 
 
 def charge_for_voice(db: Session, user: User, *, related_id: str, provider: str) -> None:
-    """Charge for a successful local voice generation."""
-    _charge(
+    """Charge for a successful local voice generation. Idempotent.
+
+    The guard used to be missing here while its sibling above had one, so
+    whether a repeat charged twice depended on which function was called. It
+    was not reachable through the current route -- that creates a fresh
+    VoiceAsset per request, so related_id is never reused -- but the asymmetry
+    was one refactor away from costing somebody credits.
+    """
+    credit_guard.apply_charge(
         db, user, config.CREDITS_PER_VOICE_GENERATION,
-        feature="voice_generation", related_id=related_id, provider=provider, reason="voice generation",
+        feature="voice_generation", related_id=related_id, provider=provider,
+        reason="voice generation",
     )
 
 
