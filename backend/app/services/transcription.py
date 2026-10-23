@@ -32,6 +32,7 @@ from ..config import (
 from ..copy_generators import get_copy_generator
 from ..database import SessionLocal
 from ..models import CreditTransaction, TranscriptionJob, User
+from . import credit_guard
 
 
 @dataclass
@@ -225,33 +226,21 @@ def _run(job_id: str) -> None:
 
 
 def _charge(db: Session, job: TranscriptionJob) -> None:
-    already = db.scalar(
-        select(CreditTransaction).where(
-            CreditTransaction.related_id == job.id,
-            CreditTransaction.transaction_type == "generation_charge",
-            CreditTransaction.related_feature == "video_transcription",
-        )
-    )
-    if already is not None:
-        return
     user = db.get(User, job.user_id)
     if user is None:
         return
     cost = job.credits_cost if job.credits_cost is not None else CREDITS_PER_TRANSCRIPTION
-    user.credits -= cost
-    db.add(
-        CreditTransaction(
-            user_id=user.id,
-            amount=-cost,
-            reason="video transcription",
-            transaction_type="generation_charge",
-            related_feature="video_transcription",
-            related_id=job.id,
-            status="completed",
-            note=f"Video transcription completed (provider={job.provider}, model={job.model_name}).",
-            balance_after=user.credits,
-            generation_id=None,
-        )
+    # per_feature: one job id carries both the transcript charge and the
+    # summary charge, told apart only by related_feature. Checking the id
+    # alone would make whichever ran second a no-op.
+    credit_guard.apply_charge(
+        db, user, cost,
+        feature="video_transcription",
+        related_id=job.id,
+        provider=job.provider or "local",
+        reason="video transcription",
+        per_feature=True,
+        note=f"Video transcription completed (provider={job.provider}, model={job.model_name}).",
     )
 
 
@@ -289,32 +278,19 @@ async def summarize_transcript(job: TranscriptionJob, summary_type: str) -> str:
 
 
 def charge_summary(db: Session, job: TranscriptionJob) -> None:
-    already = db.scalar(
-        select(CreditTransaction).where(
-            CreditTransaction.related_id == job.id,
-            CreditTransaction.transaction_type == "generation_charge",
-            CreditTransaction.related_feature == "video_transcription_summary",
-        )
-    )
-    if already is not None:
-        return
     user = db.get(User, job.user_id)
     if user is None:
         return
-    user.credits -= CREDITS_PER_TRANSCRIPTION_SUMMARY
-    db.add(
-        CreditTransaction(
-            user_id=user.id,
-            amount=-CREDITS_PER_TRANSCRIPTION_SUMMARY,
-            reason="video transcript summary",
-            transaction_type="generation_charge",
-            related_feature="video_transcription_summary",
-            related_id=job.id,
-            status="completed",
-            note="Video transcript summary generated.",
-            balance_after=user.credits,
-            generation_id=None,
-        )
+    # per_feature for the same reason as _charge above: this is the second
+    # charge against one job id.
+    credit_guard.apply_charge(
+        db, user, CREDITS_PER_TRANSCRIPTION_SUMMARY,
+        feature="video_transcription_summary",
+        related_id=job.id,
+        provider=job.provider or "local",
+        reason="video transcript summary",
+        per_feature=True,
+        note="Video transcript summary generated.",
     )
 
 

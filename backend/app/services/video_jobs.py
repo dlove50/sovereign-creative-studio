@@ -15,6 +15,7 @@ from ..config import STORAGE_DIR
 from ..database import SessionLocal
 from ..models import CreditTransaction, User, VideoGeneration
 from ..video_generators import get_video_generator
+from . import credit_guard
 
 _video_queue: "queue.Queue[str | None]" = queue.Queue()
 logger = logging.getLogger("sovereign.video_jobs")
@@ -108,31 +109,19 @@ def _charge_for_video(db: Session, video: VideoGeneration) -> None:
     """Charge the flat video credit cost on success (charge-on-completion, same
     as the image path). Failed jobs never reach here, so they are never charged.
     Idempotent: a second completion would not double-charge."""
-    already = db.scalar(
-        select(CreditTransaction).where(
-            CreditTransaction.related_id == video.id,
-            CreditTransaction.transaction_type == "generation_charge",
-        )
-    )
-    if already is not None:
-        return
     user = db.get(User, video.user_id)
     if user is None:
         return
     cost = video.credits_cost or 10
     related_feature = "video_seedance" if video.provider == "seedance_api" else "video"
-    user.credits -= cost
-    db.add(
-        CreditTransaction(
-            user_id=user.id,
-            amount=-cost,
-            reason="video generation",
-            transaction_type="generation_charge",
-            related_feature=related_feature,
-            related_id=video.id,
-            status="completed",
-            note=f"Video generation ({video.mode}, provider={video.provider}) completed successfully.",
-            balance_after=user.credits,
-            generation_id=None,
-        )
+    # Deliberately not per_feature: related_feature varies with the provider,
+    # so scoping the duplicate check to it would let a retry under a different
+    # provider charge the same video twice.
+    credit_guard.apply_charge(
+        db, user, cost,
+        feature=related_feature,
+        related_id=video.id,
+        provider=video.provider or "local",
+        reason="video generation",
+        note=f"Video generation ({video.mode}, provider={video.provider}) completed successfully.",
     )

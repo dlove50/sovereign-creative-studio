@@ -42,23 +42,34 @@ logger = logging.getLogger("sovereign.credit_guard")
 CHARGE_TYPE = "generation_charge"
 
 
-def already_charged(db: Session, related_id: str) -> bool:
+def already_charged(
+    db: Session, related_id: str, *, feature: str | None = None
+) -> bool:
     """True when `related_id` already carries a generation charge.
 
-    The guard every charge path needs and only some had. Keyed the same way
-    the existing callers key it, so it recognises charges they already wrote.
+    `feature` narrows the check to that `related_feature`. Transcription needs
+    it: one job id legitimately carries two charges, the transcript and then
+    the summary, told apart only by the feature. Checking the id alone there
+    would see the transcript's row and silently never charge the summary --
+    which is what a careless sweep of these call sites would have done.
+
+    Leave `feature` unset for the stricter check, which is right wherever an
+    id maps to exactly one charge. Video is deliberately strict: its
+    `related_feature` varies with the provider ("video" or "video_seedance"),
+    so a feature-scoped check would let a retry under a different provider
+    charge a second time.
     """
     if not related_id:
         # No key means no way to detect a repeat; treat it as uncharged rather
         # than silently matching every other unkeyed row.
         return False
-    existing = db.scalar(
-        select(CreditTransaction).where(
-            CreditTransaction.related_id == related_id,
-            CreditTransaction.transaction_type == CHARGE_TYPE,
-        )
-    )
-    return existing is not None
+    conditions = [
+        CreditTransaction.related_id == related_id,
+        CreditTransaction.transaction_type == CHARGE_TYPE,
+    ]
+    if feature is not None:
+        conditions.append(CreditTransaction.related_feature == feature)
+    return db.scalar(select(CreditTransaction).where(*conditions)) is not None
 
 
 def _available(user: User) -> int:
@@ -76,16 +87,23 @@ def apply_charge(
     provider: str,
     reason: str,
     skip_if_charged: bool = True,
+    per_feature: bool = False,
+    note: str | None = None,
 ) -> int:
     """Charge `user` and write the ledger row. Returns what was taken.
 
     Returns 0 when the charge was skipped as a repeat, or when the balance is
     already empty -- in both cases no ledger row is written, because a zero-
     amount row records nothing and makes the ledger harder to read.
+
+    `per_feature` scopes the duplicate check to this `feature`, for ids that
+    legitimately carry more than one charge. See `already_charged`.
     """
     if amount <= 0:
         return 0
-    if skip_if_charged and already_charged(db, related_id):
+    if skip_if_charged and already_charged(
+        db, related_id, feature=feature if per_feature else None
+    ):
         logger.info(
             "Skipping duplicate charge for %s (%s); already charged.",
             related_id, feature,
@@ -113,7 +131,10 @@ def apply_charge(
             related_feature=feature,
             related_id=related_id,
             status="completed",
-            note=f"{reason} via {provider}",
+            # Call sites carry more specific notes than this default -- the
+            # video path names the mode, and a test depends on it -- so an
+            # explicit note always wins.
+            note=note if note is not None else f"{reason} via {provider}",
             balance_after=user.credits,
             generation_id=None,
         )

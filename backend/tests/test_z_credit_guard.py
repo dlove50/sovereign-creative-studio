@@ -276,3 +276,78 @@ def test_balance_after_is_never_an_impossible_number(db, user, charge):
                 .filter(CreditTransaction.related_id.in_(["b1", "b2"])).all()]
     assert all(value >= 0 for value in recorded), (
         f"the ledger records a balance that cannot exist: {recorded}")
+
+
+# --------------------------------------------------------------------------
+# per_feature: one id that legitimately carries two charges
+# --------------------------------------------------------------------------
+
+def test_per_feature_allows_the_second_charge_on_the_same_id(db, user, charge):
+    """Transcription charges a job twice -- transcript, then summary -- told
+    apart only by related_feature. This is the case a careless sweep of the
+    call sites would have broken, silently never charging the summary."""
+    rel = charge["related_id"]
+    first = credit_guard.apply_charge(
+        db, user, 2, **{**charge, "feature": "video_transcription"},
+        per_feature=True)
+    db.commit()
+    second = credit_guard.apply_charge(
+        db, user, 2, **{**charge, "feature": "video_transcription_summary"},
+        per_feature=True)
+    db.commit()
+
+    assert first == 2 and second == 2, "the summary charge was swallowed"
+    assert sorted(r.related_feature for r in _rows(db, rel)) == [
+        "video_transcription", "video_transcription_summary"]
+
+
+def test_per_feature_still_blocks_a_true_repeat(db, user, charge):
+    credit_guard.apply_charge(db, user, 2, **charge, per_feature=True)
+    db.commit()
+    again = credit_guard.apply_charge(db, user, 2, **charge, per_feature=True)
+    db.commit()
+    assert again == 0
+    assert len(_rows(db, charge["related_id"])) == 1
+
+
+def test_without_per_feature_a_different_feature_is_still_a_repeat(db, user, charge):
+    """Video relies on this: its related_feature varies with the provider, so
+    a feature-scoped check would let a retry charge the same video twice."""
+    credit_guard.apply_charge(db, user, 2, **{**charge, "feature": "video"})
+    db.commit()
+    again = credit_guard.apply_charge(
+        db, user, 2, **{**charge, "feature": "video_seedance"})
+    db.commit()
+
+    assert again == 0, "the same video was charged twice under a new provider"
+    assert len(_rows(db, charge["related_id"])) == 1
+
+
+def test_already_charged_can_be_scoped_to_a_feature(db, user, charge):
+    credit_guard.apply_charge(db, user, 1, **{**charge, "feature": "feat-a"})
+    db.commit()
+    rel = charge["related_id"]
+
+    assert credit_guard.already_charged(db, rel) is True
+    assert credit_guard.already_charged(db, rel, feature="feat-a") is True
+    assert credit_guard.already_charged(db, rel, feature="feat-b") is False
+
+
+# --------------------------------------------------------------------------
+# Notes: call sites carry more specific text than the default
+# --------------------------------------------------------------------------
+
+def test_an_explicit_note_is_kept(db, user, charge):
+    """The video path names the mode in its note and a test depends on it."""
+    credit_guard.apply_charge(db, user, 1, **charge,
+                              note="Video generation (image_to_video) done.")
+    db.commit()
+    assert _rows(db, charge["related_id"])[0].note == (
+        "Video generation (image_to_video) done.")
+
+
+def test_a_missing_note_falls_back_to_the_default(db, user, charge):
+    credit_guard.apply_charge(db, user, 1, **charge)
+    db.commit()
+    note = _rows(db, charge["related_id"])[0].note
+    assert charge["reason"] in note and charge["provider"] in note
