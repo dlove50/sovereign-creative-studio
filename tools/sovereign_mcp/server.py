@@ -119,7 +119,7 @@ def _summary(perf: dict[str, Any]) -> dict[str, Any]:
     return {
         "id": perf["id"], "title": perf["title"], "mode": perf["mode"], "duration": perf["duration"],
         "performers": [{"id": p["id"], "name": p["name"], "role": p["role"], "stage_x": p["stage"]["x"],
-                        "has_identity": bool(p.get("identity_url")), "has_stem": bool(p.get("stem_url")),
+                        "has_identity": bool(p.get("identity_url")), "has_stem": bool(p.get("stem_url")), "visual_delay_ms": p.get("visual_delay_ms", 0),
                         "regions": len(p["regions"]), "reference": p.get("reference"), "reference_pending": p.get("reference_pending")} for p in perf["performers"]],
         "has_master": bool(perf.get("master_audio_url")),
         "sheet": perf.get("sheet", []),
@@ -238,7 +238,7 @@ async def assign_performer(performance_id: str, performer_id: str, identity_imag
                            vocal_stem_path: str | None = None, name: str | None = None,
                            stage_x: float | None = None,
                            role: Literal["lead", "co_lead", "background", "actor"] | None = None,
-                           motion: dict[str, Any] | None = None) -> dict[str, Any]:
+                           motion: dict[str, Any] | None = None, visual_delay_ms: float | None = None) -> dict[str, Any]:
     """Assign identity, own vocal stem and direction. motion accepts head/shoulders/hands/sway/energy
     (0..1), expression (natural/joyful/intense/tender/restrained), gaze (automatic/audience/partner/left/right)
     and seed (0..2147483647). Model directions need visual review; seed changes regenerate that layer."""
@@ -253,6 +253,8 @@ async def assign_performer(performance_id: str, performer_id: str, identity_imag
         patch["name"] = name
     if role:
         patch["role"] = role
+    if visual_delay_ms is not None:
+        patch["visual_delay_ms"] = visual_delay_ms
     if motion is not None:
         patch["motion"] = motion
     if stage_x is not None:

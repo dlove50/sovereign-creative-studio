@@ -348,3 +348,28 @@ def test_opening_conditioning_cleanup_keeps_frame_count_and_audio(tmp_path, monk
     assert np.abs(b[4:].astype(float)-a[4:].astype(float)).mean()<3
     hashes=[subprocess.check_output([FFMPEG,'-v','error','-i',str(p),'-map','0:a','-f','md5','-']) for p in [before,after]]
     assert hashes[0]==hashes[1]
+
+
+@pytest.mark.parametrize('delay,first_blue', [(80,6),(-80,2)])
+def test_performer_timing_keeps_other_timestamps_and_audio(tmp_path,monkeypatch,delay,first_blue):
+    monkeypatch.setattr(pr,'WIDTH',64);monkeypatch.setattr(pr,'HEIGHT',64);monkeypatch.setattr(pr,'INITIAL_HOLD_FRAMES',0)
+    layer,audio,bg=tmp_path/'layer.mkv',tmp_path/'own.wav',tmp_path/'bg.png'
+    pr._run_ffmpeg(['-f','lavfi','-i','color=red:s=64x64:r=25:d=0.16','-f','lavfi','-i','color=blue:s=64x64:r=25:d=0.24','-filter_complex','[0:v][1:v]concat=n=2:v=1:a=0','-c:v','ffv1','-pix_fmt','bgra',str(layer)])
+    pr._run_ffmpeg(['-f','lavfi','-i','sine=frequency=440:sample_rate=16000:duration=0.4',str(audio)])
+    Image.new('RGB',(64,64),'black').save(bg)
+    p={'duration':.4,'master_audio':str(audio),'performers':[{'stage':{'x':.5}}]}
+    before,after=tmp_path/'before.mp4',tmp_path/'after.mp4';pr.compose_layers(p,[layer],bg,before)
+    p['performers'][0]['visual_delay_ms']=delay;pr.compose_layers(p,[layer],bg,after)
+    raw=subprocess.check_output([FFMPEG,'-v','error','-i',str(after),'-f','rawvideo','-pix_fmt','rgb24','-']);frames=np.frombuffer(raw,np.uint8).reshape(-1,64,64,3)
+    assert len(frames)==10
+    blue=np.where(frames[:,:,:,2].mean(axis=(1,2))>200)[0]
+    assert blue[0]==first_blue
+    hashes=[subprocess.check_output([FFMPEG,'-v','error','-i',str(f),'-map','0:a','-f','md5','-']) for f in [before,after]]
+    assert hashes[0]==hashes[1]
+
+
+def test_performer_timing_keeps_generation_cache(duet):
+    for p in duet['performers']:pe.build_drive_audio(duet,p['id'])
+    before=[pr._layer_key(duet,p) for p in duet['performers']]
+    duet['performers'][0]['visual_delay_ms']=80
+    assert [pr._layer_key(duet,p) for p in duet['performers']]==before

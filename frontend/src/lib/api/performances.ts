@@ -21,6 +21,7 @@ export type Region = {
 export type JointEdit = { joint: string; keyframes: { time: number; dx: number; dy: number }[] };
 
 export type Performer = {
+  visual_delay_ms?: number;
   reference?: { id: string; status: string; duration: number; edits: JointEdit[] };
   reference_pending?: { status: string; error?: string } | null;
   id: string;
@@ -98,7 +99,7 @@ export const performancesApi = {
   uploadStem: (id: string, pid: string, f: File) => formRequest<Performance>(`${base}/${id}/performers/${pid}/stem`, file(f)),
   uploadIdentity: (id: string, pid: string, f: File) =>
     formRequest<Performance>(`${base}/${id}/performers/${pid}/identity`, file(f)),
-  patchPerformer: (id: string, pid: string, body: Partial<Pick<Performer, "name" | "role" | "stage" | "voice_id">> & { motion?: Partial<Performer["motion"]> }) =>
+  patchPerformer: (id: string, pid: string, body: Partial<Pick<Performer, "name" | "role" | "stage" | "voice_id" | "visual_delay_ms">> & { motion?: Partial<Performer["motion"]> }) =>
     request<Performance>(`${base}/${id}/performers/${pid}`, json("PATCH", body)),
   uploadReference: (id: string, pid: string, f: File) => formRequest<Performance>(`${base}/${id}/performers/${pid}/reference`, file(f)),
   referencePose: (id: string, pid: string, time: number) => request<{width: number; height: number; frame: {keypoints: number[][]; scores: number[]}}>(`${base}/${id}/performers/${pid}/reference/pose?time=${time}`),

@@ -422,7 +422,12 @@ def compose_layers(project: dict[str, Any], layers: list[Path], background: Path
         # the first stable frame in place; preserve all later timestamps and audio.
         hold = min(INITIAL_HOLD_FRAMES, max(0, math.ceil(project["duration"] * FPS)-1)) if not person.get("reference") else 0
         opening = f",trim=start_frame={hold},setpts=PTS-STARTPTS,tpad=start={hold}:start_mode=clone" if hold else ""
-        graph.append(f"[{i + 1}:v]scale={WIDTH}:{HEIGHT}:flags=lanczos,format=rgba,setsar=1{opening}[p{i}]")
+        frames = math.ceil(project["duration"] * FPS)
+        delay = round(float(person.get("visual_delay_ms", 0)) * FPS / 1000)
+        delay = max(-frames+1, min(frames-1, delay))
+        timing = (f",tpad=start={delay}:start_mode=clone,trim=end_frame={frames},setpts=PTS-STARTPTS" if delay > 0 else
+                  f",trim=start_frame={-delay},setpts=PTS-STARTPTS,tpad=stop={-delay}:stop_mode=clone" if delay < 0 else "")
+        graph.append(f"[{i + 1}:v]scale={WIDTH}:{HEIGHT}:flags=lanczos,format=rgba,setsar=1{opening}{timing}[p{i}]")
         graph.append(f"[{previous}][p{i}]overlay={x}:0:shortest=1:format=auto[v{i}]")
         previous = f"v{i}"
     _run_ffmpeg(args + ["-filter_complex", ";".join(graph), "-map", f"[{previous}]",

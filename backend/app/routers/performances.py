@@ -94,6 +94,7 @@ class Motion(BaseModel):
 
 
 class PerformerPatch(BaseModel):
+    visual_delay_ms: float | None = Field(default=None, ge=-500, le=500)
     name: str | None = Field(default=None, min_length=1, max_length=60)
     role: Literal["lead", "co_lead", "background", "actor"] | None = None
     voice_id: str | None = Field(default=None, max_length=80)
@@ -309,6 +310,8 @@ def patch_performer(project_id: str, performer_id: str, body: PerformerPatch, us
         p["voice_id"] = body.voice_id or None
     if body.stage is not None:
         p["stage"] = body.stage.model_dump()
+    if body.visual_delay_ms is not None:
+        p["visual_delay_ms"] = body.visual_delay_ms
     if body.motion is not None:
         p["motion"].update(body.motion.model_dump(exclude_none=True))
     return _save(project)

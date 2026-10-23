@@ -317,6 +317,9 @@ function Editor({ id, onClose }: { id: string; onClose: () => void }) {
               <details className="text-xs text-muted-foreground">
                 <summary className="cursor-pointer py-1">Performance direction</summary>
                 <div className="space-y-2 pt-2">
+                  <label className="flex flex-wrap items-center gap-2">This performer’s video timing (ms)
+                    <input aria-label={`${p.name} video timing offset`} type="number" min={-500} max={500} step={40} defaultValue={p.visual_delay_ms ?? 0} disabled={!!rendering || !!busy} className="w-24 rounded border bg-background p-1" onBlur={e=>void run("Saving performer timing",()=>performancesApi.patchPerformer(id,p.id,{visual_delay_ms:+e.target.value}))}/>
+                  </label>
                   {(["head", "shoulders", "hands", "sway", "energy"] as const).map((control) => (
                     <label key={control} className="flex items-center gap-2 capitalize">
                       <span className="w-20">{control}</span>
