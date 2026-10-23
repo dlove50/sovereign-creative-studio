@@ -18,6 +18,7 @@ import os
 import shutil
 import tempfile
 import threading
+import time
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -464,6 +465,10 @@ def _upscale(project_id: str, src: Path, dst: Path) -> Path | None:
 
     if UPSCALE < 2 or not enhance._available(enhance.OPERATIONS["upscale_ai"])[0]:
         return None
+    with httpx.Client(base_url=config.COMFYUI_BASE_URL.rstrip("/"), timeout=5) as client:
+        if not _prepare_upscale(client):
+            _status(project_id, upscale_skipped_reason="GPU queue busy or sufficient free memory could not be verified")
+            return None
     _status(project_id, stage=f"Upscaling x{UPSCALE} (Real-ESRGAN)", progress=0.98)
     proc = subprocess.run([config.MUSIC_STEMS_PYTHON, str(Path(enhance.__file__).with_name("enhance_worker.py")),
                            "upscale_ai", json.dumps({"scale": UPSCALE}), str(src), str(dst)],
@@ -471,6 +476,34 @@ def _upscale(project_id: str, src: Path, dst: Path) -> Path | None:
     if proc.returncode != 0 or not dst.is_file():
         return None  # the standard-resolution result is still delivered
     return dst
+
+
+def _prepare_upscale(client: httpx.Client) -> bool:
+    """Release idle generation models before starting the separate enhancement process.
+
+    Do not interrupt queued work, alter memory limits or assume /free is synchronous.
+    This is a local preflight, not a cross-application GPU reservation.
+    """
+    try:
+        queue = client.get("/queue")
+        queue.raise_for_status()
+        if queue.json().get("queue_running") or queue.json().get("queue_pending"):
+            return False
+        response = client.post("/free", json={"unload_models": True, "free_memory": True})
+        response.raise_for_status()
+        for _ in range(10):
+            response = client.get("/system_stats")
+            response.raise_for_status()
+            devices = response.json().get("devices", [])
+            if devices:
+                gpu = devices[0]
+                needed = min(6 * 1024**3, gpu.get("vram_total", 0) / 3)
+                if needed > 0 and gpu.get("vram_free", 0) >= needed:
+                    return True
+            time.sleep(.5)
+        return False
+    except (httpx.HTTPError, ValueError, TypeError):
+        return False
 
 
 

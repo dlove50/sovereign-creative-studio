@@ -216,3 +216,29 @@ def test_old_server_running_job_does_not_trigger_global_interrupt():
         async with httpx.AsyncClient(base_url='http://comfy', transport=httpx.MockTransport(handle)) as client:
             assert not await pr._stop_prompt(client, 'ours')
     asyncio.run(run())
+
+
+def test_upscale_preflight_releases_idle_models_and_checks_memory():
+    import httpx
+    seen = []
+    def handle(request):
+        seen.append((request.method, request.url.path))
+        if request.url.path == '/queue':
+            return httpx.Response(200, json={'queue_running': [], 'queue_pending': []})
+        if request.url.path == '/free':
+            assert json.loads(request.content) == {'unload_models': True, 'free_memory': True}
+            return httpx.Response(200)
+        assert request.url.path == '/system_stats'
+        return httpx.Response(200, json={'devices': [{'vram_total': 32*1024**3, 'vram_free': 12*1024**3}]})
+    with httpx.Client(base_url='http://comfy', transport=httpx.MockTransport(handle)) as client:
+        assert pr._prepare_upscale(client)
+    assert seen == [('GET','/queue'),('POST','/free'),('GET','/system_stats')]
+
+
+def test_upscale_preflight_leaves_other_queued_work_alone():
+    import httpx
+    def handle(request):
+        assert request.method == 'GET' and request.url.path == '/queue'
+        return httpx.Response(200, json={'queue_running': [], 'queue_pending': [[1,'other']]})
+    with httpx.Client(base_url='http://comfy', transport=httpx.MockTransport(handle)) as client:
+        assert not pr._prepare_upscale(client)
