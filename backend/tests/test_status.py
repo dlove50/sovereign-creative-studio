@@ -33,9 +33,16 @@ def _secrets_outside_the_public_mount(tmp_path, monkeypatch):
     default layout deliberately.
     """
     from app import config
+    from app.services import backups
+
     safe = tmp_path / "private" / "secrets"
     safe.mkdir(parents=True, exist_ok=True)
     monkeypatch.setattr(config, "SECRETS_DIR", safe)
+    # Backups default to STORAGE_DIR/backups and are served the same way, with
+    # the database inside them. Same reasoning as the secrets folder above.
+    safe_backups = tmp_path / "private" / "backups"
+    safe_backups.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setattr(backups, "BACKUP_DIR", safe_backups)
 
 
 @pytest.fixture(scope="module")
@@ -200,3 +207,24 @@ def test_startup_warns_when_secrets_are_inside_the_public_mount(monkeypatch, tmp
     warnings = startup.run_startup_checks()
     assert any("/storage" in w and "session_secret" in w for w in warnings), (
         f"the default secrets layout was not reported: {warnings}")
+
+
+def test_startup_warns_when_backups_are_inside_the_public_mount(monkeypatch, tmp_path):
+    """A backup zip holds the database. Its name is a timestamp, not a UUID, so
+    it can be guessed rather than having to leak. amd-sync's PublicStorage does
+    not block this folder, so merging that branch does not fix it."""
+    from app import config
+    from app.services import backups
+
+    storage = tmp_path / "storage"
+    backup_dir = storage / "backups"
+    backup_dir.mkdir(parents=True)
+    monkeypatch.setattr(config, "STORAGE_DIR", storage)
+    monkeypatch.setattr(backups, "BACKUP_DIR", backup_dir)
+    for name in ("COPY_BACKEND", "GENERATOR_BACKEND", "PRODUCT_SCENE_BACKEND",
+                 "VIDEO_BACKEND", "TRANSCRIPTION_BACKEND"):
+        monkeypatch.setattr(startup, name, "mock")
+
+    warnings = startup.run_startup_checks()
+    assert any("backups" in w and "password hash" in w for w in warnings), (
+        f"the default backup layout was not reported: {warnings}")

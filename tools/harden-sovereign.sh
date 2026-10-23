@@ -119,7 +119,18 @@ say ""
 say "2a. Secrets reachable over HTTP"
 SECRETS="$(secrets_dir)"
 STORAGE_ROOT="$(env_value STORAGE_DIR)"; STORAGE_ROOT="${STORAGE_ROOT:-$BACKEND/storage}"
-SAFE_SECRETS="$BACKEND/private/secrets"
+# Outside the repository, deliberately. An earlier version of this script used
+# backend/private/, which neither .gitignore covers -- so the next `git add -A`
+# would have committed the API keys to GitHub. Somewhere git can never see is
+# the only version of this that cannot go wrong, and both .gitignore files
+# belong to another branch, so a rule cannot be added from here.
+if is_root; then
+  PRIVATE_ROOT="${SOVEREIGN_PRIVATE_DIR:-/var/lib/sovereign}"
+else
+  PRIVATE_ROOT="${SOVEREIGN_PRIVATE_DIR:-$HOME/.sovereign}"
+fi
+SAFE_SECRETS="$PRIVATE_ROOT/secrets"
+SAFE_BACKUPS="$PRIVATE_ROOT/backups"
 
 case "$(cd "$(dirname "$SECRETS")" 2>/dev/null && pwd)/$(basename "$SECRETS")" in
   "$(cd "$STORAGE_ROOT" 2>/dev/null && pwd)"/*) inside_mount=1 ;;
@@ -157,6 +168,48 @@ if [ "$inside_mount" -eq 1 ]; then
   fi
 else
   ok "secrets folder is outside the served tree ($SECRETS)"
+fi
+
+# Backups are the same bug with a wider blast radius: a backup zip holds the
+# SQLite database -- every account, password hash and credit balance -- plus
+# every generated file. And unlike generated media, backup names are
+# timestamps rather than UUIDs, so they can be guessed rather than needing to
+# be leaked. amd-sync's PublicStorage does not block this folder, so merging
+# that branch does not fix it.
+BACKUPS="$(env_value BACKUP_DIR)"; BACKUPS="${BACKUPS:-$STORAGE_ROOT/backups}"
+case "$(cd "$(dirname "$BACKUPS")" 2>/dev/null && pwd)/$(basename "$BACKUPS")" in
+  "$(cd "$STORAGE_ROOT" 2>/dev/null && pwd)"/*) backups_inside=1 ;;
+  *) backups_inside=0 ;;
+esac
+
+if [ "$backups_inside" -eq 1 ]; then
+  bad "$BACKUPS is served at /storage/backups."
+  say  "        A backup zip contains the database: every account, password hash"
+  say  "        and credit balance. Backup names are timestamps, so they can be"
+  say  "        guessed -- no leaked URL needed."
+  if [ "$APPLY" -eq 1 ]; then
+    mkdir -p "$SAFE_BACKUPS" && chmod 700 "$SAFE_BACKUPS"
+    if [ -d "$BACKUPS" ] && [ -n "$(ls -A "$BACKUPS" 2>/dev/null)" ]; then
+      if cp -a "$BACKUPS/." "$SAFE_BACKUPS/" 2>/dev/null; then
+        rm -rf "$BACKUPS" && did "moved backups to $SAFE_BACKUPS"
+      else
+        bad "could not copy $BACKUPS -- left in place, nothing removed"
+      fi
+    else
+      did "created $SAFE_BACKUPS"
+    fi
+    touch "$ENV_FILE"
+    if grep -q "^[[:space:]]*BACKUP_DIR" "$ENV_FILE" 2>/dev/null; then
+      sed -i "s|^[[:space:]]*BACKUP_DIR.*|BACKUP_DIR=$SAFE_BACKUPS|" "$ENV_FILE"
+    else
+      printf '\n# Backups hold the database; keep them out of the /storage mount.\nBACKUP_DIR=%s\n' "$SAFE_BACKUPS" >> "$ENV_FILE"
+    fi
+    did "set BACKUP_DIR=$SAFE_BACKUPS in backend/.env"
+  else
+    step "would move backups to $SAFE_BACKUPS and set BACKUP_DIR in backend/.env"
+  fi
+else
+  ok "backups are outside the served tree ($BACKUPS)"
 fi
 say ""
 

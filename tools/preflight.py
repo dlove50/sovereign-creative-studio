@@ -265,6 +265,38 @@ def check_secrets_are_not_served(report: Report, env: dict[str, str]) -> None:
                    f"secrets are outside the served tree ({secrets})")
 
 
+def check_backups_are_not_served(report: Report, env: dict[str, str]) -> None:
+    """Backups default to STORAGE_DIR/backups, which is served at /storage.
+
+    A backup zip holds the database -- every account, password hash and credit
+    balance. Its name is a timestamp rather than a UUID, so it can be guessed
+    instead of having to leak.
+    """
+    storage_raw, _ = setting(env, "STORAGE_DIR", str(BACKEND / "storage"))
+    backups_raw, origin = setting(
+        env, "BACKUP_DIR", str(Path(storage_raw) / "backups"))
+    try:
+        storage = Path(storage_raw).resolve()
+        backups = Path(backups_raw).resolve()
+        inside = backups.is_relative_to(storage)
+    except (OSError, ValueError):
+        report.add(WARN, "Backup exposure", "could not resolve the backup path")
+        return
+
+    if inside:
+        rel = backups.relative_to(storage).as_posix()
+        report.add(
+            FAIL, "Backup exposure",
+            f"{backups} is served at /storage/{rel} (from {origin}); a backup "
+            "zip holds the database, and its name is a guessable timestamp",
+            "run tools/harden-sovereign.sh --apply, which moves it and sets "
+            "BACKUP_DIR in backend/.env",
+        )
+    else:
+        report.add(OK, "Backup exposure",
+                   f"backups are outside the served tree ({backups})")
+
+
 def check_backend_and_frontend(report: Report, env: dict[str, str]) -> None:
     for label, key, default in (
         # 8002 is what tools/start-sovereign-linux.sh binds. next.config.mjs
@@ -383,6 +415,7 @@ def run(models_dir: Path | None) -> Report:
     check_backend_venv(report)
     check_exposure(report, env)
     check_secrets_are_not_served(report, env)
+    check_backups_are_not_served(report, env)
     check_comfyui(report, env)
     check_backend_and_frontend(report, env)
     check_workflows(report, env)

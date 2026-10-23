@@ -237,3 +237,44 @@ def test_a_path_that_cannot_be_resolved_does_not_raise(tmp_path):
     verdict = exposure.secrets_served_publicly(
         tmp_path / "nope" / "secrets", tmp_path / "also-missing")
     assert verdict.level in {exposure.OK, exposure.CRITICAL}
+
+
+# --------------------------------------------------------------------------
+# Backups: the same bug, wider blast radius
+# --------------------------------------------------------------------------
+
+def test_the_default_backup_location_is_critical(tmp_path):
+    """A backup zip holds the database. Unlike generated media beside it, the
+    name is a timestamp rather than a UUID, so it can be guessed."""
+    storage = tmp_path / "storage"
+    backups = storage / "backups"
+    backups.mkdir(parents=True)
+
+    verdict = exposure.backups_served_publicly(backups, storage)
+    assert verdict.is_dangerous
+    assert "password hash" in verdict.summary
+    assert "scs-backup-" in verdict.summary, (
+        "the example should show the guessable name shape")
+
+
+def test_relocated_backups_are_clean(tmp_path):
+    storage = tmp_path / "storage"
+    storage.mkdir(parents=True)
+    backups = tmp_path / "outside" / "backups"
+    backups.mkdir(parents=True)
+
+    assert exposure.backups_served_publicly(backups, storage).level == exposure.OK
+
+
+def test_the_generic_check_catches_a_folder_nobody_listed(tmp_path):
+    """amd-sync blocks a fixed list of private folder names and already misses
+    backups. Asking whether a folder is inside the served tree catches whatever
+    gets put there next."""
+    storage = tmp_path / "storage"
+    newthing = storage / "something_added_later"
+    newthing.mkdir(parents=True)
+
+    verdict = exposure.private_dir_served_publicly(
+        newthing, storage, label="A new folder", example="x.dat",
+        contents="whatever is in it")
+    assert verdict.is_dangerous

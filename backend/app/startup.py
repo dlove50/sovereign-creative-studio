@@ -58,6 +58,7 @@ def run_startup_checks() -> list[str]:
     # combination before this.
     try:
         from . import config as _config
+        from .services import backups as _backups
         from .services import exposure
 
         verdicts = [
@@ -66,6 +67,9 @@ def run_startup_checks() -> list[str]:
             ),
             exposure.secrets_served_publicly(
                 _config.SECRETS_DIR, _config.STORAGE_DIR
+            ),
+            exposure.backups_served_publicly(
+                _backups.BACKUP_DIR, _config.STORAGE_DIR
             ),
         ]
     except Exception:  # noqa: BLE001 - a broken check must not stop the app

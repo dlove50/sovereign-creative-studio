@@ -26,9 +26,20 @@ from ..schemas import BackupOut
 
 APP_NAME = "Sovereign Creative Studio"
 
-# Backups live under storage/backups so they travel with the data folder but are
-# never themselves recursively included in a new backup.
-BACKUP_DIR = config.STORAGE_DIR / "backups"
+# Backups default under storage/backups so they travel with the data folder and
+# are never recursively included in a new backup.
+#
+# That default is also inside the directory main.py mounts at /storage, so
+# GET /storage/backups/<name>.zip returns a full backup -- the SQLite database
+# with every account, password hash and credit balance, plus every generated
+# file -- to anyone who can reach the port. Worse than the generated media
+# sitting beside it: those have UUID names that have to leak, while a backup is
+# named scs-backup-YYYYMMDD-HHMMSS and can simply be guessed.
+#
+# BACKUP_DIR makes the location movable without touching code, which is what
+# tools/harden-sovereign.sh sets. The default is left as it was so existing
+# backups stay visible in the UI rather than silently disappearing.
+BACKUP_DIR = Path(os.getenv("BACKUP_DIR", str(config.STORAGE_DIR / "backups")))
 
 _BACKUP_PREFIX = "scs-backup-"
 # Top-level storage/ folders we never copy into a backup: the backups folder

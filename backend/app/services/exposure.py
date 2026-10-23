@@ -159,6 +159,61 @@ def current_verdict(fallback_enabled: bool) -> Verdict:
     return assess(fallback_enabled=fallback_enabled, host=host, source=source)
 
 
+def private_dir_served_publicly(private_dir, storage_dir, *, label: str,
+                                example: str, contents: str) -> Verdict:
+    """Is `private_dir` inside the directory served at /storage?
+
+    Generalised from the secrets check after backups turned out to have the
+    same problem. A blocklist of known-private folder names is what amd-sync's
+    PublicStorage uses, and it already misses backups; asking "is this folder
+    inside the served tree" catches anything placed there later.
+    """
+    from pathlib import Path
+
+    try:
+        private = Path(private_dir).resolve()
+        storage = Path(storage_dir).resolve()
+        inside = private.is_relative_to(storage)
+    except (OSError, ValueError):
+        return Verdict(OK, summary=f"{label} location could not be checked.")
+
+    if not inside:
+        return Verdict(OK, summary=f"{label} is outside the public mount ({private}).")
+
+    relative = private.relative_to(storage).as_posix()
+    return Verdict(
+        CRITICAL,
+        summary=(
+            f"{label} is inside the directory served at /storage, so "
+            f"GET /storage/{relative}/{example} returns {contents} -- to anyone "
+            "who can reach this port, with no login."
+        ),
+        remedy=(
+            "Move it outside STORAGE_DIR. tools/harden-sovereign.sh --apply "
+            "relocates it and records the new path in backend/.env."
+        ),
+        host=str(private), source=label,
+    )
+
+
+def backups_served_publicly(backup_dir, storage_dir) -> Verdict:
+    """Backups default to STORAGE_DIR/backups, which is served at /storage.
+
+    Wider blast radius than the secrets folder: a backup zip holds the SQLite
+    database -- every account, password hash and credit balance -- plus every
+    generated file. And the names are timestamps rather than UUIDs, so they can
+    be guessed instead of having to leak. Confirmed by request against the
+    running app.
+    """
+    return private_dir_served_publicly(
+        backup_dir, storage_dir,
+        label="The backups folder",
+        example="scs-backup-20260101-120000.zip",
+        contents=("a full backup: the database with every account, password "
+                  "hash and credit balance, plus every generated file"),
+    )
+
+
 def secrets_served_publicly(secrets_dir, storage_dir) -> Verdict:
     """Is the secrets folder inside the directory served at /storage?
 
