@@ -52,6 +52,38 @@ class SovereignError(ToolError):
     """Shown to the agent verbatim (plain exceptions are masked by the SDK)."""
 
 
+async def _yield_executor_gpu() -> None:
+    """Opt-in: a dedicated local Harness executor releases its own model before GPU tools.
+
+    The inference response containing the tool call is already complete. Never unload
+    another model, and fail closed if the configured executor cannot release the card.
+    """
+    model = os.getenv("SOVEREIGN_MCP_OLLAMA_EXECUTOR_MODEL", "")
+    if not model:
+        return
+    url = os.getenv("SOVEREIGN_MCP_OLLAMA_URL", "http://127.0.0.1:11434").rstrip("/")
+    try:
+        async with httpx.AsyncClient(base_url=url, timeout=120.0) as client:
+            response = await client.get("/api/ps")
+            response.raise_for_status()
+            loaded = response.json().get("models", [])
+            if any(m.get("name", m.get("model")) != model for m in loaded):
+                raise SovereignError("Another Ollama model owns GPU memory; no production started.")
+            if not loaded:
+                return
+            response = await client.post("/api/generate", json={"model": model, "keep_alive": 0})
+            response.raise_for_status()
+            for _ in range(30):
+                response = await client.get("/api/ps")
+                response.raise_for_status()
+                if not response.json().get("models"):
+                    return
+                await asyncio.sleep(.2)
+    except httpx.HTTPError as exc:
+        raise SovereignError(f"Could not release the dedicated Harness executor: {exc}") from exc
+    raise SovereignError("Harness executor memory did not unload; no production started.")
+
+
 def _local(path: str, *, must_exist: bool = True) -> Path:
     p = Path(path).expanduser().resolve()
     if not any(p == root or root in p.parents for root in ALLOWED):
@@ -156,6 +188,7 @@ async def create_avatar(image_path: str, name: str) -> dict[str, Any]:
 @mcp.tool(name="sovereign_generate_scene")
 async def generate_scene(prompt: str, ctx: Context) -> dict[str, Any]:
     """Generate a still image (e.g. a concert stage) with Sovereign's image engine and wait for it."""
+    await _yield_executor_gpu()
     gen = await _call("POST", "/api/generations", json={"prompt": prompt})
     while gen["status"] in ("queued", "running"):
         await ctx.report_progress(0.5, 1.0, f"image {gen['status']}")
@@ -186,6 +219,7 @@ async def separate_vocals(path: str, ctx: Context, out_dir: str | None = None, c
     if not confirm:
         return {"plan": f"Separate {local.name} with Demucs htdemucs on the local GPU (about 10-40 s per minute "
                         "of audio). Call again with confirm=true to run."}
+    await _yield_executor_gpu()
     job = await _upload(str(local), "/api/enhance/jobs", extra={"ops": '[{"op":"separate"}]', "name": local.name})
     job = await _wait_enhance(job["id"], ctx)
     return {"job_id": job["id"], "outputs": await _save_outputs(job, out_dir)}
@@ -295,6 +329,7 @@ async def render_video(performance_id: str, ctx: Context, confirm: bool = False,
                 "estimate": f"{parts} GPU parts of about 1-4 minutes each on the R9700",
                 "next": "Show this to the user; call again with confirm=true to render." if plan["ready"] else
                         "Provide what is missing first."}
+    await _yield_executor_gpu()
     await _call("POST", f"/api/performances/{performance_id}/render")
     if not wait:
         return {"started": True}
@@ -336,6 +371,8 @@ async def _enhance(path: str, ops: list[dict[str, Any]], ctx: Context, out_dir: 
     import json as _json
 
     local = _local(path)
+    if any(op.get("op") in {"upscale_ai", "face_restore", "interpolate_ai", "separate"} for op in ops):
+        await _yield_executor_gpu()
     job = await _upload(str(local), "/api/enhance/jobs", extra={"ops": _json.dumps(ops), "name": local.name})
     job = await _wait_enhance(job["id"], ctx)
     return {"job_id": job["id"], "outputs": await _save_outputs(job, out_dir), "ops": job["ops"]}

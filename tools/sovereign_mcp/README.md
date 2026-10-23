@@ -46,3 +46,23 @@ original design is `sovereign_render_video` here).
 | `sovereign_enhance_video` | Non-destructive video enhancement | yes |
 
 Nothing in this server deletes user content. Errors are returned to the agent verbatim.
+
+## Dedicated local Harness executor
+
+For a Harness session that exclusively owns its local Ollama executor, set
+`SOVEREIGN_MCP_OLLAMA_EXECUTOR_MODEL` to the exact model name, for example
+`qwen3.6:35b-a3b-coding`, in the MCP server's environment. Before a confirmed GPU
+render, scene generation, stem separation or model enhancement, the server unloads
+that executor with Ollama's `keep_alive: 0` request and verifies it has released
+its model. The inference response containing the tool call has already completed.
+Ollama can reload the executor after the tool finishes.
+
+This is opt-in and never unloads an unrelated model: another loaded model blocks
+the production with an explicit error. Configure it only for a dedicated session,
+and use `wait=true` for rendering so the agent does not reload during generation
+or upscaling. Other external GPU clients still require ownership coordination.
+`SOVEREIGN_MCP_OLLAMA_URL` overrides the local Ollama URL. Model-release failure
+blocks production instead of trying to load both large models together.
+
+Test the release protocol without loading a model:
+`~/ai/venvs/sovereign-mcp/bin/python tools/sovereign_mcp/test_executor_yield.py`.
