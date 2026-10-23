@@ -346,7 +346,7 @@ async def render_video(performance_id: str, ctx: Context, confirm: bool = False,
         if render.get("status") not in ("queued", "running"):
             if render.get("status") != "done":
                 raise SovereignError(f"Render {render.get('status')}: {render.get('error')}")
-            return {"video": f"{API}{render['video_url']}", "master_shot": f"{API}{render.get('master_shot_url')}"}
+            return {"video": f"{API}{render['video_url']}", "master_shot": f"{API}{render.get('master_shot_url')}", "layers": render.get("layers", []), "initial_hold_frames": render.get("initial_hold_frames", 0)}
         await asyncio.sleep(POLL * 3)
 
 

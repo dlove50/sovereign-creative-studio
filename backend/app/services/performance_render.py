@@ -36,6 +36,7 @@ from .avatar_comfyui import (FPS, MOTION_FRAMES, _find_video, _join_chunks, _run
 
 WIDTH, HEIGHT = int(os.getenv("PERFORMANCE_WIDTH", "832")), int(os.getenv("PERFORMANCE_HEIGHT", "480"))
 CHUNK_FRAMES = int(os.getenv("PERFORMANCE_CHUNK_FRAMES", "81"))
+INITIAL_HOLD_FRAMES = max(0, int(os.getenv("PERFORMANCE_INITIAL_HOLD_FRAMES", "4")))
 STEPS = int(os.getenv("PERFORMANCE_STEPS", "4"))
 CFG = float(os.getenv("PERFORMANCE_CFG", "1.0"))
 MULTI_PATCH = os.getenv("PERFORMANCE_MULTI_PATCH", "infinitetalk_multi.safetensors")
@@ -417,7 +418,11 @@ def compose_layers(project: dict[str, Any], layers: list[Path], background: Path
     previous = "base"
     for i, person in enumerate(project["performers"]):
         x = round((person["stage"]["x"] - .5) * WIDTH)
-        graph.append(f"[{i + 1}:v]scale={WIDTH}:{HEIGHT}:flags=lanczos,format=rgba,setsar=1[p{i}]")
+        # InfiniteTalk's conditioning latent can posterize its opening frames. Hold
+        # the first stable frame in place; preserve all later timestamps and audio.
+        hold = min(INITIAL_HOLD_FRAMES, max(0, math.ceil(project["duration"] * FPS)-1)) if not person.get("reference") else 0
+        opening = f",trim=start_frame={hold},setpts=PTS-STARTPTS,tpad=start={hold}:start_mode=clone" if hold else ""
+        graph.append(f"[{i + 1}:v]scale={WIDTH}:{HEIGHT}:flags=lanczos,format=rgba,setsar=1{opening}[p{i}]")
         graph.append(f"[{previous}][p{i}]overlay={x}:0:shortest=1:format=auto[v{i}]")
         previous = f"v{i}"
     _run_ffmpeg(args + ["-filter_complex", ";".join(graph), "-map", f"[{previous}]",
@@ -632,7 +637,7 @@ async def _render_layers(project: dict[str, Any], folder: Path, work: Path, tag:
     (folder / "layer-manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
     _status(project_id, status="done", stage="Done", progress=1.0, video=str(hd or final),
             video_sd=str(final), master_shot=str(folder / "master-shot.mp4"),
-            chunks=len(plans), layers=manifest, upscaled=bool(hd), visual_delay_ms=round(float(project.get("visual_delay_ms", 0)) * FPS / 1000) * 1000 / FPS)
+            chunks=len(plans), layers=manifest, upscaled=bool(hd), initial_hold_frames=INITIAL_HOLD_FRAMES, visual_delay_ms=round(float(project.get("visual_delay_ms", 0)) * FPS / 1000) * 1000 / FPS)
 
 
 def _browser_preview(source: Path, folder: Path) -> Path | None:

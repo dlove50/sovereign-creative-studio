@@ -326,3 +326,25 @@ def test_public_preview_does_not_serve_an_older_render(duet):
     later = preview.stat().st_mtime + 2
     os.utime(source, (later, later))
     assert _public(duet)["render"]["preview_url"] is None
+
+
+def test_opening_conditioning_cleanup_keeps_frame_count_and_audio(tmp_path, monkeypatch):
+    monkeypatch.setattr(pr, 'WIDTH', 64);monkeypatch.setattr(pr, 'HEIGHT', 64)
+    layer, audio, background = tmp_path/'layer.mkv', tmp_path/'own.wav', tmp_path/'bg.png'
+    pr._run_ffmpeg(['-f','lavfi','-i','color=red:s=64x64:r=25:d=0.16','-f','lavfi','-i','color=blue:s=64x64:r=25:d=0.24',
+                    '-filter_complex','[0:v][1:v]concat=n=2:v=1:a=0','-c:v','ffv1','-pix_fmt','bgra',str(layer)])
+    pr._run_ffmpeg(['-f','lavfi','-i','sine=frequency=440:sample_rate=16000:duration=0.4',str(audio)])
+    Image.new('RGB',(64,64),'black').save(background)
+    project={'duration':.4,'master_audio':str(audio),'performers':[{'stage':{'x':.5}}]}
+    before, after = tmp_path/'before.mp4',tmp_path/'after.mp4'
+    monkeypatch.setattr(pr,'INITIAL_HOLD_FRAMES',0);pr.compose_layers(project,[layer],background,before)
+    monkeypatch.setattr(pr,'INITIAL_HOLD_FRAMES',4);pr.compose_layers(project,[layer],background,after)
+    def frames(path):
+        raw=subprocess.check_output([FFMPEG,'-v','error','-i',str(path),'-f','rawvideo','-pix_fmt','rgb24','-'])
+        return np.frombuffer(raw,np.uint8).reshape(-1,64,64,3)
+    a,b=frames(before),frames(after)
+    assert len(a)==len(b)==10
+    assert a[0,:,:,0].mean()>200 and b[0,:,:,2].mean()>200
+    assert np.abs(b[4:].astype(float)-a[4:].astype(float)).mean()<3
+    hashes=[subprocess.check_output([FFMPEG,'-v','error','-i',str(p),'-map','0:a','-f','md5','-']) for p in [before,after]]
+    assert hashes[0]==hashes[1]
