@@ -412,30 +412,30 @@ contract and its "always safe" comment no longer holds. Either the test or the
 reordering needs to change. `3680b3c` reports 922 passed, so this may already be
 resolved there; flagged in case it is not.
 
-## 6. Blocker: GitHub write access
+## 6. GitHub write access — RESOLVED 2026-10-23
 
-Commit `6637510` is committed locally but **could not be pushed**:
+This section recorded a hard blocker for most of this work's life. It is fixed.
+
+For ~30 commits' worth of work, every push returned 403. The cause was
+misdiagnosed here for two days as a missing `Contents: write` scope on an
+otherwise valid token. It was not: the Claude GitHub App was not installed for
+the repository at all, which the server eventually said outright:
 
 ```
 remote: Claude doesn't have GitHub access to dlove50/sovereign-creative-studio
         for your organization
-fatal: ... error: 403
 ```
 
-Read access works; write does not. The Claude GitHub App needs installing on
-the repository (https://github.com/apps/claude/installations/select_target) or
-GitHub reconnecting (https://claude.ai/connect-github). Only David or a GitHub
-org owner can do this.
+Once the app was installed (or GitHub reconnected — both routes work), the push
+succeeded first try. Branch `claude/amd-radeon-vram-crash-9yah9m` is on the
+remote at `6f7b2ab`, 30 commits ahead of `master`, nothing outstanding.
 
-Until then the commit exists only as a patch file sent to David. It applies
-cleanly onto `master`:
+The bundle and `CODEX-PUSH-INSTRUCTIONS.md` prepared as a workaround are
+obsolete. Do not use them; they describe an older head.
 
-```bash
-git am 0001-amd-rocm-docs-and-launcher.patch
-```
-
-If you are picking this up and the two files in §4 are missing from the repo,
-that patch was never applied — ask David for it rather than rewriting them.
+**Lesson worth keeping:** a 403 on push is ambiguous, and guessing at scopes
+cost days of workaround engineering. The server's own error text, once read
+literally, named the fix in one line.
 
 ---
 
@@ -471,3 +471,71 @@ The owner also states Codex can read this session and can coordinate local
 `AiServerR9700` checks. So the §3 commands do not have to wait for David at the
 keyboard — a locally running agent can run them and bring the output back. They
 still cannot be run from a cloud container.
+
+---
+
+## 8. House rules: one amendment David directed, three lines that are stale
+
+The house rules every agent works under live in
+`docs/HANDOFF_DEEPSEEK_HARNESS.md` §0. **That file does not exist on `master`
+or on this branch — it exists only on `amd-sync`**, and so do `AGENTS.md`,
+`HANDOFF_CLAUDE_CODE.md` and `HANDOFF_CODEX.md`. Editing it from here would
+mean creating a fork of a file another branch owns and actively edits, which is
+the one thing this branch has avoided throughout. So the change is recorded
+here and must be applied by whoever owns that file.
+
+### 8a. The amendment David directed, 2026-10-23
+
+Current text, `HANDOFF_DEEPSEEK_HARNESS.md` §0, line 10:
+
+> - **Never download anything without asking David first** (name, source, size).
+>   Never create accounts or log in to websites for him.
+
+Replace with:
+
+> - **Downloads.** Ask David first by default (name, source, size). *Exception,
+>   granted 2026-10-23:* if a task David set cannot be completed without a tool
+>   the agent does not have, and David is not available, the agent has his
+>   authority to fetch one — provided it is contained: pinned to a commit hash
+>   rather than a tag, run first with no network and a read-only filesystem,
+>   kept permanently behind an egress allowlist, and given no access to
+>   credentials, `~/.ssh`, browser profiles or the secrets folder. Record what
+>   was fetched and why. Containment is the control, not inspection: reviewing
+>   fetched code catches the obvious and misses dependency-level and delayed
+>   compromises, so never report a tool as "verified safe".
+> - **Accounts.** Still never create accounts for David. Logging in to a site
+>   he has asked the agent to act on is permitted; entering his phone number
+>   anywhere, or contacting any person other than David, requires his consent
+>   each time.
+
+### 8b. Three lines that now contradict reality
+
+Not David's instruction — flagged because an agent following §0 literally would
+refuse work that is already underway and already sanctioned. Same line:
+
+> - Windows 11 only. Do not touch Linux setups. Do not push anything to GitHub.
+
+All three are false as of 2026-10-23:
+
+- **"Windows 11 only" / "do not touch Linux setups"** — this entire body of
+  work is a Linux/ROCm port on `AiServerR9700`, directed by David. Codex is
+  working on that machine too.
+- **"Do not push anything to GitHub"** — David directed the push that landed
+  30 commits on the remote (see §6), and Codex has been asked to push
+  `feat/sovereign-2.0-performance-engine`.
+
+Suggested replacement:
+
+> - Windows 11 and Linux (`AiServerR9700`) are both live targets; check which
+>   machine a task is for before assuming paths or shells. Push only to your
+>   own branch, never to `master` or another agent's branch, and never
+>   force-push. Do not commit personal info.
+
+### 8c. Why this matters beyond tidiness
+
+There are currently at least three agents (Claude Code, Codex, the DeepSeek
+harness) acting on the same two machines under rule files that only one branch
+can see. Until `amd-sync` merges, an agent's behaviour depends on which branch
+it happens to have checked out. The download exception in 8a is exactly the
+kind of rule where that divergence is costly: one agent would fetch a tool
+unattended while another refuses, and neither is wrong by its own copy.
