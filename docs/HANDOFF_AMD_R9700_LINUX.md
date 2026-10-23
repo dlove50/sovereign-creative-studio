@@ -484,6 +484,12 @@ mean creating a fork of a file another branch owns and actively edits, which is
 the one thing this branch has avoided throughout. So the change is recorded
 here and must be applied by whoever owns that file.
 
+**Both amendments below are David's instructions, given 2026-10-23.** They are
+not proposals to weigh. Whoever next works on `amd-sync` should apply them to
+`HANDOFF_DEEPSEEK_HARNESS.md` §0 verbatim; until that happens, agents reading
+the old rules will behave inconsistently with agents reading these, and §8c
+explains why that is more than a documentation problem.
+
 ### 8a. The amendment David directed, 2026-10-23
 
 Current text, `HANDOFF_DEEPSEEK_HARNESS.md` §0, line 10:
@@ -508,28 +514,40 @@ Replace with:
 >   anywhere, or contacting any person other than David, requires his consent
 >   each time.
 
-### 8b. Three lines that now contradict reality
+### 8b. Three stale lines — David directed these fixed too, 2026-10-23
 
-Not David's instruction — flagged because an agent following §0 literally would
-refuse work that is already underway and already sanctioned. Same line:
+Same standing as 8a: this is David's instruction, not a suggestion. An agent
+following §0 as currently written would refuse work that is already underway
+with his sanction.
+
+Current text, `HANDOFF_DEEPSEEK_HARNESS.md` §0:
 
 > - Windows 11 only. Do not touch Linux setups. Do not push anything to GitHub.
+>   Do not commit personal info.
 
-All three are false as of 2026-10-23:
+All three of the first sentences are false as of 2026-10-23:
 
 - **"Windows 11 only" / "do not touch Linux setups"** — this entire body of
-  work is a Linux/ROCm port on `AiServerR9700`, directed by David. Codex is
-  working on that machine too.
+  work is a Linux/ROCm port on `AiServerR9700`, directed by David. Codex has a
+  shell on that machine and is working there too.
 - **"Do not push anything to GitHub"** — David directed the push that landed
-  30 commits on the remote (see §6), and Codex has been asked to push
+  31 commits on the remote (see §6), and has asked Codex to push
   `feat/sovereign-2.0-performance-engine`.
 
-Suggested replacement:
+Replace with:
 
-> - Windows 11 and Linux (`AiServerR9700`) are both live targets; check which
->   machine a task is for before assuming paths or shells. Push only to your
->   own branch, never to `master` or another agent's branch, and never
->   force-push. Do not commit personal info.
+> - **Machines.** Windows 11 and Linux (`AiServerR9700`) are both live targets.
+>   Check which machine a task is for before assuming paths, shells or line
+>   endings; `C:\...` paths in older handoff notes are not evidence a thing is
+>   Windows-only. Do not reconfigure the other machine's setup in passing.
+> - **Git.** Push only to your own branch. Never push to `master`, to
+>   `amd-sync`, or to another agent's branch without David saying so, and never
+>   force-push. Do not commit personal info or credentials.
+> - **Shared files.** Several agents work this repo at once. Before editing a
+>   file, check whether another live branch also edits it
+>   (`git diff --name-only origin/master...origin/<branch>`); if it does,
+>   record the change for that branch's owner instead of making it. The rule
+>   files themselves are the clearest case — they live only on `amd-sync`.
 
 ### 8c. Why this matters beyond tidiness
 
