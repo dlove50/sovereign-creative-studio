@@ -293,7 +293,7 @@ function Editor({ id, onClose }: { id: string; onClose: () => void }) {
 
       <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
         {project.performers.map((p) => (
-          <div key={p.id} className={cn(glass, "flex gap-4 p-4")}>
+          <div key={p.id} className={cn(glass, "min-w-0 flex gap-4 p-4")}>
             <div className="h-28 w-20 shrink-0 overflow-hidden rounded-xl bg-white/5">
               {p.identity_url ? <img src={assetUrl(p.identity_url) ?? undefined} alt={p.name} className="h-full w-full object-cover" />
                 : <Users className="m-auto mt-10 h-6 w-6 text-muted-foreground" />}
@@ -309,7 +309,7 @@ function Editor({ id, onClose }: { id: string; onClose: () => void }) {
               </div>
               <label className="flex items-center gap-2 text-xs text-muted-foreground">
                 Stage
-                <input type="range" min={0.05} max={0.95} step={0.01} defaultValue={p.stage.x} className="flex-1 accent-fuchsia-400"
+                <input type="range" min={0.05} max={0.95} step={0.01} defaultValue={p.stage.x} className="min-w-0 flex-1 accent-fuchsia-400"
                   onPointerUp={(e) => void run("Saving", () => performancesApi.patchPerformer(id, p.id, { stage: { ...p.stage, x: +e.currentTarget.value } }))} />
                 {p.stage.x < 0.4 ? "left" : p.stage.x > 0.6 ? "right" : "centre"}
               </label>
