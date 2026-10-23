@@ -83,6 +83,10 @@ class FaceRestorer:
 
     @torch.no_grad()
     def __call__(self, rgb: np.ndarray) -> tuple[np.ndarray, int]:
+        if self.fidelity >= 1.0:
+            # Maximum identity fidelity is an explicit request to keep the face.
+            # Avoid alignment/paste-back resampling as well as model synthesis.
+            return rgb.copy(), 0
         bgr = np.ascontiguousarray(rgb[:, :, ::-1])
         self.helper.clean_all()
         self.helper.read_image(bgr)
@@ -94,7 +98,7 @@ class FaceRestorer:
             t = torch.from_numpy(crop[:, :, ::-1].copy()).to(DEVICE).permute(2, 0, 1)[None].float() / 255.0
             restored = self.gfpgan(t)[0].clamp(0, 1)
             # Identity fidelity: blend the restoration with the aligned original face.
-            restored = (1 - self.fidelity * 0.6) * restored + (self.fidelity * 0.6) * t[0]
+            restored = (1 - self.fidelity) * restored + self.fidelity * t[0]
             face = (restored.permute(1, 2, 0) * 255).round().byte().cpu().numpy()[:, :, ::-1]
             self.helper.add_restored_face(np.ascontiguousarray(face))
         self.helper.get_inverse_affine(None)
