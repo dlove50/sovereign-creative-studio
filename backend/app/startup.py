@@ -35,6 +35,24 @@ _VALID_COPY_BACKENDS = {
 def run_startup_checks() -> list[str]:
     warnings: list[str] = []
 
+    # Repair loose permissions on the secrets folder before anything reads it.
+    # It holds the session signing key and every cloud provider API key, and
+    # under the default umask it is created world-readable. Done here as well
+    # as at the writers, because a key written by an earlier version stays
+    # loose until something fixes it in place.
+    try:
+        from .auth import harden_secrets_dir
+
+        tightened = harden_secrets_dir()
+    except Exception:  # noqa: BLE001 - never let this stop the app booting
+        logger.exception("[startup] Could not check secrets folder permissions")
+    else:
+        if tightened:
+            logger.warning(
+                "[startup] Tightened permissions on %d secrets path(s): %s",
+                len(tightened), ", ".join(tightened),
+            )
+
     if COPY_BACKEND == "openai" and not OPENAI_API_KEY:
         warnings.append(
             "COPY_BACKEND=openai but OPENAI_API_KEY is not set; copy jobs will "
