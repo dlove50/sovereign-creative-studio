@@ -312,6 +312,39 @@ function Editor({ id, onClose }: { id: string; onClose: () => void }) {
                   onPointerUp={(e) => void run("Saving", () => performancesApi.patchPerformer(id, p.id, { stage: { ...p.stage, x: +e.currentTarget.value } }))} />
                 {p.stage.x < 0.4 ? "left" : p.stage.x > 0.6 ? "right" : "centre"}
               </label>
+              <details className="text-xs text-muted-foreground">
+                <summary className="cursor-pointer py-1">Performance direction</summary>
+                <div className="space-y-2 pt-2">
+                  {(["head", "shoulders", "hands", "sway", "energy"] as const).map((control) => (
+                    <label key={control} className="flex items-center gap-2 capitalize">
+                      <span className="w-20">{control}</span>
+                      <input aria-label={`${p.name} ${control}`} type="range" min={0} max={1} step={0.05}
+                        defaultValue={p.motion[control] ?? 0.5} className="min-w-0 flex-1 accent-fuchsia-400"
+                        onBlur={(e) => void run("Saving direction", () => performancesApi.patchPerformer(id, p.id, { motion: { [control]: +e.target.value } }))} />
+                    </label>
+                  ))}
+                  <label className="flex items-center justify-between gap-2">Expression
+                    <select className="rounded border bg-background p-1" value={p.motion.expression ?? "natural"}
+                      onChange={(e) => void run("Saving expression", () => performancesApi.patchPerformer(id, p.id, { motion: { expression: e.target.value as NonNullable<typeof p.motion.expression> } }))}>
+                      {["natural", "joyful", "intense", "tender", "restrained"].map((v) => <option key={v}>{v}</option>)}
+                    </select>
+                  </label>
+                  <label className="flex items-center justify-between gap-2">Gaze
+                    <select className="rounded border bg-background p-1" value={p.motion.gaze ?? "automatic"}
+                      onChange={(e) => void run("Saving gaze", () => performancesApi.patchPerformer(id, p.id, { motion: { gaze: e.target.value as NonNullable<typeof p.motion.gaze> } }))}>
+                      {["automatic", "audience", "partner", "left", "right"].map((v) => <option key={v}>{v}</option>)}
+                    </select>
+                  </label>
+                  <p>Directions guide the model. Check the rendered movement and lip timing.</p>
+                  {project.render_strategy === "independent_layers" ? (
+                    <Button variant="outline" size="sm" disabled={!!rendering || !!busy}
+                      onClick={() => void run(`Rendering a new take for ${p.name}`, async () => {
+                        await performancesApi.patchPerformer(id, p.id, { motion: { seed: Math.floor(Math.random() * 2 ** 31) } });
+                        return performancesApi.render(id);
+                      })}>New take for {p.name}</Button>
+                  ) : null}
+                </div>
+              </details>
             </div>
           </div>
         ))}
@@ -375,7 +408,16 @@ function Editor({ id, onClose }: { id: string; onClose: () => void }) {
               <div className="h-1.5 overflow-hidden rounded-full bg-white/10"><div className="h-full bg-gradient-to-r from-fuchsia-400 to-violet-400 transition-[width]" style={{ width: `${render.progress * 100}%` }} /></div>
               {render.error ? <p className="text-xs text-destructive">{render.error}</p> : null}
             </div>
-          ) : <p className="text-xs text-muted-foreground">Render two performers locally with Wan 2.1 + InfiniteTalk, using each performer&apos;s assigned vocal audio. Available Real-ESRGAN enhancement runs after rendering. Review the result for lip timing and identity consistency.</p>}
+          ) : <p className="text-xs text-muted-foreground">Render locally with Wan 2.1 + InfiniteTalk, using each performer&apos;s assigned vocal audio. Review the result for lip timing and identity consistency.</p>}
+          <label className="block text-xs text-muted-foreground">Rendering approach
+            <select className="mt-1 w-full rounded-lg border bg-background p-2" value={project.render_strategy ?? "shared_pass"}
+              disabled={!!rendering || !!busy}
+              onChange={(e) => void run("Saving render approach", () => performancesApi.patch(id, { render_strategy: e.target.value as Performance["render_strategy"] }))}>
+              <option value="shared_pass">Shared scene — one or two performers</option>
+              <option value="independent_layers">Independent layers — reuse unchanged performers</option>
+            </select>
+          </label>
+          {project.render_strategy === "independent_layers" ? <p className="text-xs text-muted-foreground">Each performer renders separately into a stage zone. Unchanged passes are reused. Zone boundaries and lighting need visual review.</p> : null}
           <div className="flex gap-2">
             <Button className="flex-1 gap-2" disabled={!!rendering || !!busy} onClick={() => void run("Starting the render", () => performancesApi.render(id))}>
               <Film className="h-4 w-4" /> {render?.status === "done" ? "Render again" : "Render video"}

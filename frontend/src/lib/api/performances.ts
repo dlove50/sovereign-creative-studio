@@ -23,7 +23,9 @@ export type Performer = {
   name: string;
   role: PerformerRole;
   voice_id: string | null;
-  motion: { seed: number; sway: number; energy: number; phase: number };
+  motion: { seed: number; sway: number; energy: number; phase: number; head?: number; shoulders?: number; hands?: number;
+    expression?: "natural" | "joyful" | "intense" | "tender" | "restrained";
+    gaze?: "automatic" | "audience" | "partner" | "left" | "right" };
   stage: { x: number; scale: number; facing: "audience" | "left" | "right" | "partner" };
   regions: Region[];
   stem_url: string | null;
@@ -48,6 +50,7 @@ export type Performance = {
   id: string;
   title: string;
   mode: PerformanceMode;
+  render_strategy?: "shared_pass" | "independent_layers";
   duration: number;
   performers: Performer[];
   camera: CameraShot[];
@@ -81,7 +84,7 @@ export const performancesApi = {
   get: (id: string) => request<Performance>(`${base}/${id}`),
   create: (title: string, performers: string[], mode: PerformanceMode) =>
     request<Performance>(base, json("POST", { title, performers, mode })),
-  patch: (id: string, body: { title?: string; mode?: PerformanceMode; camera?: CameraShot[]; stage?: { prompt: string; aspect: string } }) =>
+  patch: (id: string, body: { title?: string; mode?: PerformanceMode; render_strategy?: Performance["render_strategy"]; camera?: CameraShot[]; stage?: { prompt: string; aspect: string } }) =>
     request<Performance>(`${base}/${id}`, json("PATCH", body)),
   remove: (id: string) => requestVoid(`${base}/${id}`, { method: "DELETE" }),
   uploadMaster: (id: string, f: File) => formRequest<Performance>(`${base}/${id}/master`, file(f)),
@@ -89,7 +92,7 @@ export const performancesApi = {
   uploadStem: (id: string, pid: string, f: File) => formRequest<Performance>(`${base}/${id}/performers/${pid}/stem`, file(f)),
   uploadIdentity: (id: string, pid: string, f: File) =>
     formRequest<Performance>(`${base}/${id}/performers/${pid}/identity`, file(f)),
-  patchPerformer: (id: string, pid: string, body: Partial<Pick<Performer, "name" | "role" | "stage">>) =>
+  patchPerformer: (id: string, pid: string, body: Partial<Pick<Performer, "name" | "role" | "stage" | "voice_id">> & { motion?: Partial<Performer["motion"]> }) =>
     request<Performance>(`${base}/${id}/performers/${pid}`, json("PATCH", body)),
   putRegions: (id: string, pid: string, regions: Omit<Region, "manual">[]) =>
     request<Performance>(`${base}/${id}/performers/${pid}/regions`, json("PUT", { regions })),

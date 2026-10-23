@@ -171,7 +171,18 @@ def test_api_full_duet_flow(tmp_path):
         assert client.get(f"{base}/files/..%2F{pid}.json").status_code == 404
         r = client.patch(base, json={"mode": "lead_background"})
         assert r.status_code == 200 and r.json()["mode"] == "lead_background"
+        seed = r.json()["performers"][0]["motion"]["seed"]
+        r = client.patch(f"{base}/performers/{ava}", json={"motion": {"hands": .9, "gaze": "partner"}})
+        assert r.status_code == 200, r.text
+        motion = r.json()["performers"][0]["motion"]
+        assert motion["hands"] == .9 and motion["gaze"] == "partner" and motion["seed"] == seed
+        assert motion["sway"] == .5 and motion["energy"] == .5
+        assert client.patch(f"{base}/performers/{ava}", json={"motion": {"hands": 2}}).status_code == 422
+        assert client.patch(base, json={"render_strategy": "unknown"}).status_code == 422
+        assert client.patch(base, json={"render_strategy": "independent_layers"}).status_code == 200
         plan = client.get(f"{base}/render-plan").json()
+        assert plan["strategy"] == "independent_layers"
+        assert "expressive hand gestures" in plan["passes"][0]["cues"][0]["direction"]
         assert plan["passes"][1]["voiced_seconds"] > 3 and "Ava: identity picture" in plan["missing"]
         assert client.delete(base).status_code == 204
         assert client.get(base).status_code == 404

@@ -126,3 +126,93 @@ def test_upscale_is_skipped_not_faked_when_unavailable(tmp_path, monkeypatch):
     src.write_bytes(b"x")
     assert pr._upscale("abc", src, tmp_path / "out.mp4") is None
     assert not (tmp_path / "out.mp4").exists()
+
+
+def test_layer_cache_tracks_performer_inputs_not_camera(duet):
+    import copy
+    for p in duet['performers']:
+        pe.build_drive_audio(duet, p['id'])
+    a, b = duet['performers']
+    original = [pr._layer_key(duet, p) for p in (a, b)]
+    duet['camera'] = [{'start': 0, 'end': 6, 'shot': 'close_up', 'focus': a['id']}]
+    assert [pr._layer_key(duet, p) for p in (a, b)] == original
+    a['motion']['hands'] = .9
+    assert pr._layer_key(duet, a) != original[0]
+    assert pr._layer_key(duet, b) == original[1]
+    changed = copy.deepcopy(duet)
+    changed['performers'][1]['stage']['scale'] = .8
+    assert pr._layer_key(changed, changed['performers'][1]) != original[1]
+
+
+@pytest.mark.skipif(not FFMPEG, reason='ffmpeg required')
+def test_independent_layers_reuse_and_selectively_regenerate(duet, monkeypatch):
+    import asyncio
+    submitted = []
+    async def fake_upload(client, local, kind):
+        return local.name
+    async def fake_submit(client, workflow, out, project_id):
+        submitted.append(workflow)
+        color = 'red' if len(submitted) == 1 else 'blue'
+        subprocess.run([FFMPEG, '-y', '-v', 'error', '-f', 'lavfi', '-i',
+                        f'color=c={color}:s={pr.WIDTH}x{pr.HEIGHT}:r=25',
+                        '-frames:v', str(workflow['7']['inputs']['length']),
+                        '-pix_fmt', 'yuv420p', str(out)], check=True)
+    monkeypatch.setattr(pr, '_upload', fake_upload)
+    monkeypatch.setattr(pr, '_submit', fake_submit)
+    monkeypatch.setattr(pr, 'CHUNK_FRAMES', 201)
+    monkeypatch.setattr(pr, 'UPSCALE', 0)
+    duet['render_strategy'] = 'independent_layers'
+    pe.save(duet)
+    asyncio.run(pr._render(duet['id']))
+    assert len(submitted) == 2
+    assert all(w['7']['inputs']['mode'] == 'single_speaker' for w in submitted)
+    project = pe.get(duet['id'])
+    layers = project['render']['layers']
+    assert not any(p['reused'] for p in layers)
+    assert abs(audio_duration(pe.media_dir(duet['id']) / 'performance.mp4') - 6) < .3
+    # Read actual encoded pixels, not just the FFmpeg command or manifest.
+    frame = subprocess.run([FFMPEG, '-v', 'error', '-i', project['render']['master_shot'],
+                            '-frames:v', '1', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-'],
+                           capture_output=True, check=True).stdout
+    pixels = np.frombuffer(frame, dtype=np.uint8).reshape(pr.HEIGHT, pr.WIDTH, 3)
+    assert pixels[pr.HEIGHT//2, pr.WIDTH//4, 0] > 200
+    assert pixels[pr.HEIGHT//2, 3*pr.WIDTH//4, 2] > 200
+    asyncio.run(pr._render(duet['id']))
+    assert len(submitted) == 2
+    project = pe.get(duet['id'])
+    assert all(p['reused'] for p in project['render']['layers'])
+    project['performers'][0]['motion']['hands'] = .9
+    pe.save(project)
+    asyncio.run(pr._render(duet['id']))
+    assert len(submitted) == 3
+    layers = pe.get(duet['id'])['render']['layers']
+    assert [p['reused'] for p in layers] == [False, True]
+
+
+def test_cancellation_is_scoped_and_never_interrupts_other_jobs():
+    import asyncio
+    import httpx
+    requests = []
+    def handle(request):
+        requests.append((request.method, request.url.path))
+        assert request.url.path == '/api/jobs/ours/cancel'
+        return httpx.Response(200, json={'cancelled': True})
+    async def run():
+        async with httpx.AsyncClient(base_url='http://comfy', transport=httpx.MockTransport(handle)) as client:
+            assert await pr._stop_prompt(client, 'ours')
+    asyncio.run(run())
+    assert requests == [('POST', '/api/jobs/ours/cancel')]
+
+
+def test_old_server_running_job_does_not_trigger_global_interrupt():
+    import asyncio
+    import httpx
+    def handle(request):
+        if request.url.path == '/api/jobs/ours/cancel':
+            return httpx.Response(404)
+        assert request.method == 'GET' and request.url.path == '/queue'
+        return httpx.Response(200, json={'queue_running': [[0, 'ours']], 'queue_pending': []})
+    async def run():
+        async with httpx.AsyncClient(base_url='http://comfy', transport=httpx.MockTransport(handle)) as client:
+            assert not await pr._stop_prompt(client, 'ours')
+    asyncio.run(run())

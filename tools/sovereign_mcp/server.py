@@ -203,8 +203,11 @@ async def create_performance(performers: list[str], title: str = "", mode: MODES
 async def assign_performer(performance_id: str, performer_id: str, identity_image_path: str | None = None,
                            vocal_stem_path: str | None = None, name: str | None = None,
                            stage_x: float | None = None,
-                           role: Literal["lead", "co_lead", "background", "actor"] | None = None) -> dict[str, Any]:
-    """Give one performer their identity picture, their OWN vocal stem, a name, role and stage position (0 left..1 right)."""
+                           role: Literal["lead", "co_lead", "background", "actor"] | None = None,
+                           motion: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Assign identity, own vocal stem and direction. motion accepts head/shoulders/hands/sway/energy
+    (0..1), expression (natural/joyful/intense/tender/restrained), gaze (automatic/audience/partner/left/right)
+    and seed (0..2147483647). Model directions need visual review; seed changes regenerate that layer."""
     base = f"/api/performances/{performance_id}"
     perf = None
     if identity_image_path:
@@ -216,6 +219,8 @@ async def assign_performer(performance_id: str, performer_id: str, identity_imag
         patch["name"] = name
     if role:
         patch["role"] = role
+    if motion is not None:
+        patch["motion"] = motion
     if stage_x is not None:
         if not 0 <= stage_x <= 1:
             raise SovereignError("stage_x must be between 0 (left) and 1 (right).")
@@ -228,17 +233,20 @@ async def assign_performer(performance_id: str, performer_id: str, identity_imag
 @mcp.tool(name="sovereign_compose_duet")
 async def compose_duet(performance_id: str, master_song_path: str | None = None, mode: MODES | None = None,
                        stage_image_path: str | None = None, stage_prompt: str | None = None,
-                       detect_parts: bool = True) -> dict[str, Any]:
+                       detect_parts: bool = True,
+                       render_strategy: Literal["shared_pass", "independent_layers"] | None = None) -> dict[str, Any]:
     """Set the master song, stage and mode, then find each performer's parts in THEIR stem. Returns the director sheet."""
     base = f"/api/performances/{performance_id}"
     if master_song_path:
         await _upload(master_song_path, f"{base}/master")
     if stage_image_path:
         await _upload(stage_image_path, f"{base}/stage-image")
-    if mode or stage_prompt is not None:
+    if mode or stage_prompt is not None or render_strategy is not None:
         body: dict[str, Any] = {}
         if mode:
             body["mode"] = mode
+        if render_strategy is not None:
+            body["render_strategy"] = render_strategy
         if stage_prompt is not None:
             body["stage"] = {"prompt": stage_prompt, "aspect": "16:9"}
         await _call("PATCH", base, json=body)

@@ -151,7 +151,7 @@ def create(user_id: str, title: str, performer_names: list[str], mode: str = "al
             "identity_image": None,
             "stem": None,
             "voice_id": None,
-            # Each performer gets their own motion seed and sway phase, so two singers never move as mirror images.
+            # Independent seeds are inputs to generation, not a guarantee of distinct movement.
             "motion": {"seed": int(uuid.uuid4().int % 2**31), "sway": 0.5, "energy": 0.5, "phase": round(i * 0.37 % 1, 3)},
             "stage": {"x": round(float(xs[i]), 3), "scale": 1.0, "facing": "audience"},
             "regions": [],
@@ -567,18 +567,35 @@ def motion_cues(project: dict[str, Any], performer_id: str) -> list[dict[str, An
         region = _explicit(p, (row["start"] + row["end"]) / 2)
         energy = (region or {}).get("intensity", p["motion"]["energy"])
         if state == "SINGING":
-            text = "sings with expressive face, natural head movement and hand gestures on strong notes"
+            text = "sings with accurate mouth articulation"
         elif state == "BACKGROUND_VOCAL":
-            text = "sings softly in the background, small head movement, steady posture"
+            text = "sings softly in the background"
         elif state == "SPEAKING":
-            text = "speaks naturally with conversational gestures"
+            text = "speaks naturally"
         elif state == "LISTENING":
-            text = (f"mouth closed, listens to {voiced_other['name']}, glances toward them, "
-                    "sways gently to the music, small reactions") if voiced_other else "mouth closed, listens"
+            text = f"mouth closed, listens to {voiced_other['name']}" if voiced_other else "mouth closed, listens"
         elif state == "MOVING":
             text = "mouth closed, moves across the stage"
         else:
-            text = "mouth closed, relaxed, sways slightly to the beat"
+            text = "mouth closed, relaxed"
+        motion = p["motion"]
+        # These are model directions. Keep them explicit in the plan so users can inspect
+        # what was requested; successful motion/identity transfer still needs visual QA.
+        for key, label in (("head", "head movement"), ("shoulders", "shoulder movement"),
+                           ("hands", "hand gestures"), ("sway", "body sway")):
+            value = float(motion.get(key, 0.5))
+            level = "minimal" if value < 0.25 else "subtle" if value < 0.6 else "expressive"
+            text += f", {level} {label}"
+        text += f", {motion.get('expression', 'natural')} expression"
+        text += f", {'restrained' if energy < .3 else 'moderate' if energy < .7 else 'high'} performance energy"
+        gaze = motion.get("gaze", "automatic")
+        facing = p.get("stage", {}).get("facing", "audience")
+        if gaze != "automatic":
+            text += f", looking toward the {gaze}"
+        elif voiced_other and state == "LISTENING":
+            text += f", glances toward {voiced_other['name']}"
+        if facing != "audience":
+            text += f", body facing the {facing}"
         cues.append({"start": row["start"], "end": row["end"], "state": state, "energy": round(float(energy), 3),
                      "direction": text, "look_at": voiced_other["id"] if voiced_other and state == "LISTENING" else None})
     return cues
@@ -603,9 +620,8 @@ def render_plan(project: dict[str, Any]) -> dict[str, Any]:
     return {
         "ready": not missing,
         "missing": missing,
-        # Two performers can share one multi-person lip-sync render (one camera, one light, no seams);
-        # more than two are rendered as separate passes and composited on the shared stage.
-        "strategy": "multi_person_single_pass" if two_up else "per_performer_passes_composited",
+        "strategy": ("independent_layers" if project.get("render_strategy") == "independent_layers"
+                     else "multi_person_single_pass" if two_up else "single_performer_pass"),
         "duration": project["duration"],
         "camera": project.get("camera", []),
         "stage": project.get("stage"),

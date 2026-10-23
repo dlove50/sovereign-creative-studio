@@ -1,9 +1,8 @@
 """Render a Multi-Performer Director project to video (local ComfyUI, Wan 2.1 + InfiniteTalk).
 
-Two performers -> ONE two-speaker InfiniteTalk pass: both people share the frame, the light and
-the camera, so there are no compositing seams. Each speaker is bound to a mask (their side of the
-stage) and to their own gated drive audio, so a mouth only moves on that performer's parts.
-One performer -> the single-speaker pass. More than two -> not rendered yet (reported, not faked).
+Shared-pass mode uses one two-speaker InfiniteTalk generation with separate masked audio.
+Independent-layer mode generates each performer separately, caches complete passes and
+composites stage zones. Zone boundaries and model behavior require visual review.
 
 Long songs are rendered as overlapping chunks (the avatar renderer's proven extension scheme),
 joined, re-framed per camera shot (close-up / two-shot / wide as digital crops of the master
@@ -12,6 +11,8 @@ shot), and muxed with the untouched master song.
 from __future__ import annotations
 
 import asyncio
+import copy
+import hashlib
 import json
 import os
 import shutil
@@ -251,10 +252,16 @@ def start(project_id: str) -> dict[str, Any]:
     plan = pe.render_plan(project)
     if not plan["ready"]:
         raise pe.PerformanceError("Still missing: " + ", ".join(plan["missing"]) + ".")
-    if len(project["performers"]) > 2:
+    if len(project["performers"]) > 2 and project.get("render_strategy") != "independent_layers":
         raise pe.PerformanceError("Rendering more than two performers is not built yet (planned: paired passes "
                                   "composited on the shared stage).")
     missing = readiness()
+    if project.get("render_strategy") == "independent_layers" or len(project["performers"]) == 1:
+        missing = [name for name in missing if name != f"model_patches/{MULTI_PATCH}"]
+        root = Path(os.getenv("COMFYUI_MODELS_DIR", "/mnt/storage/AI-Models/comfyui"))
+        single = f"model_patches/{config.AVATAR_INFINITETALK_PATCH_NAME}"
+        if root.is_dir() and not (root / single).is_file():
+            missing.append(single)
     if missing:
         raise pe.PerformanceError("Model files missing: " + ", ".join(missing) + ".")
     pe.validate(project)
@@ -292,6 +299,9 @@ async def _render(project_id: str) -> None:
     work = Path(tempfile.mkdtemp(prefix="performance_"))
     tag = uuid.uuid4().hex[:8]
     try:
+        if project.get("render_strategy") == "independent_layers":
+            await _render_layers(project, folder, work, tag)
+            return
         stage = compose_stage(project, work / f"{tag}-stage.png")
         shutil.copyfile(stage, folder / "stage-frame.png")
         masks = speaker_masks(project, work) if len(project["performers"]) == 2 else []
@@ -337,6 +347,115 @@ async def _render(project_id: str) -> None:
         shutil.rmtree(work, ignore_errors=True)
 
 
+def _layer_key(project: dict[str, Any], p: dict[str, Any]) -> str:
+    """Hash actual inputs and effective generation settings; camera edits reuse performances."""
+    digest = hashlib.sha256()
+    settings = {"version": 1, "width": WIDTH, "height": HEIGHT, "fps": FPS,
+                "chunk": CHUNK_FRAMES, "steps": STEPS, "cfg": CFG, "audio_scale": AUDIO_SCALE,
+                "model": config.AVATAR_WAN_MODEL_NAME, "patch": config.AVATAR_INFINITETALK_PATCH_NAME,
+                "encoder": config.AVATAR_AUDIO_ENCODER_NAME, "lora": SPEED_LORA, "negative": NEGATIVE,
+                "duration": project["duration"], "motion": p["motion"], "scale": p["stage"].get("scale", 1),
+                "cues": pe.motion_cues(project, p["id"]), "scene": project.get("stage", {}).get("prompt")}
+    digest.update(json.dumps(settings, sort_keys=True).encode())
+    for name in ("identity_image", "drive_audio"):
+        with Path(p[name]).open("rb") as stream:
+            for block in iter(lambda: stream.read(1024 * 1024), b""):
+                digest.update(block)
+    return digest.hexdigest()
+
+
+def compose_layers(project: dict[str, Any], layers: list[Path], background: Path, out: Path) -> Path:
+    """Composite independently generated stage zones, then retain the original song.
+
+    Zones have visible boundaries if the model changes lighting/background. This is deliberately
+    not advertised as alpha matting or seamless motion transfer; the rendered preview needs QA.
+    """
+    args = ["-loop", "1", "-i", str(background)]
+    for layer in layers:
+        args += ["-i", str(layer)]
+    args += ["-i", str(project["master_audio"])]
+    graph = [f"[0:v]fps={FPS},format=yuv420p,setsar=1[base]"]
+    previous = "base"
+    for i, (left, right) in enumerate(_bounds(project)):
+        x = round(left * WIDTH) // 2 * 2
+        edge = WIDTH if right == 1 else round(right * WIDTH) // 2 * 2
+        width = max(2, edge - x)
+        graph.append(f"[{i + 1}:v]crop={width}:{HEIGHT}:{(WIDTH-width)//2}:0,setsar=1[p{i}]")
+        graph.append(f"[{previous}][p{i}]overlay={x}:0:shortest=1[v{i}]")
+        previous = f"v{i}"
+    _run_ffmpeg(args + ["-filter_complex", ";".join(graph), "-map", f"[{previous}]",
+                       "-map", f"{len(layers)+1}:a", "-t", str(project["duration"]),
+                       "-c:v", "libx264", "-crf", "18", "-pix_fmt", "yuv420p",
+                       "-c:a", "aac", "-b:a", "256k", str(out)])
+    return out
+
+
+async def _render_layers(project: dict[str, Any], folder: Path, work: Path, tag: str) -> None:
+    project_id = project["id"]
+    plans, total_frames = plan_chunks(project["duration"], CHUNK_FRAMES)
+    cache = folder / "layers"
+    cache.mkdir(exist_ok=True)
+    layers, manifest = [], []
+    async with httpx.AsyncClient(base_url=config.COMFYUI_BASE_URL.rstrip("/"), timeout=60.0) as client:
+        for index, p in enumerate(project["performers"]):
+            if project_id in _cancelled:
+                raise Cancelled()
+            key = _layer_key(project, p)
+            target = cache / f"{p['id']}-{key}.mp4"
+            reused = target.is_file() and target.stat().st_size > 0
+            if not reused:
+                solo = copy.deepcopy(project)
+                solo["performers"] = [copy.deepcopy(p)]
+                solo["performers"][0]["stage"]["x"] = 0.5
+                # A shared stage photograph may contain the other singer: never feed that
+                # into a single-person pass and accidentally duplicate their identity.
+                solo["stage"]["image"] = None
+                image = compose_stage(solo, work / f"{tag}-{p['id']}.png")
+                uploaded = await _upload(client, image, "image")
+                cues = pe.motion_cues(project, p["id"])
+                chunks = []
+                for i, plan in enumerate(plans):
+                    if project_id in _cancelled:
+                        raise Cancelled()
+                    progress = (index + i / len(plans)) / len(project["performers"])
+                    _status(project_id, status="running", progress=round(progress * .94, 3),
+                            stage=f"{p['name']}: part {i+1} of {len(plans)}")
+                    piece = work / f"{tag}-{p['id']}-{i}.wav"
+                    _slice_audio(Path(p["drive_audio"]), plan, piece)
+                    audio = await _upload(client, piece, "audio")
+                    mid = (plan.audio_start_frame + plan.audio_frames / 2) / FPS
+                    cue = next((c for c in cues if c["start"] <= mid < c["end"]), None)
+                    prompt = (f"One adult performer on {project['stage'].get('prompt') or 'a concert stage'}, "
+                              f"{cue['direction'] if cue else 'stands naturally'}, consistent identity, accurate lip sync")
+                    previous = await _upload(client, chunks[-1], "video") if plan.extends else None
+                    wf = build_workflow(image=uploaded, audios=[audio], masks=[], prompt=prompt,
+                                        seed=p["motion"]["seed"] + i, length=plan.length, prev_video=previous)
+                    chunk = work / f"{tag}-{p['id']}-{i}.mp4"
+                    await _submit(client, wf, chunk, project_id)
+                    chunks.append(chunk)
+                temporary = work / f"{tag}-{p['id']}-layer.mp4"
+                _join_chunks(chunks, Path(p["drive_audio"]), total_frames, temporary)
+                # Publish only a complete pass. Cancellation/failure cannot create a cache hit.
+                pending = cache / f".{tag}-{p['id']}.mp4"
+                shutil.copyfile(temporary, pending)
+                pending.replace(target)
+            layers.append(target)
+            manifest.append({"performer_id": p["id"], "key": key, "file": target.name, "reused": reused})
+    _status(project_id, stage="Compositing performer layers", progress=.95)
+    stage = compose_stage(project, work / f"{tag}-stage.png")
+    master = compose_layers(project, layers, stage, work / f"{tag}-master.mp4")
+    shutil.copyfile(master, folder / "master-shot.mp4")
+    framed = reframe(project, master, work / f"{tag}-framed.mp4")
+    final = folder / "performance.mp4"
+    _run_ffmpeg(["-i", str(framed), "-i", str(project["master_audio"]), "-map", "0:v", "-map", "1:a",
+                 "-c:v", "copy", "-c:a", "aac", "-b:a", "256k", "-shortest", str(final)])
+    hd = _upscale(project_id, final, folder / "performance-hd.mp4")
+    (folder / "layer-manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+    _status(project_id, status="done", stage="Done", progress=1.0, video=str(hd or final),
+            video_sd=str(final), master_shot=str(folder / "master-shot.mp4"),
+            chunks=len(plans), layers=manifest, upscaled=bool(hd))
+
+
 def _upscale(project_id: str, src: Path, dst: Path) -> Path | None:
     """Real-ESRGAN x{UPSCALE} on the finished video (Universal Enhance worker). Skipped, not faked, if absent."""
     import subprocess
@@ -360,10 +479,12 @@ async def _submit(client: httpx.AsyncClient, workflow: dict[str, Any], out: Path
     if resp.status_code >= 400:
         raise RuntimeError(f"ComfyUI rejected the workflow: {resp.text[:400]}")
     prompt_id = resp.json().get("prompt_id")
+    if not prompt_id:
+        raise RuntimeError("ComfyUI accepted the request without a prompt id.")
     waited = 0.0
     while waited < CHUNK_TIMEOUT:
         if project_id in _cancelled:
-            await client.post("/interrupt")
+            await _stop_prompt(client, prompt_id)
             raise Cancelled()
         entry = (await client.get(f"/history/{prompt_id}")).json().get(prompt_id)
         if entry:
@@ -383,7 +504,32 @@ async def _submit(client: httpx.AsyncClient, workflow: dict[str, Any], out: Path
                 return
         await asyncio.sleep(POLL)
         waited += POLL
-    raise TimeoutError("A part took longer than 30 minutes and was stopped.")
+    stopped = await _stop_prompt(client, prompt_id)
+    raise TimeoutError("A part took longer than 30 minutes. " +
+                       ("Its cancellation was requested." if stopped else
+                        "Its cancellation could not be confirmed; check the ComfyUI queue before retrying."))
+
+
+async def _stop_prompt(client: httpx.AsyncClient, prompt_id: str) -> bool:
+    """Cancel only this render's prompt, never an unrelated queued/running job."""
+    try:
+        response = await client.post(f"/api/jobs/{prompt_id}/cancel")
+        if response.status_code != 404:
+            response.raise_for_status()
+            return bool(response.json().get("cancelled"))
+        # Older servers can safely delete a pending id, but their global interrupt
+        # cannot guarantee ownership across a queue race. Leave a running job alone.
+        response = await client.get("/queue")
+        response.raise_for_status()
+        queue = response.json()
+        if any(len(item) > 1 and item[1] == prompt_id for item in queue.get("queue_pending", [])):
+            response = await client.post("/queue", json={"delete": [prompt_id]})
+        else:
+            return False
+        response.raise_for_status()
+        return True
+    except (httpx.HTTPError, ValueError, TypeError):
+        return False
 
 
 def debug_workflow(project: dict[str, Any]) -> str:

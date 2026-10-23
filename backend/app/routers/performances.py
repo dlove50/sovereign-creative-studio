@@ -70,6 +70,7 @@ class PatchIn(BaseModel):
     mode: Mode | None = None
     stage: StageIn | None = None
     camera: list[Shot] | None = Field(default=None, max_length=500)
+    render_strategy: Literal["shared_pass", "independent_layers"] | None = None
 
 
 class Position(BaseModel):
@@ -79,8 +80,14 @@ class Position(BaseModel):
 
 
 class Motion(BaseModel):
-    sway: float = Field(ge=0, le=1)
-    energy: float = Field(ge=0, le=1)
+    sway: float | None = Field(default=None, ge=0, le=1)
+    energy: float | None = Field(default=None, ge=0, le=1)
+    head: float | None = Field(default=None, ge=0, le=1)
+    shoulders: float | None = Field(default=None, ge=0, le=1)
+    hands: float | None = Field(default=None, ge=0, le=1)
+    expression: Literal["natural", "joyful", "intense", "tender", "restrained"] | None = None
+    gaze: Literal["automatic", "audience", "partner", "left", "right"] | None = None
+    seed: int | None = Field(default=None, ge=0, lt=2**31)
 
 
 class PerformerPatch(BaseModel):
@@ -222,6 +229,8 @@ def patch(project_id: str, body: PatchIn, user: User = Depends(get_current_user)
         project["title"] = body.title.strip() or project["title"]
     if body.stage is not None:
         project["stage"].update(body.stage.model_dump())
+    if body.render_strategy is not None:
+        project["render_strategy"] = body.render_strategy
     try:
         if body.mode is not None:
             pe.apply_mode(project, body.mode)
@@ -291,7 +300,7 @@ def patch_performer(project_id: str, performer_id: str, body: PerformerPatch, us
     if body.stage is not None:
         p["stage"] = body.stage.model_dump()
     if body.motion is not None:
-        p["motion"].update(body.motion.model_dump())
+        p["motion"].update(body.motion.model_dump(exclude_none=True))
     return _save(project)
 
 
