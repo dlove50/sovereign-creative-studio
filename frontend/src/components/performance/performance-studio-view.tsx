@@ -417,7 +417,7 @@ function Editor({ id, onClose }: { id: string; onClose: () => void }) {
               <option value="independent_layers">Independent layers — reuse unchanged performers</option>
             </select>
           </label>
-          {project.render_strategy === "independent_layers" ? <p className="text-xs text-muted-foreground">Each performer renders separately into a stage zone. Unchanged passes are reused. Zone boundaries and lighting need visual review.</p> : null}
+          {project.render_strategy === "independent_layers" ? <p className="text-xs text-muted-foreground">Each performer renders separately, is extracted from their background, and is placed on a shared concert backdrop. Unchanged passes are reused. Hair edges, lighting and motion need visual review. The stage reference guides generation; it is not used as the final background.</p> : null}
           <div className="flex gap-2">
             <Button className="flex-1 gap-2" disabled={!!rendering || !!busy} onClick={() => void run("Starting the render", () => performancesApi.render(id))}>
               <Film className="h-4 w-4" /> {render?.status === "done" ? "Render again" : "Render video"}

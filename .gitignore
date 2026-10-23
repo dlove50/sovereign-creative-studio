@@ -89,3 +89,4 @@ frontend/.next*/
 *.ckpt
 *.gguf
 work/
+backend/.venv-matting/

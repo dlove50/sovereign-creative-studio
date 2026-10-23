@@ -2,7 +2,7 @@
 
 Shared-pass mode uses one two-speaker InfiniteTalk generation with separate masked audio.
 Independent-layer mode generates each performer separately, caches complete passes and
-composites stage zones. Zone boundaries and model behavior require visual review.
+composites transparent performer layers onto one stage. Mask edges and model behavior require visual review.
 
 Long songs are rendered as overlapping chunks (the avatar renderer's proven extension scheme),
 joined, re-framed per camera shot (close-up / two-shot / wide as digital crops of the master
@@ -70,13 +70,15 @@ def _bounds(project: dict[str, Any]) -> list[tuple[float, float]]:
     return bounds
 
 
-def compose_stage(project: dict[str, Any], out: Path) -> Path:
+def compose_stage(project: dict[str, Any], out: Path, *, background_only: bool = False) -> Path:
     """The first frame: the stage picture if given (already showing everyone), else each identity
     picture contained in its own slice of a dark concert-stage backdrop."""
     from PIL import Image, ImageDraw, ImageFilter, ImageOps
 
     stage_image = project.get("stage", {}).get("image")
-    if stage_image and Path(stage_image).is_file():
+    # The reference stage image may already contain both singers. Never duplicate them
+    # behind independently extracted performers; use the empty generated backdrop instead.
+    if not background_only and stage_image and Path(stage_image).is_file():
         with Image.open(stage_image) as raw:
             frame = ImageOps.fit(ImageOps.exif_transpose(raw).convert("RGB"), (WIDTH, HEIGHT), Image.Resampling.LANCZOS)
         frame.save(out, "PNG")
@@ -89,17 +91,20 @@ def compose_stage(project: dict[str, Any], out: Path) -> Path:
         draw.ellipse([cx - WIDTH * 0.18, -HEIGHT * 0.2, cx + WIDTH * 0.18, HEIGHT * 1.1], fill=90)
     glow = glow.filter(ImageFilter.GaussianBlur(60))
     frame = Image.composite(Image.new("RGB", frame.size, (90, 70, 130)), frame, glow)
+    if background_only:
+        frame.save(out, "PNG")
+        return out
     for p, (left, right) in zip(project["performers"], _bounds(project)):
         if not p.get("identity_image"):
             raise pe.PerformanceError(f"{p['name']} needs an identity picture.")
         slot_w = int((right - left) * WIDTH * 0.92 * p["stage"].get("scale", 1.0))
-        slot_h = int(HEIGHT * 0.96 * p["stage"].get("scale", 1.0))
+        slot_h = int(HEIGHT * project.get("portrait_height", 0.96) * p["stage"].get("scale", 1.0))
         with Image.open(p["identity_image"]) as raw:
-            person = ImageOps.contain(ImageOps.exif_transpose(raw).convert("RGB"), (slot_w, slot_h),
+            person = ImageOps.contain(ImageOps.exif_transpose(raw).convert("RGBA"), (slot_w, slot_h),
                                       Image.Resampling.LANCZOS)
         x = int(p["stage"]["x"] * WIDTH - person.width / 2)
         x = max(int(left * WIDTH), min(x, int(right * WIDTH) - person.width))
-        frame.paste(person, (x, HEIGHT - person.height))
+        frame.paste(person, (x, HEIGHT - person.height), person.getchannel("A"))
     frame.save(out, "PNG")
     return out
 
@@ -265,6 +270,10 @@ def start(project_id: str) -> dict[str, Any]:
             missing.append(single)
     if missing:
         raise pe.PerformanceError("Model files missing: " + ", ".join(missing) + ".")
+    if project.get("render_strategy") == "independent_layers":
+        python, model_dir = _matting_paths()
+        if not Path(python).is_file() or not (model_dir / "u2net_human_seg.onnx").is_file():
+            raise pe.PerformanceError("Independent rendering requires the CPU matting environment and U2Net human model.")
     pe.validate(project)
     _active.add(project_id)
     _cancelled.discard(project_id)
@@ -351,7 +360,7 @@ async def _render(project_id: str) -> None:
 def _layer_key(project: dict[str, Any], p: dict[str, Any]) -> str:
     """Hash actual inputs and effective generation settings; camera edits reuse performances."""
     digest = hashlib.sha256()
-    settings = {"version": 1, "width": WIDTH, "height": HEIGHT, "fps": FPS,
+    settings = {"version": 2, "width": WIDTH, "height": HEIGHT, "fps": FPS,
                 "chunk": CHUNK_FRAMES, "steps": STEPS, "cfg": CFG, "audio_scale": AUDIO_SCALE,
                 "model": config.AVATAR_WAN_MODEL_NAME, "patch": config.AVATAR_INFINITETALK_PATCH_NAME,
                 "encoder": config.AVATAR_AUDIO_ENCODER_NAME, "lora": SPEED_LORA, "negative": NEGATIVE,
@@ -366,29 +375,47 @@ def _layer_key(project: dict[str, Any], p: dict[str, Any]) -> str:
 
 
 def compose_layers(project: dict[str, Any], layers: list[Path], background: Path, out: Path) -> Path:
-    """Composite independently generated stage zones, then retain the original song.
-
-    Zones have visible boundaries if the model changes lighting/background. This is deliberately
-    not advertised as alpha matting or seamless motion transfer; the rendered preview needs QA.
-    """
+    """Overlay full alpha layers; never paste independently generated backgrounds or zone edges."""
     args = ["-loop", "1", "-i", str(background)]
     for layer in layers:
         args += ["-i", str(layer)]
     args += ["-i", str(project["master_audio"])]
     graph = [f"[0:v]fps={FPS},format=yuv420p,setsar=1[base]"]
     previous = "base"
-    for i, (left, right) in enumerate(_bounds(project)):
-        x = round(left * WIDTH) // 2 * 2
-        edge = WIDTH if right == 1 else round(right * WIDTH) // 2 * 2
-        width = max(2, edge - x)
-        graph.append(f"[{i + 1}:v]crop={width}:{HEIGHT}:{(WIDTH-width)//2}:0,setsar=1[p{i}]")
-        graph.append(f"[{previous}][p{i}]overlay={x}:0:shortest=1[v{i}]")
+    for i, person in enumerate(project["performers"]):
+        x = round((person["stage"]["x"] - .5) * WIDTH)
+        graph.append(f"[{i + 1}:v]format=rgba,setsar=1[p{i}]")
+        graph.append(f"[{previous}][p{i}]overlay={x}:0:shortest=1:format=auto[v{i}]")
         previous = f"v{i}"
     _run_ffmpeg(args + ["-filter_complex", ";".join(graph), "-map", f"[{previous}]",
                        "-map", f"{len(layers)+1}:a", "-t", str(project["duration"]),
                        "-c:v", "libx264", "-crf", "18", "-pix_fmt", "yuv420p",
                        "-c:a", "aac", "-b:a", "256k", str(out)])
     return out
+
+
+def _matting_paths() -> tuple[str, Path]:
+    executable = config.BASE_DIR / ".venv-matting" / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
+    return (os.getenv("PERFORMANCE_MATTING_PYTHON", str(executable)),
+            Path(os.getenv("PERFORMANCE_MATTING_MODELS", "/mnt/storage/AI-Models/matting")))
+
+
+def _matte_layer(source: Path, target: Path) -> Path:
+    """Publish only a complete lossless alpha pass; cache it independently of composition."""
+    import subprocess
+
+    python, model_dir = _matting_paths()
+    if not Path(python).is_file() or not (model_dir / "u2net_human_seg.onnx").is_file():
+        raise pe.PerformanceError("Independent rendering requires the CPU matting environment and U2Net human model.")
+    temporary = target.with_name(target.stem + ".partial" + target.suffix)
+    env = dict(os.environ, U2NET_HOME=str(model_dir), OMP_NUM_THREADS="2", OPENBLAS_NUM_THREADS="2")
+    result = subprocess.run([python, str(Path(__file__).with_name("performance_matte_worker.py")),
+                             str(source), str(temporary)], env=env, capture_output=True, text=True,
+                            timeout=6 * 3600)
+    if result.returncode or not temporary.is_file():
+        raise pe.PerformanceError("Performer extraction failed: " + result.stderr[-1500:])
+    temporary.replace(target)
+    return target
 
 
 async def _render_layers(project: dict[str, Any], folder: Path, work: Path, tag: str) -> None:
@@ -411,6 +438,11 @@ async def _render_layers(project: dict[str, Any], folder: Path, work: Path, tag:
                 # A shared stage photograph may contain the other singer: never feed that
                 # into a single-person pass and accidentally duplicate their identity.
                 solo["stage"]["image"] = None
+                solo["portrait_height"] = .88  # leave room above the hair for generated motion
+                identity = work / f"{tag}-{p['id']}-identity.png"
+                _status(project_id, stage=f"Preparing {p['name']}'s transparent identity (CPU)")
+                await asyncio.to_thread(_matte_layer, Path(p["identity_image"]), identity)
+                solo["performers"][0]["identity_image"] = str(identity)
                 image = compose_stage(solo, work / f"{tag}-{p['id']}.png")
                 uploaded = await _upload(client, image, "image")
                 cues = pe.motion_cues(project, p["id"])
@@ -427,7 +459,8 @@ async def _render_layers(project: dict[str, Any], folder: Path, work: Path, tag:
                     mid = (plan.audio_start_frame + plan.audio_frames / 2) / FPS
                     cue = next((c for c in cues if c["start"] <= mid < c["end"]), None)
                     prompt = (f"One adult performer on {project['stage'].get('prompt') or 'a concert stage'}, "
-                              f"{cue['direction'] if cue else 'stands naturally'}, consistent identity, accurate lip sync")
+                              f"{cue['direction'] if cue else 'stands naturally'}, consistent identity, accurate lip sync, "
+                              "entire head visible with space above the hair, no frame borders")
                     previous = await _upload(client, chunks[-1], "video") if plan.extends else None
                     wf = build_workflow(image=uploaded, audios=[audio], masks=[], prompt=prompt,
                                         seed=p["motion"]["seed"] + i, length=plan.length, prev_video=previous)
@@ -440,10 +473,16 @@ async def _render_layers(project: dict[str, Any], folder: Path, work: Path, tag:
                 pending = cache / f".{tag}-{p['id']}.mp4"
                 shutil.copyfile(temporary, pending)
                 pending.replace(target)
-            layers.append(target)
-            manifest.append({"performer_id": p["id"], "key": key, "file": target.name, "reused": reused})
+            matte = cache / f"{p['id']}-{key}-u2net-matting-v2.mkv"
+            matte_reused = matte.is_file() and matte.stat().st_size > 0
+            if not matte_reused:
+                _status(project_id, stage=f"Extracting {p['name']} from the background (CPU)")
+                await asyncio.to_thread(_matte_layer, target, matte)
+            layers.append(matte)
+            manifest.append({"performer_id": p["id"], "key": key, "file": target.name, "reused": reused,
+                             "alpha_file": matte.name, "alpha_reused": matte_reused})
     _status(project_id, stage="Compositing performer layers", progress=.95)
-    stage = compose_stage(project, work / f"{tag}-stage.png")
+    stage = compose_stage(project, work / f"{tag}-stage.png", background_only=True)
     master = compose_layers(project, layers, stage, work / f"{tag}-master.mp4")
     shutil.copyfile(master, folder / "master-shot.mp4")
     framed = reframe(project, master, work / f"{tag}-framed.mp4")

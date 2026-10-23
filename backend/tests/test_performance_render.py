@@ -161,6 +161,21 @@ def test_independent_layers_reuse_and_selectively_regenerate(duet, monkeypatch):
     monkeypatch.setattr(pr, '_submit', fake_submit)
     monkeypatch.setattr(pr, 'CHUNK_FRAMES', 201)
     monkeypatch.setattr(pr, 'UPSCALE', 0)
+    def fake_matte(source, target):
+        if target.suffix == '.png':
+            import shutil
+            shutil.copyfile(source, target)
+            return target
+        # Preserve transparent background in the real encoded layer and exercise alpha composition.
+        from PIL import ImageDraw
+        image = Image.new('RGBA', (pr.WIDTH, pr.HEIGHT), (0, 255, 0, 0))
+        color = 'red' if source.name.startswith(duet['performers'][0]['id']) else 'blue'
+        ImageDraw.Draw(image).rectangle((pr.WIDTH*.35, 0, pr.WIDTH*.65, pr.HEIGHT), fill=color)
+        png = target.with_suffix('.png'); image.save(png)
+        subprocess.run([FFMPEG, '-y', '-v', 'error', '-loop', '1', '-i', str(png), '-t', '6',
+                        '-r', '25', '-c:v', 'ffv1', '-pix_fmt', 'bgra', str(target)], check=True)
+        return target
+    monkeypatch.setattr(pr, '_matte_layer', fake_matte)
     duet['render_strategy'] = 'independent_layers'
     pe.save(duet)
     asyncio.run(pr._render(duet['id']))
@@ -177,10 +192,15 @@ def test_independent_layers_reuse_and_selectively_regenerate(duet, monkeypatch):
     pixels = np.frombuffer(frame, dtype=np.uint8).reshape(pr.HEIGHT, pr.WIDTH, 3)
     assert pixels[pr.HEIGHT//2, pr.WIDTH//4, 0] > 200
     assert pixels[pr.HEIGHT//2, 3*pr.WIDTH//4, 2] > 200
+    # No generated green background and no rectangular layer obscuring the shared stage.
+    center = pixels[pr.HEIGHT//2, pr.WIDTH//2]
+    assert center.max() < 180 and center[1] < 150
+    assert all(p['alpha_file'].endswith('.mkv') for p in layers)
     asyncio.run(pr._render(duet['id']))
     assert len(submitted) == 2
     project = pe.get(duet['id'])
     assert all(p['reused'] for p in project['render']['layers'])
+    assert all(p['alpha_reused'] for p in project['render']['layers'])
     project['performers'][0]['motion']['hands'] = .9
     pe.save(project)
     asyncio.run(pr._render(duet['id']))
