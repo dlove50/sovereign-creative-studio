@@ -12,6 +12,7 @@ RIFE network (IFNet_HDv3) and warp: Practical-RIFE by hzwer, MIT licence
 from __future__ import annotations
 
 import json
+from fractions import Fraction
 import os
 import shutil
 import subprocess
@@ -201,15 +202,18 @@ def load_rife() -> IFNet:
 
 
 @torch.no_grad()
-def interpolate(net: IFNet, a: np.ndarray, b: np.ndarray, steps: int) -> list[np.ndarray]:
-    """steps-1 in-between frames for frames a -> b (uint8 HxWx3)."""
+def interpolate(net: IFNet, a: np.ndarray, b: np.ndarray, times: list[float]) -> list[np.ndarray]:
+    """Frames at the requested fractional times between a and b."""
     h, w, _ = a.shape
     ph, pw = ((h - 1) // 128 + 1) * 128, ((w - 1) // 128 + 1) * 128
     ta = F.pad(torch.from_numpy(a).to(DEVICE).permute(2, 0, 1)[None].float() / 255.0, (0, pw - w, 0, ph - h))
     tb = F.pad(torch.from_numpy(b).to(DEVICE).permute(2, 0, 1)[None].float() / 255.0, (0, pw - w, 0, ph - h))
     frames = []
-    for k in range(1, steps):
-        mid = net(ta, tb, timestep=k / steps)[0, :, :h, :w]
+    for fraction in times:
+        if fraction >= 1 - 1e-8:
+            frames.append(b)
+            continue
+        mid = net(ta, tb, timestep=fraction)[0, :, :h, :w]
         frames.append((mid.clamp(0, 1).permute(1, 2, 0) * 255).round().byte().cpu().numpy())
     return frames
 
@@ -254,6 +258,7 @@ def process_video(src: Path, dst: Path, frame_fn, out_scale: int = 1, out_rate: 
                                "-crf", "16", "-preset", "medium", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "256k",
                                "-shortest", str(dst)], stdin=subprocess.PIPE)
     size, n, prev = w * h * 3, 0, None
+    written, target_fps = 0, float(Fraction(rate))
     total = max(1, info["frames"])
     while True:
         raw = reader.stdout.read(size)
@@ -261,21 +266,35 @@ def process_video(src: Path, dst: Path, frame_fn, out_scale: int = 1, out_rate: 
             break
         frame = np.frombuffer(raw, np.uint8).reshape(h, w, 3)
         if per_pair is not None:
-            if prev is not None:
-                for mid in per_pair(prev, frame):
+            if prev is None:
+                writer.stdin.write(frame.tobytes())
+                written += 1
+            else:
+                # Schedule exact output timestamps, including noninteger ratios
+                # such as25->60fps, rather than rounding the requested rate.
+                fractions = []
+                while written / target_fps <= n / info["fps"] + 1e-9:
+                    fractions.append((written / target_fps - (n - 1) / info["fps"]) * info["fps"])
+                    written += 1
+                for mid in per_pair(prev, frame, fractions):
                     writer.stdin.write(mid.tobytes())
-            writer.stdin.write(frame.tobytes())
             prev = frame
         else:
             writer.stdin.write(frame_fn(frame).tobytes())
+            written += 1
         n += 1
         if n % 5 == 0:
             progress(n / total)
+    if per_pair is not None and prev is not None:
+        # The final source frame owns a full display interval as well.
+        while written < round(n * target_fps / info["fps"]):
+            writer.stdin.write(prev.tobytes())
+            written += 1
     writer.stdin.close()
     reader.wait()
     if writer.wait() != 0:
         raise SystemExit("Encoding the enhanced video failed.")
-    return n
+    return written
 
 
 def main() -> None:
@@ -303,10 +322,10 @@ def main() -> None:
             raise SystemExit("Frame interpolation needs a video.")
         net = load_rife()
         info = probe(src)
-        steps = max(2, round(float(params.get("fps", 60)) / info["fps"]))
-        report.update(model="RIFE v4.26", multiplier=steps)
-        report["frames"] = process_video(src, dst, None, out_rate=f"{info['fps'] * steps:.6f}",
-                                         per_pair=lambda a, b: interpolate(net, a, b, steps))
+        target_fps = float(params.get("fps", 60))
+        report.update(model="RIFE v4.26", fps=target_fps, multiplier=target_fps / info["fps"])
+        report["frames"] = process_video(src, dst, None, out_rate=f"{target_fps:.6f}",
+                                         per_pair=lambda a, b, times: interpolate(net, a, b, times))
     else:
         raise SystemExit(f"Unknown op {op}")
     progress(1.0)
