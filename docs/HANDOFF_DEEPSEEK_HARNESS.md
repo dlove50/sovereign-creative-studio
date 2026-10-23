@@ -7,9 +7,22 @@ David (the user) wants things *finished, verified and reported plainly*. When so
 
 - Surgical changes. Match existing style. Back up any existing file before editing it (backups for this work live in
   `C:\Users\David\Documents\Codex\sovereign-backups\music-lab-2026-10-06\`).
-- **Never download anything without asking David first** (name, source, size). Never create accounts or log in to websites for him.
+- **Downloads: ask David first by default** (name, source, size). *Exception, granted 2026-10-23:* if a task he set cannot be finished
+  without a tool you do not have and he is not available, you have his authority to fetch one — provided it is contained. Pin it to a
+  commit hash, never a tag; run it first with no network and a read-only filesystem; keep it behind an egress allowlist permanently;
+  give it no access to credentials, `~/.ssh`, browser profiles or the secrets folder. Record what you fetched and why. **Containment is
+  the control, not inspection** — reading fetched code catches the obvious and misses dependency-level and delayed compromises, so never
+  report a tool as "verified safe".
+- **Accounts:** never create accounts for David. Logging in to a site he has asked you to act on is fine. Entering his phone number
+  anywhere, or contacting any person other than David, needs his consent each time.
 - **Do not copy other companies' logos, photos or branding.** Build the *features*; make original art (local image models).
-- Windows 11 only. Do not touch Linux setups. Do not push anything to GitHub. Do not commit personal info.
+- **Machines:** Windows 11 and Linux (`AiServerR9700`) are both live targets. Check which machine a task is for before assuming paths,
+  shells or line endings — a `C:\...` path in an older handoff note is **not** evidence a thing is Windows-only. Do not reconfigure the
+  other machine's setup in passing.
+- **Git:** push only to your own branch. Never push to `master`, to `amd-sync`, or to another agent's branch unless David says so, and
+  never force-push. Do not commit personal info or credentials.
+- **Shared files:** several agents work this repo at once. Before editing a file, check whether another live branch also edits it
+  (`git diff --name-only origin/master...origin/<branch>`); if it does, record the change for that branch's owner instead of making it.
 - Tool habits on this machine: shell heredocs with quotes/backticks break often. **Write files with the file-write tool, then run them.**
   PowerShell for process control, bash only for simple things. Files in the Sovereign backend use **LF** line endings.
 - Pronouns: use they/them for David unless told otherwise.
