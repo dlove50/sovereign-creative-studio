@@ -409,6 +409,17 @@ function Editor({ id, onClose }: { id: string; onClose: () => void }) {
               {render.error ? <p className="text-xs text-destructive">{render.error}</p> : null}
             </div>
           ) : <p className="text-xs text-muted-foreground">Render locally with Wan 2.1 + InfiniteTalk, using each performer&apos;s assigned vocal audio. Review the result for lip timing and identity consistency.</p>}
+          <label className="block text-xs text-muted-foreground">Video timing offset (ms)
+            <Input type="number" min={-500} max={500} step={40} className="mt-1"
+              key={`${id}-${project.visual_delay_ms ?? 0}`} defaultValue={project.visual_delay_ms ?? 0}
+              disabled={!!rendering || !!busy}
+              onBlur={(e) => {
+                const value = Number(e.target.value);
+                if (Number.isFinite(value) && value >= -500 && value <= 500 && value !== (project.visual_delay_ms ?? 0))
+                  void run("Saving video timing", () => performancesApi.patch(id, { visual_delay_ms: value }));
+              }} />
+            <span className="mt-1 block">Positive values delay the picture; audio stays fixed. Rounded to a video frame. Independent passes are reused.</span>
+          </label>
           <label className="block text-xs text-muted-foreground">Rendering approach
             <select className="mt-1 w-full rounded-lg border bg-background p-2" value={project.render_strategy ?? "shared_pass"}
               disabled={!!rendering || !!busy}

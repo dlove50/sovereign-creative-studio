@@ -47,6 +47,7 @@ export type PerformanceRender = {
 };
 
 export type Performance = {
+  visual_delay_ms?: number;
   id: string;
   title: string;
   mode: PerformanceMode;
@@ -84,7 +85,7 @@ export const performancesApi = {
   get: (id: string) => request<Performance>(`${base}/${id}`),
   create: (title: string, performers: string[], mode: PerformanceMode) =>
     request<Performance>(base, json("POST", { title, performers, mode })),
-  patch: (id: string, body: { title?: string; mode?: PerformanceMode; render_strategy?: Performance["render_strategy"]; camera?: CameraShot[]; stage?: { prompt: string; aspect: string } }) =>
+  patch: (id: string, body: { visual_delay_ms?: number; title?: string; mode?: PerformanceMode; render_strategy?: Performance["render_strategy"]; camera?: CameraShot[]; stage?: { prompt: string; aspect: string } }) =>
     request<Performance>(`${base}/${id}`, json("PATCH", body)),
   remove: (id: string) => requestVoid(`${base}/${id}`, { method: "DELETE" }),
   uploadMaster: (id: string, f: File) => formRequest<Performance>(`${base}/${id}/master`, file(f)),

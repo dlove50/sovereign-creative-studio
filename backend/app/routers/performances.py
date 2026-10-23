@@ -66,6 +66,7 @@ class StageIn(BaseModel):
 
 
 class PatchIn(BaseModel):
+    visual_delay_ms: float | None = Field(default=None, ge=-500, le=500)
     title: str | None = Field(default=None, max_length=120)
     mode: Mode | None = None
     stage: StageIn | None = None
@@ -225,6 +226,8 @@ def read(project_id: str, user: User = Depends(get_current_user)):
 @router.patch("/{project_id}")
 def patch(project_id: str, body: PatchIn, user: User = Depends(get_current_user)):
     project = _owned(project_id, user)
+    if body.visual_delay_ms is not None:
+        project["visual_delay_ms"] = body.visual_delay_ms
     if body.title is not None:
         project["title"] = body.title.strip() or project["title"]
     if body.stage is not None:

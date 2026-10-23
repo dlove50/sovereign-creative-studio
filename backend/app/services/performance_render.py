@@ -353,6 +353,7 @@ async def _render(project_id: str) -> None:
         _status(project_id, stage="Joining, framing and mixing", progress=0.97)
         joined = work / f"{tag}-joined.mp4"
         _join_chunks(chunks, Path(project["master_audio"]), total_frames, joined)
+        joined = _align_visual_timing(project, joined, work / f"{tag}-aligned.mp4")
         master_shot = folder / "master-shot.mp4"
         shutil.copyfile(joined, master_shot)
         framed = reframe(project, joined, work / f"{tag}-framed.mp4")
@@ -362,7 +363,7 @@ async def _render(project_id: str) -> None:
         hd = _upscale(project_id, final, folder / "performance-hd.mp4")
         _status(project_id, status="done", stage="Done", progress=1.0, video=str(hd or final),
                 video_sd=str(final), master_shot=str(master_shot), chunks=len(plans),
-                upscaled=bool(hd))
+                upscaled=bool(hd), visual_delay_ms=round(float(project.get("visual_delay_ms", 0)) * FPS / 1000) * 1000 / FPS)
     finally:
         shutil.rmtree(work, ignore_errors=True)
 
@@ -402,6 +403,23 @@ def compose_layers(project: dict[str, Any], layers: list[Path], background: Path
                        "-c:v", "libx264", "-crf", "18", "-pix_fmt", "yuv420p",
                        "-c:a", "aac", "-b:a", "256k", str(out)])
     return out
+
+
+def _align_visual_timing(project: dict[str, Any], source: Path, target: Path) -> Path:
+    """Shift only pictures by whole frames; keep source audio and total duration."""
+    frames = round(float(project.get("visual_delay_ms", 0)) * FPS / 1000)
+    if not frames:
+        return source
+    duration = project["duration"]
+    total = round(duration * FPS)
+    if frames > 0:
+        filters = f"tpad=start_mode=clone:start_duration={frames / FPS},trim=end_frame={total},setpts=PTS-STARTPTS"
+    else:
+        filters = (f"trim=start_frame={-frames},setpts=PTS-STARTPTS,"
+                   f"tpad=stop_mode=clone:stop_duration={-frames / FPS},trim=end_frame={total}")
+    _run_ffmpeg(["-i", str(source), "-vf", filters, "-c:v", "libx264", "-crf", "18",
+                 "-pix_fmt", "yuv420p", "-c:a", "copy", "-t", str(duration), str(target)])
+    return target
 
 
 def _matting_paths() -> tuple[str, Path]:
@@ -495,6 +513,7 @@ async def _render_layers(project: dict[str, Any], folder: Path, work: Path, tag:
     _status(project_id, stage="Compositing performer layers", progress=.95)
     stage = compose_stage(project, work / f"{tag}-stage.png", background_only=True)
     master = compose_layers(project, layers, stage, work / f"{tag}-master.mp4")
+    master = _align_visual_timing(project, master, work / f"{tag}-aligned.mp4")
     shutil.copyfile(master, folder / "master-shot.mp4")
     framed = reframe(project, master, work / f"{tag}-framed.mp4")
     final = folder / "performance.mp4"
@@ -504,7 +523,7 @@ async def _render_layers(project: dict[str, Any], folder: Path, work: Path, tag:
     (folder / "layer-manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
     _status(project_id, status="done", stage="Done", progress=1.0, video=str(hd or final),
             video_sd=str(final), master_shot=str(folder / "master-shot.mp4"),
-            chunks=len(plans), layers=manifest, upscaled=bool(hd))
+            chunks=len(plans), layers=manifest, upscaled=bool(hd), visual_delay_ms=round(float(project.get("visual_delay_ms", 0)) * FPS / 1000) * 1000 / FPS)
 
 
 def _upscale(project_id: str, src: Path, dst: Path) -> Path | None:

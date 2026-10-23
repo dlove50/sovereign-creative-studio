@@ -275,3 +275,24 @@ def test_motion_cue_uses_retained_song_time_after_extension(monkeypatch):
     assert (start + end) / 2 > 14.4
     assert pr._visible_chunk_window(plans[0], 75) == (0, 3.24)
     assert pr._visible_chunk_window(plans[-1], 75)[1] == 75
+
+
+@pytest.mark.parametrize("delay", [120, -120])
+def test_visual_timing_preserves_audio_and_duration(tmp_path, delay):
+    source, target = tmp_path / "source.mp4", tmp_path / "aligned.mp4"
+    pr._run_ffmpeg(["-f", "lavfi", "-i", "testsrc2=size=64x64:rate=25:duration=0.4",
+                    "-f", "lavfi", "-i", "sine=frequency=440:duration=0.4", "-c:v", "libx264",
+                    "-c:a", "aac", "-shortest", str(source)])
+    assert pr._align_visual_timing({"visual_delay_ms": delay, "duration": .4}, source, target) == target
+    def rgb(path):
+        raw = subprocess.run([FFMPEG, "-v", "error", "-i", str(path), "-f", "rawvideo", "-pix_fmt", "rgb24", "-"],
+                             capture_output=True, check=True).stdout
+        return np.frombuffer(raw, np.uint8).reshape(-1, 64, 64, 3).astype(float)
+    before, after = rgb(source), rgb(target)
+    assert len(before) == len(after) == 10
+    assert np.abs(after[0] - before[0 if delay > 0 else 3]).mean() < 5
+    if delay > 0:
+        assert np.abs(after[2] - before[0]).mean() < 5
+    hashes = [subprocess.run([FFMPEG, "-v", "error", "-i", str(path), "-map", "0:a", "-f", "md5", "-"],
+                             capture_output=True, check=True).stdout for path in [source, target]]
+    assert hashes[0] == hashes[1]
