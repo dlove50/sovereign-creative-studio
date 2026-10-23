@@ -22,6 +22,7 @@ from pathlib import Path
 from typing import Any
 
 from .. import config
+from .gpu_jobs import GPU_JOB_LOCK
 
 SONG_ID_RE = re.compile(r"^[a-f0-9]{12}$")
 QUALITIES = ("V0", "128k", "320k")
@@ -40,7 +41,7 @@ JOB_TIMEOUT_MAX = 7200
 
 _jobs: dict[str, dict[str, Any]] = {}
 _jobs_lock = threading.Lock()
-_gpu_lock = threading.Lock()
+_gpu_lock = GPU_JOB_LOCK
 _engine_process: subprocess.Popen | None = None
 
 

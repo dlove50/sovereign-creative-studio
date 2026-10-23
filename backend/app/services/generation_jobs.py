@@ -16,6 +16,7 @@ from ..config import CREDITS_PER_GENERATION
 from ..database import SessionLocal
 from ..generators import get_generator
 from ..models import CreditTransaction, Generation, User
+from .gpu_jobs import GPU_JOB_LOCK
 
 _job_queue: "queue.Queue[str | None]" = queue.Queue()
 _worker_lock = threading.Lock()
@@ -45,7 +46,8 @@ def _worker_loop() -> None:
             _job_queue.task_done()
             break
         try:
-            _run_generation_job(generation_id)
+            with GPU_JOB_LOCK:
+                _run_generation_job(generation_id)
         finally:
             _job_queue.task_done()
 

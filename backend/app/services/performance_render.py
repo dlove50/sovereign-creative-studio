@@ -28,6 +28,7 @@ import httpx
 
 from .. import config
 from . import performance_engine as pe
+from .gpu_jobs import GPU_JOB_LOCK
 from .avatar_comfyui import (FPS, MOTION_FRAMES, _find_video, _join_chunks, _run_ffmpeg, _slice_audio,
                              _upload, plan_chunks)
 
@@ -49,7 +50,7 @@ NEGATIVE = ("low quality, blurry, flicker, distorted mouth, warped face, face sw
 
 _active: set[str] = set()
 _cancelled: set[str] = set()
-_gpu = threading.Lock()
+_gpu = GPU_JOB_LOCK
 
 
 class Cancelled(Exception):

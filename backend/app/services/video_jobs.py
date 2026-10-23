@@ -14,6 +14,7 @@ from ..config import STORAGE_DIR
 from ..database import SessionLocal
 from ..models import CreditTransaction, User, VideoGeneration
 from ..video_generators import get_video_generator
+from .gpu_jobs import GPU_JOB_LOCK
 
 _video_queue: "queue.Queue[str | None]" = queue.Queue()
 _worker_lock = threading.Lock()
@@ -41,7 +42,8 @@ def _worker_loop() -> None:
             _video_queue.task_done()
             break
         try:
-            _run_video(video_id)
+            with GPU_JOB_LOCK:
+                _run_video(video_id)
         finally:
             _video_queue.task_done()
 

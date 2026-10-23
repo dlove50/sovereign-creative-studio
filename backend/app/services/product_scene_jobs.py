@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from ..database import SessionLocal
 from ..models import ProductAsset, ProductSceneGeneration
 from ..product_scene_generators import get_product_scene_generator
+from .gpu_jobs import GPU_JOB_LOCK
 
 _scene_queue: "queue.Queue[str | None]" = queue.Queue()
 _worker_lock = threading.Lock()
@@ -36,7 +37,8 @@ def _worker_loop() -> None:
             _scene_queue.task_done()
             break
         try:
-            _run_product_scene(scene_id)
+            with GPU_JOB_LOCK:
+                _run_product_scene(scene_id)
         finally:
             _scene_queue.task_done()
 

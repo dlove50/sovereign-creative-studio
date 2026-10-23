@@ -30,6 +30,7 @@ from pathlib import Path
 from typing import Any
 
 from .. import config
+from .gpu_jobs import GPU_JOB_LOCK
 from ..config import STORAGE_DIR
 from .music_playback import audio_duration, find_ffmpeg_tool
 
@@ -379,8 +380,22 @@ def _media_seconds(path: Path) -> float | None:
 
 
 def _run(job_id: str) -> None:
+    import contextlib
+
+    job = get_job(job_id)
+    needs_gpu = any(OPERATIONS[op["op"]]["engine"].startswith("model:")
+                    or OPERATIONS[op["op"]]["engine"] == "demucs" for op in job["ops"])
+    # Remain queued while another production owns the GPU. Speech WPE and
+    # FFmpeg filters do not need the card and must not wait behind a long film.
+    with GPU_JOB_LOCK if needs_gpu else contextlib.nullcontext():
+        _run_claimed(job_id)
+
+
+def _run_claimed(job_id: str) -> None:
     job = get_job(job_id)
     try:
+        if job_id in _cancelled:
+            raise _Cancelled()
         job["status"] = "running"
         _save(job)
         source = Path(job["source"])
@@ -398,8 +413,12 @@ def _run(job_id: str) -> None:
     finally:
         _procs.pop(job_id, None)
         _cancelled.discard(job_id)
-        _running.discard(job_id)
-        _save(job)
+        # Publish the terminal state before dropping the live-worker marker.
+        # Pollers must not mistake this small completion window for a restart.
+        try:
+            _save(job)
+        finally:
+            _running.discard(job_id)
 
 
 class _Cancelled(Exception):

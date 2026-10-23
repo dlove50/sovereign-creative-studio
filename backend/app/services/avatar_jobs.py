@@ -22,6 +22,7 @@ from ..database import SessionLocal
 from ..models import AvatarAsset, AvatarJob, CreditTransaction, User, VoiceAsset
 from . import avatar as avatar_provider
 from . import avatar_comfyui
+from .gpu_jobs import GPU_JOB_LOCK
 from .avatar_presets import resolve_preset
 from .transcription import resolve_storage_url
 
@@ -144,7 +145,8 @@ def _worker_loop() -> None:
             _avatar_queue.task_done()
             break
         try:
-            _run_avatar_video(job_id)
+            with GPU_JOB_LOCK:
+                _run_avatar_video(job_id)
         finally:
             _avatar_queue.task_done()
 
