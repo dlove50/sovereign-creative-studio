@@ -8,6 +8,7 @@ Engines
   * ffmpeg  - real, always-available signal processing (denoise, deflicker, sharpen, colour,
               loudness, EQ, stereo, mastering chain, classic upscale, motion interpolation).
   * demucs  - vocal / instrumental separation (the Music Lab stems worker).
+  * cpu:wpe - speech dereverberation in an isolated CPU-only environment.
   * model:* - AI models (Real-ESRGAN, GFPGAN, RIFE). Listed with `available: False` and the
               reason until their weights are installed; they are never shown as working.
 
@@ -17,6 +18,7 @@ Honesty rules: classic upscaling and interpolation are labelled as such; nothing
 from __future__ import annotations
 
 import json
+from functools import lru_cache
 import os
 import re
 import shutil
@@ -92,7 +94,8 @@ OPERATIONS: dict[str, dict[str, Any]] = {
                  "params": [P("lufs", "Target LUFS", -24, -9, -14, 1)]},
     "master": {"kinds": ["audio"], "label": "Mastering assist (glue compression + limiter)", "engine": "ffmpeg",
                "params": [P("drive", "Drive", 0, 1, 0.4)]},
-    "dereverb": {"kinds": ["audio"], "label": "Reverb reduction", "engine": "model:dereverb", "params": []},
+    "dereverb": {"kinds": ["audio"], "label": "Speech reverb reduction (WPE, CPU)", "engine": "cpu:wpe",
+                 "params": [P("strength", "Strength", 0, 1, 0.65)]},
     "separate": {"kinds": ["audio", "video"], "label": "Separate vocals / instrumental (Demucs)", "engine": "demucs",
                  "params": []},
 }
@@ -101,7 +104,6 @@ MODEL_HINTS = {
     "realesrgan": "Install Real-ESRGAN weights (BSD-3) to enable.",
     "gfpgan": "Install GFPGAN v1.4 weights (Apache-2.0) to enable.",
     "rife": "Install RIFE v4 weights (MIT) to enable.",
-    "dereverb": "No reverb-removal model is installed yet; FFmpeg has no honest equivalent.",
 }
 
 
@@ -114,6 +116,20 @@ MODEL_FILES = {
     "rife": [ENHANCE_MODELS / "rife" / "RIFEv4.26_0921" / "flownet.pkl"],
 }
 _WORKER = Path(__file__).with_name("enhance_worker.py")
+_AUDIO_WORKER = Path(__file__).with_name("dereverb_worker.py")
+_AUDIO_PYTHON = Path(os.getenv("SOVEREIGN_DEREVERB_PYTHON", str(
+    config.BASE_DIR / ".venv-audio-enhance" / ("Scripts/python.exe" if os.name == "nt" else "bin/python"))))
+
+
+@lru_cache(maxsize=4)
+def _audio_available(python: str) -> bool:
+    if not Path(python).is_file():
+        return False
+    try:
+        return subprocess.run([python, "-c", "import soundfile; from nara_wpe.utils import stft; from nara_wpe.wpe import wpe"],
+                              capture_output=True, timeout=10).returncode == 0
+    except (OSError, subprocess.TimeoutExpired):
+        return False
 
 
 def kind_of(path: Path | str) -> str:
@@ -129,6 +145,9 @@ def kind_of(path: Path | str) -> str:
 
 def _available(op: dict[str, Any]) -> tuple[bool, str]:
     engine = op["engine"]
+    if engine == "cpu:wpe":
+        ok = _audio_available(str(_AUDIO_PYTHON))
+        return ok, "" if ok else "Install requirements-enhance-audio.txt in .venv-audio-enhance for CPU speech cleanup."
     if engine == "ffmpeg":
         return (bool(find_ffmpeg_tool("ffmpeg")), "" if find_ffmpeg_tool("ffmpeg") else "FFmpeg is not installed.")
     if engine == "demucs":
@@ -390,8 +409,8 @@ class _Cancelled(Exception):
 def _passes(ops: list[dict[str, Any]]) -> list[list[dict[str, Any]]]:
     passes: list[list[dict[str, Any]]] = []
     for o in ops:
-        is_model = OPERATIONS[o["op"]]["engine"].startswith("model:")
-        if passes and not is_model and not OPERATIONS[passes[-1][0]["op"]]["engine"].startswith("model:"):
+        is_model = OPERATIONS[o["op"]]["engine"].startswith(("model:", "cpu:"))
+        if passes and not is_model and not OPERATIONS[passes[-1][0]["op"]]["engine"].startswith(("model:", "cpu:")):
             passes[-1].append(o)
         else:
             passes.append([o])
@@ -414,7 +433,7 @@ def _chain(job_id: str, source: Path, folder: Path, kind: str, ops: list[dict[st
     for i, group in enumerate(passes):
         dst = folder / (f"enhanced{ext}" if i == len(passes) - 1 else f"step-{i}{ext}")
         span = (i / len(passes), (i + 1) / len(passes))
-        if OPERATIONS[group[0]["op"]]["engine"].startswith("model:"):
+        if OPERATIONS[group[0]["op"]]["engine"].startswith(("model:", "cpu:")):
             _model(job_id, current, dst, group[0], span)
         else:
             _ffmpeg(job_id, current, dst, kind, group, span)
@@ -425,7 +444,8 @@ def _chain(job_id: str, source: Path, folder: Path, kind: str, ops: list[dict[st
 
 
 def _model(job_id: str, src: Path, dst: Path, op: dict[str, Any], span: tuple[float, float]) -> None:
-    proc = subprocess.Popen([config.MUSIC_STEMS_PYTHON, str(_WORKER), op["op"], json.dumps(op["params"]), str(src), str(dst)],
+    python, worker = (_AUDIO_PYTHON, _AUDIO_WORKER) if op["op"] == "dereverb" else (config.MUSIC_STEMS_PYTHON, _WORKER)
+    proc = subprocess.Popen([str(python), str(worker), op["op"], json.dumps(op["params"]), str(src), str(dst)],
                             stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     _procs[job_id] = proc
     for line in proc.stdout:

@@ -45,7 +45,8 @@ def _noisy_png(path):
 def test_catalog_marks_models_unavailable_instead_of_faking_them(client):
     ops = {o["id"]: o for o in client.get("/api/enhance/operations").json()["operations"]}
     assert ops["denoise"]["available"] is True
-    assert ops["dereverb"]["available"] is False and ops["dereverb"]["unavailable_reason"]
+    assert ops["dereverb"]["available"] or ops["dereverb"]["unavailable_reason"]
+    assert ops["dereverb"]["engine"] == "cpu:wpe"
     for model_op in ("upscale_ai", "face_restore", "interpolate_ai"):  # installed or honestly explained
         assert ops[model_op]["available"] or ops[model_op]["unavailable_reason"]
     assert "no new detail" in ops["upscale_classic"]["label"]
@@ -155,3 +156,39 @@ def test_real_esrgan_chain_on_gpu(client, tmp_path):
     out = tmp_path / "out.png"
     out.write_bytes(client.get(job["outputs"][0]["url"]).content)
     assert Image.open(out).size == (320, 240)
+
+
+@pytest.mark.skipif(not enhance._AUDIO_PYTHON.is_file(), reason='optional CPU speech environment not installed')
+def test_real_wpe_reduces_synthetic_room_tail_and_preserves_source(tmp_path, client):
+    from app.services import performance_engine as pe
+    rng = np.random.default_rng(42)
+    rate, seconds = 16000, 6
+    envelope = np.zeros(rate * seconds)
+    for start, end in ((.2,.65),(1,1.45),(2,2.45),(3,3.45),(4,4.45)):
+        envelope[int(start*rate):int(end*rate)] = 1
+    dry = rng.normal(0,.15,len(envelope)) * envelope
+    wet = dry.copy()
+    for delay, gain in ((.064,.65),(.128,.45),(.192,.3),(.256,.2)):
+        shift = int(delay * rate)
+        wet[shift:] += gain * dry[:-shift]
+    wet += rng.normal(0,.005,len(wet))  # room noise; not an unrealistically exact zero variance
+    source = pe.write_wav(tmp_path/'room.wav', wet)
+    before = source.read_bytes()
+    output = tmp_path/'clean.wav'
+    result = subprocess.run([str(enhance._AUDIO_PYTHON),str(enhance._AUDIO_WORKER),'dereverb',
+                             '{"strength":1}',str(source),str(output)],capture_output=True,text=True,timeout=45)
+    assert result.returncode == 0, result.stderr
+    clean = pe.decode(output)
+    t = np.arange(len(clean))/rate
+    tail = (t > .68) & (t < .9)
+    assert np.sqrt(np.mean(clean[tail]**2)) < .8 * np.sqrt(np.mean(wet[tail]**2))
+    assert np.isfinite(clean).all() and len(clean) == len(wet)
+    assert source.read_bytes() == before
+    response = client.post('/api/enhance/jobs', files={'file': ('room.wav', before)},
+                           data={'ops': json.dumps([{'op': 'dereverb', 'params': {'strength': .65}},
+                                                    {'op': 'eq', 'params': {'mid': 2}}])})
+    assert response.status_code == 202, response.text
+    job = _wait(client, response.json()['id'], timeout=45)
+    assert job['status'] == 'done', job
+    assert client.get(job['source_url']).content == before
+    assert client.get(job['outputs'][0]['url']).status_code == 200

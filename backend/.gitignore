@@ -11,3 +11,6 @@ storage/private/
 .tmp/
 *.log
 *.err
+
+# Isolated optional CPU speech-enhancement environment
+.venv-audio-enhance/
