@@ -18,7 +18,11 @@ export type Region = {
   manual: boolean;
 };
 
+export type JointEdit = { joint: string; keyframes: { time: number; dx: number; dy: number }[] };
+
 export type Performer = {
+  reference?: { id: string; status: string; duration: number; edits: JointEdit[] };
+  reference_pending?: { status: string; error?: string } | null;
   id: string;
   name: string;
   role: PerformerRole;
@@ -96,6 +100,10 @@ export const performancesApi = {
     formRequest<Performance>(`${base}/${id}/performers/${pid}/identity`, file(f)),
   patchPerformer: (id: string, pid: string, body: Partial<Pick<Performer, "name" | "role" | "stage" | "voice_id">> & { motion?: Partial<Performer["motion"]> }) =>
     request<Performance>(`${base}/${id}/performers/${pid}`, json("PATCH", body)),
+  uploadReference: (id: string, pid: string, f: File) => formRequest<Performance>(`${base}/${id}/performers/${pid}/reference`, file(f)),
+  referencePose: (id: string, pid: string, time: number) => request<{width: number; height: number; frame: {keypoints: number[][]; scores: number[]}}>(`${base}/${id}/performers/${pid}/reference/pose?time=${time}`),
+  referenceEdits: (id: string, pid: string, edits: JointEdit[]) => request<Performance>(`${base}/${id}/performers/${pid}/reference/edits`, json("PUT", {edits})),
+  detachReference: (id: string, pid: string) => request<Performance>(`${base}/${id}/performers/${pid}/reference`, {method: "DELETE"}),
   putRegions: (id: string, pid: string, regions: Omit<Region, "manual">[]) =>
     request<Performance>(`${base}/${id}/performers/${pid}/regions`, json("PUT", { regions })),
   analyze: (id: string) => request<Performance>(`${base}/${id}/analyze`, { method: "POST" }),

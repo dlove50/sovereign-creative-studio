@@ -1,4 +1,5 @@
 "use client";
+import { ReferenceMotionEditor } from "./reference-motion-editor";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AudioLines, Clapperboard, Film, ImagePlus, Loader2, Music2, Pause, Play, Plus, Trash2, Users, Wand2, X } from "lucide-react";
@@ -312,6 +313,7 @@ function Editor({ id, onClose }: { id: string; onClose: () => void }) {
                   onPointerUp={(e) => void run("Saving", () => performancesApi.patchPerformer(id, p.id, { stage: { ...p.stage, x: +e.currentTarget.value } }))} />
                 {p.stage.x < 0.4 ? "left" : p.stage.x > 0.6 ? "right" : "centre"}
               </label>
+              <ReferenceMotionEditor id={id} performer={p} disabled={!!rendering || !!busy} onUpdate={setProject} />
               <details className="text-xs text-muted-foreground">
                 <summary className="cursor-pointer py-1">Performance direction</summary>
                 <div className="space-y-2 pt-2">

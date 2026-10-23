@@ -34,7 +34,9 @@ from pydantic import BaseModel, Field
 
 from ..deps import get_current_user
 from ..models import User
-from ..services import music, performance_engine as pe, performance_render as render, stems
+from ..services import music, performance_engine as pe, performance_render as render, performance_reference as reference, stems
+import json
+import uuid
 
 router = APIRouter(prefix="/api/performances", tags=["performances"])
 
@@ -158,7 +160,7 @@ def _public(project: dict) -> dict:
     out["shared_vocal_url"] = _url(project, project.get("shared_vocal"))
     out["performers"] = [
         {**p, "stem_url": _url(project, p.get("stem")), "identity_url": _url(project, p.get("identity_image")),
-         "drive_audio_url": _url(project, p.get("drive_audio"))}
+         "drive_audio_url": _url(project, p.get("drive_audio")), "reference_pending": reference.pending_status(p)}
         for p in project["performers"]
     ]
     out["sheet"] = pe.director_sheet(project) if project.get("duration") else []
@@ -414,3 +416,63 @@ def file(project_id: str, name: str, user: User = Depends(get_current_user)):
     if path.parent != folder.resolve() or not path.is_file():
         raise HTTPException(status_code=404, detail="File not found.")
     return FileResponse(path)
+
+
+class ReferenceEditsIn(BaseModel):
+    edits: list[dict] = Field(max_length=32)
+
+
+def _reference_performer(project_id, performer_id, user):
+    project = _owned(project_id, user)
+    try:
+        return project, pe.performer(project, performer_id)
+    except pe.PerformanceError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.post("/{project_id}/performers/{performer_id}/reference", status_code=202)
+def upload_reference(project_id: str, performer_id: str, file: UploadFile = File(...), user: User = Depends(get_current_user)):
+    project, p = _reference_performer(project_id, performer_id, user)
+    if (project.get("render") or {}).get("status") in ("running", "queued"):
+        raise HTTPException(status_code=409, detail="Wait for this performance render before changing its reference.")
+    if not reference.python().is_file():
+        raise HTTPException(status_code=400, detail="Install the isolated .venv-pose CPU environment first.")
+    source = _store_upload(project, file, "reference-" + uuid.uuid4().hex[:12], {".mp4", ".mov", ".mkv", ".webm"}, 512 * 1024 * 1024)
+    return _public(reference.prepare(project_id, performer_id, source))
+
+
+@router.put("/{project_id}/performers/{performer_id}/reference/edits")
+def put_reference_edits(project_id: str, performer_id: str, body: ReferenceEditsIn, user: User = Depends(get_current_user)):
+    project, p = _reference_performer(project_id, performer_id, user)
+    if (project.get("render") or {}).get("status") in ("running", "queued"):
+        raise HTTPException(status_code=409, detail="Wait for this performance render before changing joint tracks.")
+    ref = p.get("reference")
+    if not ref:raise HTTPException(status_code=400, detail="Prepare a reference video first.")
+    try:
+        ref["edits"] = reference.validate_edits(body.edits, ref["duration"] - .04)
+    except ValueError as exc:raise _bad(exc) from exc
+    return _save(project)
+
+
+@router.get("/{project_id}/performers/{performer_id}/reference/pose")
+def reference_pose(project_id: str, performer_id: str, time: float = 0, user: User = Depends(get_current_user)):
+    project, p = _reference_performer(project_id, performer_id, user)
+    ref = p.get("reference")
+    if not ref:raise HTTPException(status_code=404, detail="No prepared reference.")
+    if not __import__("math").isfinite(time) or not 0 <= time < ref["duration"]:
+        raise HTTPException(status_code=400, detail="Preview time must be within the reference.")
+    tracks = json.loads(Path(ref["tracks"]).read_text())
+    # Edit only the requested frame; keyframes still interpolate in song time.
+    frame = tracks["frames"][min(len(tracks["frames"])-1, round(time * tracks["fps"]))]
+    # Validation uses complete duration even when evaluating a single frame.
+    result = reference.apply_edits(tracks, ref["edits"])
+    return {"width": tracks["width"], "height": tracks["height"], "frame": result["frames"][frame["frame"]]}
+
+
+@router.delete("/{project_id}/performers/{performer_id}/reference")
+def detach_reference(project_id: str, performer_id: str, user: User = Depends(get_current_user)):
+    project, p = _reference_performer(project_id, performer_id, user)
+    if (project.get("render") or {}).get("status") in ("running", "queued"):
+        raise HTTPException(status_code=409, detail="Wait for the render before detaching its reference.")
+    p.pop("reference", None);p.pop("reference_pending", None)
+    return _save(project)

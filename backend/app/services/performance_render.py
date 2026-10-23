@@ -14,6 +14,8 @@ import asyncio
 import copy
 import hashlib
 import json
+import subprocess
+import math
 import os
 import shutil
 import tempfile
@@ -265,6 +267,24 @@ def start(project_id: str) -> dict[str, Any]:
         raise pe.PerformanceError("Performance not found.")
     if project_id in _active:
         raise pe.PerformanceError("This performance is already rendering.")
+    for performer in project["performers"]:
+        from . import performance_reference as reference
+        pending = reference.pending_status(performer) or {}
+        if pending.get("status") == "processing":
+            raise pe.PerformanceError("Wait for reference preparation to finish.")
+        if pending.get("status") == "error" and not performer.get("reference"):
+            raise pe.PerformanceError("Reference preparation failed. Retry or detach the reference.")
+        if performer.get("reference"):
+            from . import performance_reference as reference
+            if project.get("render_strategy") != "independent_layers":
+                raise pe.PerformanceError("Reference motion requires independent performer layers.")
+            if (reference.pending_status(performer) or {}).get("status") == "processing":
+                raise pe.PerformanceError("Wait for reference preparation to finish.")
+            if performer["reference"]["duration"] + .001 < project["duration"]:
+                raise pe.PerformanceError("Reference video must cover the whole performance timeline.")
+            root = Path(os.getenv("COMFYUI_MODELS_DIR", "/mnt/storage/AI-Models/comfyui"))
+            if not reference.python().is_file() or not (root / "diffusion_models" / reference.MODEL).is_file() or not (root / "clip_vision" / reference.VISION).is_file():
+                raise pe.PerformanceError("Install the reference motion model, vision model and isolated CPU pose environment.")
     plan = pe.render_plan(project)
     if not plan["ready"]:
         raise pe.PerformanceError("Still missing: " + ", ".join(plan["missing"]) + ".")
@@ -397,7 +417,7 @@ def compose_layers(project: dict[str, Any], layers: list[Path], background: Path
     previous = "base"
     for i, person in enumerate(project["performers"]):
         x = round((person["stage"]["x"] - .5) * WIDTH)
-        graph.append(f"[{i + 1}:v]format=rgba,setsar=1[p{i}]")
+        graph.append(f"[{i + 1}:v]scale={WIDTH}:{HEIGHT}:flags=lanczos,format=rgba,setsar=1[p{i}]")
         graph.append(f"[{previous}][p{i}]overlay={x}:0:shortest=1:format=auto[v{i}]")
         previous = f"v{i}"
     _run_ffmpeg(args + ["-filter_complex", ";".join(graph), "-map", f"[{previous}]",
@@ -446,6 +466,85 @@ def _matte_layer(source: Path, target: Path) -> Path:
         raise pe.PerformanceError("Performer extraction failed: " + result.stderr[-1500:])
     temporary.replace(target)
     return target
+
+
+async def _transfer_reference(project, performer, original, base_key, client, work, tag):
+    from . import performance_reference as reference
+    ref = performer["reference"]
+    if (reference.pending_status(performer) or {}).get("status") == "processing":
+        raise pe.PerformanceError("Wait for reference preparation to finish.")
+    if ref["duration"] + .001 < project["duration"]:
+        raise pe.PerformanceError("Reference video must cover the whole performance timeline.")
+    key = reference.transfer_key(base_key, ref)
+    folder = original.parent / (performer["id"] + "-reference-" + key)
+    folder.mkdir(exist_ok=True)
+    target = folder / "transferred.mp4"
+    if target.is_file() and (folder / "mask.mp4").is_file():
+        return target, key, folder / "mask.mp4", True
+    edits = folder / "edits.json"
+    edits.write_text(json.dumps(ref["edits"]))
+    _status(project["id"], stage=f"Preparing {performer['name']}'s measured motion and own-vocal face (CPU)")
+    await asyncio.to_thread(reference.worker, "guide", ref["tracks"], edits, original, folder)
+    # Always use the original portrait, not a generated frame containing inherited artifacts.
+    identity = folder / "identity-alpha.png"
+    await asyncio.to_thread(_matte_layer, Path(performer["identity_image"]), identity)
+    from PIL import Image
+    with Image.open(identity) as image:
+        image = image.convert("RGBA")
+        image.thumbnail((340, 330), Image.Resampling.LANCZOS)
+        canvas = Image.new("RGBA", (640, 368), (18, 14, 30, 255))
+        canvas.alpha_composite(image, ((640-image.width)//2, 368-image.height))
+        canvas.convert("RGB").save(folder / "reference-identity.png")
+    uploaded_identity = await _upload(client, folder / "reference-identity.png", "image")
+    total = math.ceil(project["duration"] * FPS)
+    done, chunks = 0, []
+    while done < total:
+        if project["id"] in _cancelled:
+            raise Cancelled()
+        overlap = 5 if chunks else 0
+        wanted = min(52 if chunks else 53, total-done)
+        length = 4 * math.ceil((wanted+overlap-1)/4) + 1
+        start = done-overlap
+        names = {}
+        for name in ("pose", "face", "background", "mask"):
+            piece = folder / f"{name}-{len(chunks)}.mp4"
+            await asyncio.to_thread(_run_ffmpeg, ["-ss", str(start/FPS), "-i", str(folder / (name+".mp4")),
+                "-vf", f"tpad=stop_mode=clone:stop_duration={length/FPS}", "-frames:v", str(length),
+                "-an", "-c:v", "libx264", "-threads", "2", "-crf", "15", str(piece)])
+            names[name] = await _upload(client, piece, "video")
+        audio = folder / f"audio-{len(chunks)}.wav"
+        await asyncio.to_thread(_run_ffmpeg, ["-ss", str(done/FPS), "-i", performer["drive_audio"],
+            "-af", "apad", "-t", str((length-overlap)/FPS), str(audio)])
+        previous = await _upload(client, chunks[-1], "video") if chunks else None
+        graph = reference.workflow(identity=uploaded_identity, **names, audio=await _upload(client, audio, "audio"),
+            seed=performer["motion"]["seed"]+len(chunks), length=length, previous=previous)
+        chunk = folder / f"chunk-{len(chunks)}.mp4"
+        _status(project["id"], stage=f"Transferring {performer['name']}'s measured motion: {done/FPS:.1f}s")
+        await _submit(client, graph, chunk, project["id"])
+        chunks.append(chunk)
+        done += length-overlap
+    listing = folder / "concat.txt"
+    listing.write_text("\n".join("file '"+str(c.resolve()).replace("'", "'\\''")+"'" for c in chunks)+"\n")
+    pending = folder / "transfer-pending.mp4"
+    await asyncio.to_thread(_run_ffmpeg, ["-f", "concat", "-safe", "0", "-i", str(listing),
+        "-i", performer["drive_audio"], "-map", "0:v:0", "-map", "1:a:0", "-map_metadata", "-1",
+        "-c:v", "libx264", "-threads", "2", "-crf", "17", "-c:a", "aac", "-frames:v", str(total),
+        "-t", str(total/FPS), str(pending)])
+    pending.replace(target)
+    return target, key, folder / "mask.mp4", False
+
+
+def _recover_reference_alpha(source, alpha, mask):
+    from . import performance_reference as reference
+    pending = alpha.with_name(alpha.stem+"-recovering.mkv")
+    try:
+        subprocess.run([str(reference.python()), str(Path(__file__).with_name("performance_background_alpha_worker.py")),
+                        str(source), str(alpha), str(mask), str(pending)], check=True, capture_output=True, timeout=7200)
+        pending.replace(alpha)
+    except Exception:
+        pending.unlink(missing_ok=True)
+        alpha.unlink(missing_ok=True)  # Never cache an incomplete reference extraction.
+        raise
 
 
 async def _render_layers(project: dict[str, Any], folder: Path, work: Path, tag: str) -> None:
@@ -504,14 +603,20 @@ async def _render_layers(project: dict[str, Any], folder: Path, work: Path, tag:
                 pending = cache / f".{tag}-{p['id']}.mp4"
                 shutil.copyfile(temporary, pending)
                 pending.replace(target)
-            matte = cache / f"{p['id']}-{key}-u2net-matting-v2.mkv"
+            source_reused = reused
+            reference_mask = None
+            if p.get("reference"):
+                target, key, reference_mask, reused = await _transfer_reference(project, p, target, key, client, work, tag)
+            matte = cache / f"{p['id']}-{key}-{'reference-v1' if reference_mask else 'u2net-matting-v2'}.mkv"
             matte_reused = matte.is_file() and matte.stat().st_size > 0
             if not matte_reused:
                 _status(project_id, stage=f"Extracting {p['name']} from the background (CPU)")
                 await asyncio.to_thread(_matte_layer, target, matte)
+                if reference_mask:
+                    await asyncio.to_thread(_recover_reference_alpha, target, matte, reference_mask)
             layers.append(matte)
-            manifest.append({"performer_id": p["id"], "key": key, "file": target.name, "reused": reused,
-                             "alpha_file": matte.name, "alpha_reused": matte_reused})
+            manifest.append({"performer_id": p["id"], "key": key, "file": target.relative_to(cache).as_posix(), "reused": reused,
+                             "alpha_file": matte.name, "alpha_reused": matte_reused, "source_reused": source_reused, "reference_transfer": bool(reference_mask)})
     _status(project_id, stage="Compositing performer layers", progress=.95)
     stage = compose_stage(project, work / f"{tag}-stage.png", background_only=True)
     master = compose_layers(project, layers, stage, work / f"{tag}-master.mp4")

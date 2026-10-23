@@ -120,7 +120,7 @@ def _summary(perf: dict[str, Any]) -> dict[str, Any]:
         "id": perf["id"], "title": perf["title"], "mode": perf["mode"], "duration": perf["duration"],
         "performers": [{"id": p["id"], "name": p["name"], "role": p["role"], "stage_x": p["stage"]["x"],
                         "has_identity": bool(p.get("identity_url")), "has_stem": bool(p.get("stem_url")),
-                        "regions": len(p["regions"])} for p in perf["performers"]],
+                        "regions": len(p["regions"]), "reference": p.get("reference"), "reference_pending": p.get("reference_pending")} for p in perf["performers"]],
         "has_master": bool(perf.get("master_audio_url")),
         "sheet": perf.get("sheet", []),
         "render": perf.get("render"),
@@ -410,6 +410,42 @@ async def enhance_video(path: str, ops: list[dict[str, Any]], ctx: Context, out_
 
 def main() -> None:
     mcp.run("stdio")
+
+
+@mcp.tool(name="sovereign_reference_motion")
+async def reference_motion(performance_id: str, performer_id: str, reference_video_path: str | None = None,
+                           edits: list[dict[str, Any]] | None = None, wait: bool = True) -> dict[str, Any]:
+    """Attach one clearly visible performer's reference video, or edit measured joint tracks.
+    Reference must cover the whole performance. CPU preparation is asynchronous; wait=true waits.
+    edits contain joint and keyframes [{time,dx,dy}], normalized offsets within±0.25.
+    Joint names: head, left/right_shoulder, left/right_elbow, left/right_wrist.
+    Wrist edits move finger chains. This controls body poses; own vocals retain the facial guide.
+    Generative output needs visual review; it is not exact rigid skeletal animation.
+    """
+    base = f"/api/performances/{performance_id}"
+    endpoint = f"{base}/performers/{performer_id}/reference"
+    if reference_video_path and edits is not None and not wait:
+        raise SovereignError("Use wait=true to attach a reference and edit its measured tracks together.")
+    if reference_video_path:
+        await _upload(reference_video_path, endpoint)
+    while True:
+        perf = await _call("GET", base)
+        performer = next((p for p in perf["performers"] if p["id"] == performer_id), None)
+        if performer is None:raise SovereignError("Performer not found.")
+        pending = performer.get("reference_pending") or {}
+        if pending.get("status") == "error":raise SovereignError(pending.get("error", "Reference preparation failed."))
+        if pending.get("status") != "processing" or not wait:break
+        await asyncio.sleep(POLL)
+    if edits is not None:
+        if pending.get("status") == "processing":raise SovereignError("Wait for reference preparation before editing tracks.")
+        perf = await _call("PUT", endpoint + "/edits", json={"edits": edits})
+    return _summary(perf)
+
+
+@mcp.tool(name="sovereign_reference_pose")
+async def reference_pose(performance_id: str, performer_id: str, time: float = 0) -> dict[str, Any]:
+    """Inspect a measured pose with saved joint edits at a song time; no GPU rendering."""
+    return await _call("GET", f"/api/performances/{performance_id}/performers/{performer_id}/reference/pose", params={"time": time})
 
 
 if __name__ == "__main__":
