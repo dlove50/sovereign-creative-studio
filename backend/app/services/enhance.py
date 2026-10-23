@@ -75,6 +75,10 @@ OPERATIONS: dict[str, dict[str, Any]] = {
     "face_restore": {"kinds": ["image", "video"], "label": "Face restoration (GFPGAN)", "engine": "model:gfpgan",
                      "params": [P("fidelity", "Identity fidelity", 0, 1, 0.7)]},
     # --- video only ---------------------------------------------------------------------------
+    "motion_sharpen": {"kinds": ["video"], "label": "Motion-aware sharpening (CPU)", "engine": "cpu:video",
+                       "params": [P("amount", "Amount", 0, 1, 0.35)]},
+    "shot_match": {"kinds": ["video"], "label": "Match shot colours to first shot (CPU)", "engine": "cpu:video",
+                   "params": [P("strength", "Match strength", 0, 1, 0.5)]},
     "deflicker": {"kinds": ["video"], "label": "Flicker reduction", "engine": "ffmpeg",
                   "params": [P("window", "Window (frames)", 2, 15, 5, 1)]},
     "interpolate": {"kinds": ["video"], "label": "Frame interpolation (motion-compensated)", "engine": "ffmpeg",
@@ -118,6 +122,9 @@ MODEL_FILES = {
 }
 _WORKER = Path(__file__).with_name("enhance_worker.py")
 _AUDIO_WORKER = Path(__file__).with_name("dereverb_worker.py")
+_VIDEO_WORKER = Path(__file__).with_name("enhance_video_cpu.py")
+_VIDEO_PYTHON = Path(os.getenv("SOVEREIGN_VIDEO_CPU_PYTHON", str(
+    config.BASE_DIR / ".venv-matting" / ("Scripts/python.exe" if os.name == "nt" else "bin/python"))))
 _AUDIO_PYTHON = Path(os.getenv("SOVEREIGN_DEREVERB_PYTHON", str(
     config.BASE_DIR / ".venv-audio-enhance" / ("Scripts/python.exe" if os.name == "nt" else "bin/python"))))
 
@@ -129,6 +136,16 @@ def _audio_available(python: str) -> bool:
     try:
         return subprocess.run([python, "-c", "import soundfile; from nara_wpe.utils import stft; from nara_wpe.wpe import wpe"],
                               capture_output=True, timeout=10).returncode == 0
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+
+
+@lru_cache(maxsize=4)
+def _video_available(python: str) -> bool:
+    if not Path(python).is_file() or not find_ffmpeg_tool("ffmpeg"):
+        return False
+    try:
+        return subprocess.run([python, "-c", "import cv2, numpy"], capture_output=True, timeout=10).returncode == 0
     except (OSError, subprocess.TimeoutExpired):
         return False
 
@@ -146,6 +163,9 @@ def kind_of(path: Path | str) -> str:
 
 def _available(op: dict[str, Any]) -> tuple[bool, str]:
     engine = op["engine"]
+    if engine == "cpu:video":
+        ok = _video_available(str(_VIDEO_PYTHON))
+        return ok, "" if ok else "Install OpenCV and NumPy in .venv-matting for CPU video finishing."
     if engine == "cpu:wpe":
         ok = _audio_available(str(_AUDIO_PYTHON))
         return ok, "" if ok else "Install requirements-enhance-audio.txt in .venv-audio-enhance for CPU speech cleanup."
@@ -464,6 +484,8 @@ def _chain(job_id: str, source: Path, folder: Path, kind: str, ops: list[dict[st
 
 def _model(job_id: str, src: Path, dst: Path, op: dict[str, Any], span: tuple[float, float]) -> None:
     python, worker = (_AUDIO_PYTHON, _AUDIO_WORKER) if op["op"] == "dereverb" else (config.MUSIC_STEMS_PYTHON, _WORKER)
+    if op["op"] in {"motion_sharpen", "shot_match"}:
+        python, worker = _VIDEO_PYTHON, _VIDEO_WORKER
     proc = subprocess.Popen([str(python), str(worker), op["op"], json.dumps(op["params"]), str(src), str(dst)],
                             stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     _procs[job_id] = proc

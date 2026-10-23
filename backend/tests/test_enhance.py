@@ -52,6 +52,35 @@ def test_catalog_marks_models_unavailable_instead_of_faking_them(client):
     assert "no new detail" in ops["upscale_classic"]["label"]
 
 
+@pytest.mark.skipif(not enhance._video_available(str(enhance._VIDEO_PYTHON)), reason="CPU OpenCV environment unavailable")
+def test_cpu_video_finishing_chains_without_retiming_or_changing_audio(client, tmp_path):
+    source = tmp_path / "source.mp4"
+    subprocess.run([FFMPEG, "-v", "error", "-y", "-f", "lavfi", "-i",
+                    "testsrc2=size=160x96:rate=25:duration=1", "-f", "lavfi", "-i",
+                    "sine=frequency=440:duration=1", "-c:v", "libx264", "-c:a", "aac", str(source)], check=True)
+    original = source.read_bytes()
+    response = client.post("/api/enhance/jobs", files={"file": (source.name, original)},
+                           data={"ops": json.dumps([{"op": "motion_sharpen", "params": {"amount": .5}},
+                                                     {"op": "shot_match", "params": {"strength": .5}}])})
+    assert response.status_code == 202, response.text
+    job = _wait(client, response.json()["id"])
+    assert job["status"] == "done", job
+    result = client.get(job["outputs"][0]["url"])
+    assert result.status_code == 200
+    finished = tmp_path / "finished.mp4"
+    finished.write_bytes(result.content)
+    probe = json.loads(subprocess.check_output(["ffprobe", "-v", "error", "-select_streams", "v:0",
+        "-count_frames", "-show_entries", "stream=nb_read_frames,avg_frame_rate,duration", "-of", "json", str(finished)]))
+    stream = probe["streams"][0]
+    assert stream["nb_read_frames"] == "25"
+    assert stream["avg_frame_rate"] == "25/1"
+    assert float(stream["duration"]) == pytest.approx(1)
+    def audio_hash(path):
+        return subprocess.check_output([FFMPEG, "-v", "error", "-i", str(path), "-map", "0:a", "-f", "md5", "-"])
+    assert audio_hash(source) == audio_hash(finished)
+    assert source.read_bytes() == original
+
+
 def test_image_denoise_sharpen_upscale_keeps_the_original(client, tmp_path):
     src = _noisy_png(tmp_path / "photo.png")
     before = src.read_bytes()
