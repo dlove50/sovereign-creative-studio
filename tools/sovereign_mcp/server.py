@@ -324,11 +324,17 @@ async def render_video(performance_id: str, ctx: Context, confirm: bool = False,
     and an estimate so the user can review it first."""
     plan = await _call("GET", f"/api/performances/{performance_id}/render-plan")
     if not confirm or not plan["ready"]:
-        parts = max(1, round(plan["duration"] * 25 / 72))
+        passes = len(plan.get("passes", [])) if plan["strategy"] == "independent_layers" else 1
+        passes = max(1, passes)
+        parts = max(1, round(plan["duration"] * 25 / 72)) * passes
         return {"ready": plan["ready"], "missing": plan["missing"], "strategy": plan["strategy"],
-                "estimate": f"{parts} GPU parts of about 1-4 minutes each on the R9700",
+                "generation_passes": passes,
+                "estimate": f"Approximately {parts} GPU parts across {passes} passes, about 1-4 minutes each "
+                            "on the R9700, plus foreground extraction and upscale; unchanged cached passes are reused.",
                 "next": "Show this to the user; call again with confirm=true to render." if plan["ready"] else
                         "Provide what is missing first."}
+    if not wait and os.getenv("SOVEREIGN_MCP_OLLAMA_EXECUTOR_MODEL"):
+        raise SovereignError("A dedicated local executor must use wait=true so it cannot reload during rendering.")
     await _yield_executor_gpu()
     await _call("POST", f"/api/performances/{performance_id}/render")
     if not wait:
