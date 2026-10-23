@@ -125,6 +125,15 @@ def speaker_masks(project: dict[str, Any], folder: Path) -> list[Path]:
 
 # --- Workflow --------------------------------------------------------------------------------
 
+def _visible_chunk_window(plan, duration: float) -> tuple[float, float]:
+    """Song time actually retained after InfiniteTalk's extension context is trimmed."""
+    # An extension's audio file starts at the PREVIOUS chunk's origin. The node
+    # skips previous_length-motion frames, and joining drops motion more frames.
+    start = (plan.audio_start_frame + (CHUNK_FRAMES if plan.extends else 0)) / FPS
+    frames = plan.length - (MOTION_FRAMES if plan.extends else 0)
+    return start, min(duration, start + frames / FPS)
+
+
 def _prompt_for(project: dict[str, Any], start: float, end: float) -> str:
     """Stage directions for this window, in screen order (left to right)."""
     mid = (start + end) / 2
@@ -333,8 +342,8 @@ async def _render(project_id: str) -> None:
                     piece = work / f"{tag}-a{k}-{i}.wav"
                     _slice_audio(drive, plan, piece)
                     audio_names.append(await _upload(client, piece, "audio"))
-                window_start = plan.audio_start_frame / FPS
-                prompt = _prompt_for(project, window_start, window_start + plan.audio_frames / FPS)
+                window_start, window_end = _visible_chunk_window(plan, project["duration"])
+                prompt = _prompt_for(project, window_start, window_end)
                 prev = await _upload(client, chunks[-1], "video") if plan.extends else None
                 wf = build_workflow(image=image, audios=audio_names, masks=mask_names, prompt=prompt,
                                     seed=seed + i, length=plan.length, prev_video=prev)
@@ -361,7 +370,7 @@ async def _render(project_id: str) -> None:
 def _layer_key(project: dict[str, Any], p: dict[str, Any]) -> str:
     """Hash actual inputs and effective generation settings; camera edits reuse performances."""
     digest = hashlib.sha256()
-    settings = {"version": 2, "width": WIDTH, "height": HEIGHT, "fps": FPS,
+    settings = {"version": 3, "width": WIDTH, "height": HEIGHT, "fps": FPS,
                 "chunk": CHUNK_FRAMES, "steps": STEPS, "cfg": CFG, "audio_scale": AUDIO_SCALE,
                 "model": config.AVATAR_WAN_MODEL_NAME, "patch": config.AVATAR_INFINITETALK_PATCH_NAME,
                 "encoder": config.AVATAR_AUDIO_ENCODER_NAME, "lora": SPEED_LORA, "negative": NEGATIVE,
@@ -457,7 +466,8 @@ async def _render_layers(project: dict[str, Any], folder: Path, work: Path, tag:
                     piece = work / f"{tag}-{p['id']}-{i}.wav"
                     _slice_audio(Path(p["drive_audio"]), plan, piece)
                     audio = await _upload(client, piece, "audio")
-                    mid = (plan.audio_start_frame + plan.audio_frames / 2) / FPS
+                    window_start, window_end = _visible_chunk_window(plan, project["duration"])
+                    mid = (window_start + window_end) / 2
                     cue = next((c for c in cues if c["start"] <= mid < c["end"]), None)
                     prompt = (f"One adult performer on {project['stage'].get('prompt') or 'a concert stage'}, "
                               f"{cue['direction'] if cue else 'stands naturally'}, consistent identity, accurate lip sync, "

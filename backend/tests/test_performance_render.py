@@ -262,3 +262,16 @@ def test_upscale_preflight_leaves_other_queued_work_alone():
         return httpx.Response(200, json={'queue_running': [], 'queue_pending': [[1,'other']]})
     with httpx.Client(base_url='http://comfy', transport=httpx.MockTransport(handle)) as client:
         assert not pr._prepare_upscale(client)
+
+
+def test_motion_cue_uses_retained_song_time_after_extension(monkeypatch):
+    monkeypatch.setattr(pr, "CHUNK_FRAMES", 81)
+    plans, _ = pr.plan_chunks(75, 81)
+    # At the14.4s handoff the extension audio includes the previous origin.
+    # That context must not choose MOVING instead of the new SINGING state.
+    start, end = pr._visible_chunk_window(plans[5], 75)
+    assert start == pytest.approx(14.76)
+    assert end == pytest.approx(17.64)
+    assert (start + end) / 2 > 14.4
+    assert pr._visible_chunk_window(plans[0], 75) == (0, 3.24)
+    assert pr._visible_chunk_window(plans[-1], 75)[1] == 75
