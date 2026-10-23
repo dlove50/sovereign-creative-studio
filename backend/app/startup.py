@@ -60,24 +60,30 @@ def run_startup_checks() -> list[str]:
         from . import config as _config
         from .services import exposure
 
-        verdict = exposure.current_verdict(
-            fallback_enabled=bool(_config.OWNER_FALLBACK_ENABLED)
-        )
+        verdicts = [
+            exposure.current_verdict(
+                fallback_enabled=bool(_config.OWNER_FALLBACK_ENABLED)
+            ),
+            exposure.secrets_served_publicly(
+                _config.SECRETS_DIR, _config.STORAGE_DIR
+            ),
+        ]
     except Exception:  # noqa: BLE001 - a broken check must not stop the app
         logger.exception("[startup] Could not evaluate network exposure")
     else:
-        if verdict.is_dangerous:
-            banner = "!" * 72
-            logger.critical("\n%s\n  %s\n\n  %s\n%s",
-                            banner, verdict.summary, verdict.remedy, banner)
-            warnings.append(f"{verdict.summary} {verdict.remedy}")
-            if exposure.strict_mode():
-                raise RuntimeError(
-                    f"Refusing to start: {verdict.summary} {verdict.remedy} "
-                    "(SOVEREIGN_STRICT_SECURITY is set.)"
-                )
-        elif verdict.level == exposure.WARN:
-            logger.warning("[startup] %s %s", verdict.summary, verdict.remedy)
+        for verdict in verdicts:
+            if verdict.is_dangerous:
+                banner = "!" * 72
+                logger.critical("\n%s\n  %s\n\n  %s\n%s",
+                                banner, verdict.summary, verdict.remedy, banner)
+                warnings.append(f"{verdict.summary} {verdict.remedy}")
+                if exposure.strict_mode():
+                    raise RuntimeError(
+                        f"Refusing to start: {verdict.summary} {verdict.remedy} "
+                        "(SOVEREIGN_STRICT_SECURITY is set.)"
+                    )
+            elif verdict.level == exposure.WARN:
+                logger.warning("[startup] %s %s", verdict.summary, verdict.remedy)
 
     if COPY_BACKEND == "openai" and not OPENAI_API_KEY:
         warnings.append(

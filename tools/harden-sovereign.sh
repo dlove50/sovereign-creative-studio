@@ -109,9 +109,59 @@ else
 fi
 say ""
 
-# --- 2. the secrets folder ---------------------------------------------------
-say "2. Secrets folder"
+# --- 2a. secrets served over HTTP --------------------------------------------
+# SECRETS_DIR defaults to STORAGE_DIR/secrets, and the backend mounts
+# STORAGE_DIR at /storage. So GET /storage/secrets/session_secret returns the
+# key that signs every session cookie, and integrations.json returns the cloud
+# API keys -- to anyone who can reach the port, with no login. Verified by
+# request against the running app. This is worse than the file modes below:
+# those need an account on the machine, this needs only network reach.
+say "2a. Secrets reachable over HTTP"
 SECRETS="$(secrets_dir)"
+STORAGE_ROOT="$(env_value STORAGE_DIR)"; STORAGE_ROOT="${STORAGE_ROOT:-$BACKEND/storage}"
+SAFE_SECRETS="$BACKEND/private/secrets"
+
+case "$(cd "$(dirname "$SECRETS")" 2>/dev/null && pwd)/$(basename "$SECRETS")" in
+  "$(cd "$STORAGE_ROOT" 2>/dev/null && pwd)"/*) inside_mount=1 ;;
+  *) inside_mount=0 ;;
+esac
+
+if [ "$inside_mount" -eq 1 ]; then
+  bad "$SECRETS sits inside $STORAGE_ROOT, which is served at /storage."
+  say  "        GET /storage/secrets/session_secret returns the session signing key."
+  say  "        GET /storage/secrets/integrations.json returns your API keys."
+  if [ "$APPLY" -eq 1 ]; then
+    mkdir -p "$(dirname "$SAFE_SECRETS")" && chmod 700 "$(dirname "$SAFE_SECRETS")"
+    if [ -d "$SECRETS" ]; then
+      mkdir -p "$SAFE_SECRETS" && chmod 700 "$SAFE_SECRETS"
+      # cp then remove, so a failure never loses the only copy of the key.
+      if cp -a "$SECRETS/." "$SAFE_SECRETS/" 2>/dev/null; then
+        rm -rf "$SECRETS" && did "moved secrets to $SAFE_SECRETS"
+      else
+        bad "could not copy $SECRETS -- left in place, nothing removed"
+      fi
+    else
+      mkdir -p "$SAFE_SECRETS" && chmod 700 "$SAFE_SECRETS"
+      did "created $SAFE_SECRETS"
+    fi
+    touch "$ENV_FILE"
+    if grep -q "^[[:space:]]*SECRETS_DIR" "$ENV_FILE" 2>/dev/null; then
+      sed -i "s|^[[:space:]]*SECRETS_DIR.*|SECRETS_DIR=$SAFE_SECRETS|" "$ENV_FILE"
+    else
+      printf '\n# Must sit outside STORAGE_DIR, which is served at /storage.\nSECRETS_DIR=%s\n' "$SAFE_SECRETS" >> "$ENV_FILE"
+    fi
+    did "set SECRETS_DIR=$SAFE_SECRETS in backend/.env"
+    SECRETS="$SAFE_SECRETS"
+  else
+    step "would move the folder to $SAFE_SECRETS and set SECRETS_DIR in backend/.env"
+  fi
+else
+  ok "secrets folder is outside the served tree ($SECRETS)"
+fi
+say ""
+
+# --- 2b. the secrets folder --------------------------------------------------
+say "2b. Secrets folder permissions"
 if [ ! -d "$SECRETS" ]; then
   ok "no secrets folder yet at $SECRETS (created on first run, already restricted)"
 else

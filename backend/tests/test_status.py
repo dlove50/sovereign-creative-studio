@@ -19,6 +19,25 @@ import app.startup as startup  # noqa: E402
 from app.main import app  # noqa: E402
 
 
+@pytest.fixture(autouse=True)
+def _secrets_outside_the_public_mount(tmp_path, monkeypatch):
+    """Point SECRETS_DIR outside STORAGE_DIR for the tests in this file.
+
+    SECRETS_DIR defaults to STORAGE_DIR/secrets, and STORAGE_DIR is mounted at
+    /storage, so the default layout serves the session signing key and the
+    provider API keys over HTTP. run_startup_checks() reports that, which is
+    correct and which would otherwise make every "no warnings" assertion here
+    fail for a reason that has nothing to do with what it is testing.
+
+    test_startup_warns_when_secrets_are_inside_the_public_mount covers the
+    default layout deliberately.
+    """
+    from app import config
+    safe = tmp_path / "private" / "secrets"
+    safe.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setattr(config, "SECRETS_DIR", safe)
+
+
 @pytest.fixture(scope="module")
 def client():
     with TestClient(app) as c:
@@ -161,3 +180,23 @@ def test_startup_clean_with_defaults(monkeypatch):
     monkeypatch.setattr(startup, "PRODUCT_SCENE_BACKEND", "mock")
     monkeypatch.setattr(startup, "VIDEO_BACKEND", "mock")
     assert startup.run_startup_checks() == []
+
+
+def test_startup_warns_when_secrets_are_inside_the_public_mount(monkeypatch, tmp_path):
+    """The shipped default. GET /storage/secrets/session_secret returns the key
+    that signs every session cookie; integrations.json returns the API keys.
+    Verified by request against the running app before this test existed."""
+    from app import config
+
+    storage = tmp_path / "storage"
+    secrets = storage / "secrets"
+    secrets.mkdir(parents=True)
+    monkeypatch.setattr(config, "STORAGE_DIR", storage)
+    monkeypatch.setattr(config, "SECRETS_DIR", secrets)
+    for name in ("COPY_BACKEND", "GENERATOR_BACKEND", "PRODUCT_SCENE_BACKEND",
+                 "VIDEO_BACKEND", "TRANSCRIPTION_BACKEND"):
+        monkeypatch.setattr(startup, name, "mock")
+
+    warnings = startup.run_startup_checks()
+    assert any("/storage" in w and "session_secret" in w for w in warnings), (
+        f"the default secrets layout was not reported: {warnings}")

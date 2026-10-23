@@ -180,3 +180,60 @@ def test_a_verdict_always_explains_itself(host, fallback):
     assert verdict.host == host
     if verdict.level != exposure.OK:
         assert verdict.remedy.strip(), "a problem reported with no fix named"
+
+
+# --------------------------------------------------------------------------
+# Secrets inside the public mount -- the worst of the lot
+# --------------------------------------------------------------------------
+
+def test_the_default_layout_is_reported_as_critical(tmp_path):
+    """SECRETS_DIR defaults to STORAGE_DIR/secrets, and STORAGE_DIR is mounted
+    at /storage, so the signing key and the API keys are a GET away. Confirmed
+    by request against the running app before this check was written."""
+    storage = tmp_path / "storage"
+    secrets = storage / "secrets"
+    secrets.mkdir(parents=True)
+
+    verdict = exposure.secrets_served_publicly(secrets, storage)
+    assert verdict.level == exposure.CRITICAL
+    assert verdict.is_dangerous
+    assert "session_secret" in verdict.summary
+    assert "SECRETS_DIR" in verdict.remedy
+
+
+def test_a_secrets_folder_outside_the_mount_is_clean(tmp_path):
+    storage = tmp_path / "storage"
+    secrets = tmp_path / "private" / "secrets"
+    storage.mkdir(parents=True)
+    secrets.mkdir(parents=True)
+
+    verdict = exposure.secrets_served_publicly(secrets, storage)
+    assert verdict.level == exposure.OK
+    assert not verdict.is_dangerous
+
+
+def test_a_sibling_directory_with_a_similar_name_is_not_inside(tmp_path):
+    """"storage-secrets" starts with "storage" but is not under it. A string
+    prefix check would call this exposed and send someone moving files for
+    nothing."""
+    storage = tmp_path / "storage"
+    secrets = tmp_path / "storage-secrets"
+    storage.mkdir(parents=True)
+    secrets.mkdir(parents=True)
+
+    assert exposure.secrets_served_publicly(secrets, storage).level == exposure.OK
+
+
+def test_a_nested_secrets_path_is_still_caught(tmp_path):
+    storage = tmp_path / "storage"
+    secrets = storage / "backend" / "private" / "secrets"
+    secrets.mkdir(parents=True)
+
+    assert exposure.secrets_served_publicly(secrets, storage).is_dangerous
+
+
+def test_a_path_that_cannot_be_resolved_does_not_raise(tmp_path):
+    """This runs at startup; an exception here would stop the app booting."""
+    verdict = exposure.secrets_served_publicly(
+        tmp_path / "nope" / "secrets", tmp_path / "also-missing")
+    assert verdict.level in {exposure.OK, exposure.CRITICAL}

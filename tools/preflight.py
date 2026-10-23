@@ -232,6 +232,39 @@ def check_exposure(report: Report, env: dict[str, str]) -> None:
         report.add(OK, "Anonymous admin", "off, and listening on this machine only")
 
 
+def check_secrets_are_not_served(report: Report, env: dict[str, str]) -> None:
+    """SECRETS_DIR defaults inside STORAGE_DIR, which is mounted at /storage.
+
+    So GET /storage/secrets/session_secret returns the key that signs every
+    session cookie, and integrations.json returns the cloud API keys, to
+    anyone who can reach the port. Verified by request, not inferred.
+    """
+    storage_raw, _ = setting(env, "STORAGE_DIR", str(BACKEND / "storage"))
+    secrets_raw, origin = setting(
+        env, "SECRETS_DIR", str(Path(storage_raw) / "secrets"))
+    try:
+        storage = Path(storage_raw).resolve()
+        secrets = Path(secrets_raw).resolve()
+        inside = secrets.is_relative_to(storage)
+    except (OSError, ValueError):
+        report.add(WARN, "Secrets exposure", "could not resolve the secrets path")
+        return
+
+    if inside:
+        rel = secrets.relative_to(storage).as_posix()
+        report.add(
+            FAIL, "Secrets exposure",
+            f"{secrets} is inside the folder served at /storage (from {origin}), "
+            f"so GET /storage/{rel}/session_secret returns the session signing "
+            "key and .../integrations.json returns the provider API keys",
+            "run tools/harden-sovereign.sh --apply, which moves them and sets "
+            "SECRETS_DIR in backend/.env",
+        )
+    else:
+        report.add(OK, "Secrets exposure",
+                   f"secrets are outside the served tree ({secrets})")
+
+
 def check_backend_and_frontend(report: Report, env: dict[str, str]) -> None:
     for label, key, default in (
         # 8002 is what tools/start-sovereign-linux.sh binds. next.config.mjs
@@ -349,6 +382,7 @@ def run(models_dir: Path | None) -> Report:
     # Ordered the way a render depends on them.
     check_backend_venv(report)
     check_exposure(report, env)
+    check_secrets_are_not_served(report, env)
     check_comfyui(report, env)
     check_backend_and_frontend(report, env)
     check_workflows(report, env)

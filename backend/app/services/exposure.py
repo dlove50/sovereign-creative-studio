@@ -157,3 +157,58 @@ def assess(*, fallback_enabled: bool, host: str, source: str) -> Verdict:
 def current_verdict(fallback_enabled: bool) -> Verdict:
     host, source = configured_host()
     return assess(fallback_enabled=fallback_enabled, host=host, source=source)
+
+
+def secrets_served_publicly(secrets_dir, storage_dir) -> Verdict:
+    """Is the secrets folder inside the directory served at /storage?
+
+    It is, by default. SECRETS_DIR defaults to STORAGE_DIR/secrets and main.py
+    mounts STORAGE_DIR at /storage with StaticFiles, so
+
+        GET /storage/secrets/session_secret
+        GET /storage/secrets/integrations.json
+
+    both return 200 to anyone who can reach the port -- no login needed. That
+    is the HMAC key used to sign every session cookie, and every cloud provider
+    API key. Confirmed by request against the running app, not inferred.
+
+    This is worse than the file modes fixed in d347288: those needed an account
+    on the machine, this needs only network reach.
+
+    The fix is a path, not code: point SECRETS_DIR somewhere outside
+    STORAGE_DIR. tools/harden-sovereign.sh does it and moves existing files.
+    The default is deliberately left alone here -- changing it would orphan
+    keys already written, and the obvious new home is not gitignored, so the
+    next `git add -A` would commit the API keys.
+    """
+    from pathlib import Path
+
+    secrets = Path(secrets_dir).resolve()
+    storage = Path(storage_dir).resolve()
+    try:
+        inside = secrets.is_relative_to(storage)
+    except (OSError, ValueError):
+        return Verdict(OK, summary="Secrets folder location could not be checked.")
+
+    if not inside:
+        return Verdict(
+            OK, summary=f"Secrets folder is outside the public mount ({secrets})."
+        )
+
+    relative = secrets.relative_to(storage).as_posix()
+    return Verdict(
+        CRITICAL,
+        summary=(
+            f"The secrets folder is inside the directory served at /storage, so "
+            f"GET /storage/{relative}/session_secret returns the key that signs "
+            "every session cookie, and .../integrations.json returns the cloud "
+            "provider API keys -- to anyone who can reach this port, with no "
+            "login."
+        ),
+        remedy=(
+            "Set SECRETS_DIR in backend/.env to a path outside STORAGE_DIR and "
+            "move the existing files there. tools/harden-sovereign.sh --apply "
+            "does both."
+        ),
+        host=str(secrets), source="SECRETS_DIR",
+    )
