@@ -161,13 +161,13 @@ export function EnhanceView() {
         <p className="mt-2 text-sm text-muted-foreground">One place to enhance any image, audio track or video: select, enhance, compare, adjust, apply. Originals are never changed; every result is a new version.</p>
       </header>
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_24rem]">
-        <section className="space-y-4">
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_24rem]">
+        <section className="min-w-0 space-y-4">
           <div className={cn(glass, "flex min-h-[9rem] flex-col items-center justify-center gap-3 border-dashed p-6 text-center")}
             onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) pick(f); }}>
             <input ref={picker} type="file" className="hidden" accept="image/*,audio/*,video/*" onChange={(e) => { const f = e.target.files?.[0]; if (f) pick(f); e.target.value = ""; }} />
             <KindIcon className="h-7 w-7 text-fuchsia-300" />
-            <p className="text-sm">{file?.name ?? libraryUrl?.split("/").pop() ?? "Drop an image, audio track or video here"}</p>
+            <p className="max-w-full break-all text-sm">{file?.name ?? libraryUrl?.split("/").pop() ?? "Drop an image, audio track or video here"}</p>
             <Button variant="outline" size="sm" className="gap-2" onClick={() => picker.current?.click()}><Upload className="h-4 w-4" /> Choose media</Button>
           </div>
 
@@ -175,9 +175,9 @@ export function EnhanceView() {
 
           {job ? (
             <div className={cn(glass, "space-y-4 p-4")}>
-              <div className="flex items-center justify-between text-sm">
-                <span className="font-medium">{job.name}</span>
-                <span className="capitalize text-muted-foreground">{job.status}{busy ? ` · ${Math.round(job.progress * 100)}%` : ""}</span>
+              <div className="flex items-start justify-between gap-3 text-sm">
+                <span className="min-w-0 break-words font-medium">{job.name}</span>
+                <span className="shrink-0 capitalize text-muted-foreground">{job.status}{busy ? ` · ${Math.round(job.progress * 100)}%` : ""}</span>
               </div>
               {busy ? (
                 <div className="h-1.5 overflow-hidden rounded-full bg-white/10">
@@ -233,7 +233,7 @@ export function EnhanceView() {
           ) : null}
         </section>
 
-        <aside className={cn(glass, "h-fit space-y-4 p-4 xl:sticky xl:top-4")}>
+        <aside className={cn(glass, "min-w-0 h-fit space-y-4 p-4 xl:sticky xl:top-4")}>
           <h2 className="text-sm font-semibold">{kind ? `Enhance ${kind}` : "Choose media to see enhancements"}</h2>
           {kind && presets.some((p) => p.kind === kind) ? (
             <div className="flex flex-wrap gap-2">
