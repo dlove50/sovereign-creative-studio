@@ -89,6 +89,7 @@ def apply_charge(
     skip_if_charged: bool = True,
     per_feature: bool = False,
     note: str | None = None,
+    generation_id: str | None = None,
 ) -> int:
     """Charge `user` and write the ledger row. Returns what was taken.
 
@@ -136,7 +137,9 @@ def apply_charge(
             # explicit note always wins.
             note=note if note is not None else f"{reason} via {provider}",
             balance_after=user.credits,
-            generation_id=None,
+            # The image path links its row back to the generation; the others
+            # have no generation to point at and leave this unset.
+            generation_id=generation_id,
         )
     )
     return taken

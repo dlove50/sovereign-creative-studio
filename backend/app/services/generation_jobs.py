@@ -8,13 +8,13 @@ import asyncio
 import queue
 import threading
 
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..config import CREDITS_PER_GENERATION
 from ..database import SessionLocal
 from ..generators import get_generator
-from ..models import CreditTransaction, Generation, User
+from ..models import Generation, User
+from . import credit_guard
 
 _job_queue: "queue.Queue[str | None]" = queue.Queue()
 _worker_lock = threading.Lock()
@@ -97,35 +97,26 @@ def _complete_generation(db: Session, gen: Generation, file_url: str) -> None:
     gen.file_url = file_url
     gen.error = None
 
-    already = db.scalar(
-        select(CreditTransaction).where(
-            CreditTransaction.related_id == gen.id,
-            CreditTransaction.transaction_type == "generation_charge",
-        )
-    )
-    if already is None:
+    if not credit_guard.already_charged(db, gen.id):
         cost = gen.credits_cost or CREDITS_PER_GENERATION
         gen.credits_cost = cost
-        user.credits -= cost
         related_feature = (
             "image_openai" if gen.provider == "openai_image_api" else "base_generation"
         )
-        db.add(
-            CreditTransaction(
-                user_id=user.id,
-                amount=-cost,
-                reason="generation",
-                transaction_type="generation_charge",
-                related_feature=related_feature,
-                related_id=gen.id,
-                status="completed",
-                note=(
-                    "Image generation completed successfully "
-                    f"(provider={gen.provider}, model={gen.provider_model or 'local'})."
-                ),
-                balance_after=user.credits,
-                generation_id=gen.id,
-            )
+        # Deliberately not per_feature: related_feature varies with the
+        # provider, so scoping the duplicate check to it would let a retry
+        # under a different provider charge the same generation twice.
+        credit_guard.apply_charge(
+            db, user, cost,
+            feature=related_feature,
+            related_id=gen.id,
+            provider=gen.provider or "local",
+            reason="generation",
+            generation_id=gen.id,
+            note=(
+                "Image generation completed successfully "
+                f"(provider={gen.provider}, model={gen.provider_model or 'local'})."
+            ),
         )
 
     db.commit()

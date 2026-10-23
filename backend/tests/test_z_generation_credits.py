@@ -166,3 +166,36 @@ def test_insufficient_credits_blocks_before_any_work(client):
     resp = _generate(client, u["id"], project["id"])
     assert resp.status_code in (402, 400, 409), resp.text
     assert _balance(client, u["id"]) == 0
+
+
+def test_an_image_generation_cannot_drive_the_balance_negative(client):
+    """The image path is the most-used one, and it was the last to be floored.
+
+    Charging happens on completion, long after the request-time balance check,
+    so a cost above the remaining balance reaches the charge. Before this it
+    subtracted anyway: a 5-credit render against 2 credits left the user on -3,
+    with the ledger recording that as balance_after.
+    """
+    from app.models import Generation, Project
+    from app.services import generation_jobs
+
+    u = _user(client, "Floor Member", credits=2)
+    project = _project(client, u["id"])
+
+    with SessionLocal() as db:
+        gen = Generation(user_id=u["id"], project_id=project["id"], prompt="x",
+                         media_type="image", status="running", credits_cost=5)
+        db.add(gen)
+        db.commit()
+        db.refresh(gen)
+        generation_jobs._complete_generation(db, gen, "/storage/x.png")
+        db.commit()
+
+    balance = _balance(client, u["id"])
+    assert balance >= 0, f"an image generation drove the balance to {balance}"
+    assert balance == 0
+
+    rows = client.get("/api/admin/credits/transactions").json()
+    mine = [r for r in rows if r.get("user_id") == u["id"]]
+    assert sum(abs(r["amount"]) for r in mine) == 2, (
+        "the ledger recorded more than was actually taken")
