@@ -17,7 +17,9 @@ both ids were attempted proves the loop survived the first one.
 """
 from __future__ import annotations
 
+import logging
 import os
+import queue
 import sys
 import tempfile
 
@@ -30,7 +32,9 @@ import pytest  # noqa: E402
 
 # (module path, job function, queue attribute) for every patched service.
 # generation_jobs is deliberately absent: amd-sync is editing its import block,
-# so the same fix is recorded in docs/HANDOFF_AMD_R9700_LINUX.md instead.
+# so the same fix is recorded in docs/HANDOFF_AMD_R9700_LINUX.md. Adding
+# ("app.services.generation_jobs", "_run_generation_job", "_job_queue") here is
+# all that is needed once that lands.
 SERVICES = [
     ("app.services.asset_jobs", "_run_background_removal", "_asset_queue"),
     ("app.services.avatar_jobs", "_run_avatar_video", "_avatar_queue"),
@@ -46,42 +50,42 @@ def _load(path):
     return sys.modules[path]
 
 
-@pytest.fixture(autouse=True)
-def _drained_queues():
-    """The queues are module-level, so state leaks between tests.
+@pytest.fixture
+def service(monkeypatch):
+    """Load a service with a private queue and a stand-in job function.
 
-    A test whose worker loop dies mid-queue leaves items behind and the next
-    test then sees them, which made these tests order-dependent. Drain before
-    and after so each runs against an empty queue.
+    The real queues are module-level, and other tests in the suite call
+    enqueue_*, which starts the real daemon workers. Those threads stay alive
+    and drain the same queue, so a test driving _worker_loop() directly races
+    them: a real worker steals the None sentinel and the test's loop blocks on
+    get() forever. That is not hypothetical -- it hung the full suite. Each
+    test therefore gets its own queue.
     """
-    def drain():
-        for path, _fn, queue_name in SERVICES:
-            q = getattr(_load(path), queue_name)
-            while True:
-                try:
-                    q.get_nowait()
-                except Exception:   # queue.Empty
-                    break
-                else:
-                    q.task_done()
-    drain()
-    yield
-    drain()
+    def _install(path, fn_name, queue_name, job):
+        mod = _load(path)
+        q = queue.Queue()
+        monkeypatch.setattr(mod, queue_name, q)
+        monkeypatch.setattr(mod, fn_name, job)
+        return mod, q
+    return _install
+
+
+def _raise(message="simulated unhandled failure"):
+    def _job(job_id):
+        raise RuntimeError(message)
+    return _job
 
 
 @pytest.mark.parametrize("path,fn_name,queue_name", SERVICES)
-def test_worker_survives_a_job_that_raises(path, fn_name, queue_name, monkeypatch):
-    mod = _load(path)
-    q = getattr(mod, queue_name)
+def test_worker_survives_a_job_that_raises(path, fn_name, queue_name, service):
     attempted: list[str] = []
 
-    def _fake(job_id):
+    def _job(job_id):
         attempted.append(job_id)
         if job_id == "bad":
             raise RuntimeError("simulated unhandled failure")
 
-    monkeypatch.setattr(mod, fn_name, _fake)
-
+    mod, q = service(path, fn_name, queue_name, _job)
     q.put("bad")
     q.put("good")
     q.put(None)            # sentinel: ends the loop
@@ -94,35 +98,50 @@ def test_worker_survives_a_job_that_raises(path, fn_name, queue_name, monkeypatc
 
 @pytest.mark.parametrize("path,fn_name,queue_name", SERVICES)
 def test_the_failure_is_logged_not_swallowed_silently(path, fn_name, queue_name,
-                                                      monkeypatch, caplog):
-    mod = _load(path)
-    q = getattr(mod, queue_name)
+                                                      service):
+    """A handler on the module's own logger, not caplog.
 
-    def _boom(job_id):
-        raise RuntimeError("simulated unhandled failure")
+    caplog captures through the root logger, so whether it sees anything
+    depends on global logging state other tests can change -- this assertion
+    passed in isolation and failed in the full run for exactly that reason.
+    Attaching a handler directly to mod.logger, and neutralising the level and
+    disable flags for the duration, makes it order-independent.
+    """
+    mod, q = service(path, fn_name, queue_name, _raise())
+    records: list[logging.LogRecord] = []
 
-    monkeypatch.setattr(mod, fn_name, _boom)
+    class _Capture(logging.Handler):
+        def emit(self, record):
+            records.append(record)
 
-    q.put("bad")
-    q.put(None)
-    with caplog.at_level("ERROR"):
+    handler = _Capture(level=logging.ERROR)
+    prev_level, prev_disabled = mod.logger.level, mod.logger.disabled
+    prev_manager = logging.root.manager.disable
+    mod.logger.addHandler(handler)
+    mod.logger.setLevel(logging.ERROR)
+    mod.logger.disabled = False
+    logging.disable(logging.NOTSET)
+    try:
+        q.put("bad")
+        q.put(None)
         mod._worker_loop()
+    finally:
+        mod.logger.removeHandler(handler)
+        mod.logger.setLevel(prev_level)
+        mod.logger.disabled = prev_disabled
+        logging.disable(prev_manager)
 
-    assert any("bad" in r.getMessage() for r in caplog.records), (
+    assert any("bad" in r.getMessage() for r in records), (
         "a worker swallowing an exception without logging makes the next "
-        "failure undiagnosable")
-    assert any(r.exc_info for r in caplog.records), (
+        f"failure undiagnosable (records={[r.getMessage() for r in records]})")
+    assert any(r.exc_info for r in records), (
         "the traceback must be preserved; logger.exception, not logger.error")
 
 
 @pytest.mark.parametrize("path,fn_name,queue_name", SERVICES)
-def test_task_done_still_balances_the_queue(path, fn_name, queue_name, monkeypatch):
+def test_task_done_still_balances_the_queue(path, fn_name, queue_name, service):
     """`finally` must keep running, or `queue.join()` would hang forever."""
-    mod = _load(path)
-    q = getattr(mod, queue_name)
-
-    monkeypatch.setattr(mod, fn_name,
-                        lambda job_id: (_ for _ in ()).throw(RuntimeError("x")))
+    mod, q = service(path, fn_name, queue_name, _raise())
     q.put("bad")
     q.put(None)
     mod._worker_loop()
@@ -132,12 +151,9 @@ def test_task_done_still_balances_the_queue(path, fn_name, queue_name, monkeypat
 
 
 @pytest.mark.parametrize("path,fn_name,queue_name", SERVICES)
-def test_a_clean_job_is_unaffected(path, fn_name, queue_name, monkeypatch):
-    mod = _load(path)
-    q = getattr(mod, queue_name)
+def test_a_clean_job_is_unaffected(path, fn_name, queue_name, service):
     done: list[str] = []
-    monkeypatch.setattr(mod, fn_name, done.append)
-
+    mod, q = service(path, fn_name, queue_name, done.append)
     q.put("ok")
     q.put(None)
     mod._worker_loop()
