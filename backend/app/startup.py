@@ -53,6 +53,32 @@ def run_startup_checks() -> list[str]:
                 len(tightened), ", ".join(tightened),
             )
 
+    # Anonymous owner-admin access is fine on a machine that only listens to
+    # itself and catastrophic the moment it does not. Nothing noticed that
+    # combination before this.
+    try:
+        from . import config as _config
+        from .services import exposure
+
+        verdict = exposure.current_verdict(
+            fallback_enabled=bool(_config.OWNER_FALLBACK_ENABLED)
+        )
+    except Exception:  # noqa: BLE001 - a broken check must not stop the app
+        logger.exception("[startup] Could not evaluate network exposure")
+    else:
+        if verdict.is_dangerous:
+            banner = "!" * 72
+            logger.critical("\n%s\n  %s\n\n  %s\n%s",
+                            banner, verdict.summary, verdict.remedy, banner)
+            warnings.append(f"{verdict.summary} {verdict.remedy}")
+            if exposure.strict_mode():
+                raise RuntimeError(
+                    f"Refusing to start: {verdict.summary} {verdict.remedy} "
+                    "(SOVEREIGN_STRICT_SECURITY is set.)"
+                )
+        elif verdict.level == exposure.WARN:
+            logger.warning("[startup] %s %s", verdict.summary, verdict.remedy)
+
     if COPY_BACKEND == "openai" and not OPENAI_API_KEY:
         warnings.append(
             "COPY_BACKEND=openai but OPENAI_API_KEY is not set; copy jobs will "

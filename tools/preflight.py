@@ -191,9 +191,53 @@ def check_comfyui(report: Report, env: dict[str, str]) -> None:
         )
 
 
+def check_exposure(report: Report, env: dict[str, str]) -> None:
+    """Anonymous owner-admin plus a non-local bind address is an open admin panel.
+
+    Reported as blocking here, while app startup only warns. Startup must not
+    take away a studio that is already running and serving a LAN on purpose;
+    this is a check someone runs deliberately, so it can be blunt.
+
+    The detection is duplicated from backend/app/services/exposure.py rather
+    than imported, because this script deliberately runs with no dependencies
+    and no app import -- a broken venv is one of the things it diagnoses.
+    """
+    local_only = {"127.0.0.1", "localhost", "::1", "0:0:0:0:0:0:0:1", ""}
+    everywhere = {"0.0.0.0", "::", "*"}
+
+    raw, host_origin = setting(env, "BACKEND_HOST", "127.0.0.1")
+    host = raw.strip().strip("[]").lower()
+    exposed = host in everywhere or host not in local_only
+
+    flag, flag_origin = setting(env, "OWNER_FALLBACK_ENABLED", "true")
+    fallback = flag.strip().lower() in {"1", "true", "yes", "on"}
+
+    if exposed and fallback:
+        where = "every interface" if host in everywhere else host
+        report.add(
+            FAIL, "Anonymous admin",
+            f"backend binds {where} (from {host_origin}) while "
+            f"OWNER_FALLBACK_ENABLED is true (from {flag_origin}): any request "
+            "with no login cookie is treated as the owner admin",
+            "set OWNER_FALLBACK_ENABLED=false in backend/.env, or bind 127.0.0.1 "
+            "and reach it over a private network",
+        )
+    elif exposed:
+        report.add(OK, "Anonymous admin",
+                   f"off; backend reachable on {host} (from {host_origin})")
+    elif fallback:
+        report.add(OK, "Anonymous admin",
+                   "local-first: on, but the backend listens on this machine only")
+    else:
+        report.add(OK, "Anonymous admin", "off, and listening on this machine only")
+
+
 def check_backend_and_frontend(report: Report, env: dict[str, str]) -> None:
     for label, key, default in (
-        ("Backend", "BACKEND_PORT", "8000"),
+        # 8002 is what tools/start-sovereign-linux.sh binds. next.config.mjs
+        # still defaults to 8000, which is a separate inconsistency worth
+        # knowing about; this follows the launcher, since that is what runs.
+        ("Backend", "BACKEND_PORT", "8002"),
         ("Frontend", "FRONTEND_PORT", "3000"),
     ):
         raw, origin = setting(env, key, default)
@@ -304,6 +348,7 @@ def run(models_dir: Path | None) -> Report:
                    "copy backend/.env.example to backend/.env")
     # Ordered the way a render depends on them.
     check_backend_venv(report)
+    check_exposure(report, env)
     check_comfyui(report, env)
     check_backend_and_frontend(report, env)
     check_workflows(report, env)
